@@ -1,0 +1,16 @@
+const SERVER_URL = 'http://localhost:8000/'
+const API_URL = SERVER_URL + 'api/'
+
+const CSRF_API = API_URL + 'csrf/'
+const USER_API = API_URL + 'user/'
+const EXPERIMENT_API = API_URL + 'experiment/'
+const LIST_EXPERIMENTS = EXPERIMENT_API + 'list/'
+
+export default {
+  SERVER_URL: SERVER_URL,
+  API: API_URL,
+  CSRF_API: CSRF_API,
+  USER_API: USER_API,
+  EXPERIMENT_API: EXPERIMENT_API,
+  LIST_EXPERIMENTS: LIST_EXPERIMENTS,
+}

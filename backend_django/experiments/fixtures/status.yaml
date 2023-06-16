@@ -1,0 +1,16 @@
+- model: experiments.status
+  pk: 1
+  fields:
+    name: warning
+- model: experiments.status
+  pk: 2
+  fields:
+    name: failed
+- model: experiments.status
+  pk: 3
+  fields:
+    name: success
+- model: experiments.status
+  pk: 4
+  fields:
+    name: not reached

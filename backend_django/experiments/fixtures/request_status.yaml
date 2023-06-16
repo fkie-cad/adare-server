@@ -1,0 +1,16 @@
+- model: experiments.requeststatus
+  pk: 1
+  fields:
+    name: accepted
+- model: experiments.requeststatus
+  pk: 2
+  fields:
+    name: declined
+- model: experiments.requeststatus
+  pk: 3
+  fields:
+    name: not assigned
+- model: experiments.requeststatus
+  pk: 4
+  fields:
+    name: assigned

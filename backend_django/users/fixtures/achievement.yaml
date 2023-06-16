@@ -1,0 +1,18 @@
+- model: users.achievement
+  pk: 1
+  fields:
+    name: first_request
+    description: First Request
+    image: achievments/first_request.png
+- model: users.achievement
+  pk: 2
+  fields:
+    name: test2
+    description: Test2
+    image: achievments/alpaca.png
+- model: users.achievement
+  pk: 3
+  fields:
+    name: test3
+    description: Test3
+    image: achievments/TurtleOpenSpace.png
