@@ -86,7 +86,7 @@
 <script lang="ts">
 import {ref, reactive, onMounted} from 'vue';
 import { useLoginStore } from 'stores/login';
-import { useUserStore } from 'stores/user';
+import { useLoggedInUserStore } from 'stores/loggedinuser';
 import { storeToRefs } from 'pinia'
 import axios from 'axios'
 import API_URLS from 'src/api'
@@ -107,8 +107,8 @@ export default {
 
     const router = useRouter()
 
-    const UserStore = useUserStore()
-    storeToRefs(UserStore)
+    const LoggedInUserStore = useLoggedInUserStore()
+    storeToRefs(LoggedInUserStore)
 
     const LoginStore = useLoginStore()
     storeToRefs(LoginStore)
@@ -150,15 +150,15 @@ export default {
         }
         showErrorMessage()
       })
-      await UserStore.UpdateProfileInformation()
+      await LoggedInUserStore.UpdateProfileInformation()
       await router.push('/profile')
     }
 
     async function logout () {
       LoginStore.Logout()
-      UserStore.ResetUser()
+      LoggedInUserStore.ResetUser()
       await router.push('/login')
-      await UserStore.UpdateProfileInformation()
+      await LoggedInUserStore.UpdateProfileInformation()
     }
 
     function setErrorMessage(message: string){

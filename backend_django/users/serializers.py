@@ -52,6 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'username',
+            'email'
         ]
 
 
@@ -67,7 +68,7 @@ class AchievementSerializer(serializers.ModelSerializer):
         ]
 
 
-class ProfileSerializer(serializers.ModelSerializer):
+class PrivateProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(required=True)
     groups = serializers.SerializerMethodField()
     achievements = AchievementSerializer(many=True)
@@ -87,24 +88,59 @@ class ProfileSerializer(serializers.ModelSerializer):
         }
 
 
+class ProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(required=True)
+    groups = serializers.SerializerMethodField()
+    achievements = AchievementSerializer(many=True)
+
+
+    def get_groups(self, obj):
+        return obj.user.groups.values_list('name', flat=True)
+
+    class Meta:
+        model = Profile
+        fields = [
+            'user',
+            'groups',
+            'achievements',
+        ]
+        extra_kwargs = {
+            'achievements': {'read_only': True},
+        }
+
+
 class ProfileAvatarSerializer(serializers.ModelSerializer):
     avatar = serializers.ImageField()
-    avatar_thumbnail = serializers.SerializerMethodField()
+    avatar_thumbnail_sm = serializers.SerializerMethodField()
+    avatar_thumbnail_md = serializers.SerializerMethodField()
+    avatar_thumbnail_lg = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = [
             'avatar',
-            'avatar_thumbnail',
+            'avatar_thumbnail_sm',
+            'avatar_thumbnail_md',
+            'avatar_thumbnail_lg',
         ]
         extra_kwargs = {
             'avatar': {'write_only': True},
-            'avatar_thumbnail': {'read_only': True},
+            'avatar_thumbnail:sm': {'read_only': True},
+            'avatar_thumbnail:md': {'read_only': True},
+            'avatar_thumbnail:lg': {'read_only': True},
         }
 
-    def get_avatar_thumbnail(self, obj):
+    def get_avatar_thumbnail_sm(self, obj):
+        if not obj.avatar:
+            return None
+        return get_thumbnail(obj.avatar, '30x30', crop='center', quality=99).url
+
+    def get_avatar_thumbnail_md(self, obj):
+        if not obj.avatar:
+            return None
+        return get_thumbnail(obj.avatar, '50x50', crop='center', quality=99).url
+
+    def get_avatar_thumbnail_lg(self, obj):
         if not obj.avatar:
             return None
         return get_thumbnail(obj.avatar, '100x100', crop='center', quality=99).url
-
-

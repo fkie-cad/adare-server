@@ -33,6 +33,13 @@
             label="Search"
             to="/search"
           />
+          <q-route-tab
+            name="requests"
+            icon="request_page"
+            label="Requests"
+            to="/requests"
+            v-if="LoginStore.IsLoggedIn"
+          />
         </q-tabs>
 
         <div v-if="!IsLoggedIn" class="full-height">
@@ -66,9 +73,7 @@
               </template>
               <div class="row no-wrap q-pa-md">
                 <div class="column  justify-center items-center q-pa-lg">
-                  <ProfileImage
-                    :update_profile_information="update_profile_information"
-                  />
+                  <ProfileImageSelf size="lg"/>
                   <div class="text-subtitle1 tex q-mt-md">{{ LoginStore.GetLoginUser }}</div>
                 </div>
                 <q-separator vertical inset class="q-mx-lg" />
@@ -105,35 +110,43 @@
 
 <script>
 import { useLoginStore } from 'stores/login';
+import { useLoggedInUserStore} from 'stores/loggedinuser';
 import { useUserStore } from 'stores/user';
-import {ref} from 'vue';
+import {onMounted, ref} from 'vue';
 import {storeToRefs} from 'pinia';
-import ProfileImage from 'components/ProfileImage.vue';
+import ProfileImageSelf from 'components/ProfileImageSelf.vue';
 import {useRouter} from 'vue-router';
 
 export default {
   name: 'HeaderDefault',
   components: {
-    ProfileImage
+    ProfileImageSelf
   },
 
   setup(){
     const LoginStore = useLoginStore()
     const {IsLoggedIn} = storeToRefs(LoginStore)
 
+    const LoggedInUserStore = useLoggedInUserStore()
+    storeToRefs(LoggedInUserStore)
+
     const UserStore = useUserStore()
-    storeToRefs(UserStore)
 
     const router = useRouter()
 
     async function logout(){
       LoginStore.Logout()
-      UserStore.ResetUser()
+      UserStore.clearUserDict()
       await router.push('/login')
     }
 
+    onMounted(async () => {
+      await LoggedInUserStore.UpdateProfileInformation()
+    })
+
     return {
       LoginStore,
+      LoggedInUserStore,
       IsLoggedIn,
       logout,
       tab: ref('home'),

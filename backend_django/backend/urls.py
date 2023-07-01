@@ -27,15 +27,18 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/user/login/', users_views.LoginView.as_view()),
     path('api/user/logout/', KnoxLogoutView.as_view()),
-    path('api/user/profile/', users_views.ProfileView.as_view()),
-    path('api/user/profile/avatar/', users_views.ProfileAvatarView.as_view()),
+    path('api/user/profile/', users_views.ProfileViewLoggedIn.as_view()),
+    path('api/user/profile/avatar/', users_views.ProfileAvatarViewLoggedIn.as_view()),
+    path('api/user/<str:username>/profile/', users_views.ProfileView.as_view()),
+    path('api/user/<str:username>/profile/avatar/', users_views.ProfileAvatarView.as_view()),
     path('api/csrf/', users_views.CSRFView.as_view()),
-    path('api/scenario/<str:uuid>', experiment_frontend_views.ScenarioRetrieveView.as_view()),
+    path('api/scenario/', experiment_frontend_views.ScenarioListView.as_view()),
+    path('api/scenario/create/', experiment_frontend_views.ScenarioCreateView.as_view()),
+    path('api/experiment/', experiment_frontend_views.ExperimentListView.as_view()),
+    path('api/experiment/create/', experiment_frontend_views.ExperimentCreateView.as_view()),
+    path('api/experiment/scenario_<str:uuid>/', experiment_frontend_views.ExperimentByScenarioListView.as_view()),
+
 
     path('api/request/scenario/', experiments_views.ScenarioRequestView.as_view()),
-    # path('api/scenario/create/', experiments_views.ScenarioCreateView.as_view()),
-    # path('api/experiment/remove/', experiments_views.ScenarioRunDeleteView.as_view()),
-    # path('api/experiment/cleanup/', experiments_views.ScenarioRunCleanUpView.as_view()),
-    # path('api/experiment/list/', experiment_frontend_views.ScenarioRunListView.as_view()),
-    # path('api/scenario/list/', experiment_frontend_views.ScenarioListView.as_view()),
+
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

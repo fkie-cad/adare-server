@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import API_URLS from 'src/api'
+import {useLoggedInUserStore} from 'stores/loggedinuser';
 
 
 export const useLoginStore = defineStore('login', {
@@ -63,6 +64,8 @@ export const useLoginStore = defineStore('login', {
     },
     Logout(){
       this.RemoveLoginToken()
+      const LoggedInUserStore= useLoggedInUserStore()
+      LoggedInUserStore.ResetUser()
     }
   }
 });

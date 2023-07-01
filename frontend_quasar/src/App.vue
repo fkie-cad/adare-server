@@ -3,7 +3,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import Vue, { defineComponent } from 'vue';
 import { useLoginStore } from 'stores/login';
 import 'src/plugins/axios_csrf_intercept';
 
@@ -11,9 +11,9 @@ export default defineComponent({
   name: 'App',
 
   mounted() {
-    let store = useLoginStore()
-    store.InitLogin()
-  }
+    let LoginStore = useLoginStore()
+    LoginStore.InitLogin()
+  },
 });
 </script>
 

@@ -62,8 +62,8 @@ class Tool(models.Model):
 class AbstractTest(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    testfunction = models.ForeignKey(TestFunction, on_delete=models.CASCADE)
     description = models.CharField(max_length=500, blank=True)
+    testfunction = models.ForeignKey(TestFunction, on_delete=models.CASCADE)
     parameters = models.ManyToManyField(TestParameterEntries)
     tool = models.ForeignKey(Tool, on_delete=models.PROTECT, null=True)
 
@@ -95,12 +95,12 @@ class OsInfo(models.Model):
 class Experiment(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=500, blank=True)
     publisher = models.ForeignKey(User, on_delete=models.PROTECT, blank=True, null=True)
-    publish_date = models.DateTimeField(blank=True, null=True)
+    publish_date = models.DateTimeField(auto_now=True)
     published = models.BooleanField(default=False)
     abstract_tests = models.ManyToManyField(AbstractTest)
     tags = models.ManyToManyField(Tag)
-    description = models.CharField(max_length=500, blank=True)
 
     def __str__(self):
         return f'{self.name}'
@@ -129,7 +129,7 @@ class Scenario(models.Model):
     publish_date = models.DateTimeField()
     experiments = models.ManyToManyField(Experiment, related_name='experiments', blank=True)
     description = models.CharField(max_length=1000, blank=True)
-    tags = models.ManyToManyField(Tag)
+    tags = models.ManyToManyField(Tag, blank=True)
 
     def __str__(self):
         return f'{self.name}'

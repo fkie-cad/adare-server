@@ -3,18 +3,49 @@ import { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
+    redirect: '/scenario',
+  },
+
+  {
+    path: '/scenario',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
         path: '',
         components: {
-          main: () => import('pages/IndexPage.vue'),
+          main: () => import('pages/ScenarioPage.vue'),
           header: () => import('components/HeaderDefault.vue'),
         }
       },
     ],
   },
-
+  {
+    path: '/scenario/:uuid',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/ScenarioExperimentPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
+      },
+    ],
+  },
+  {
+    path: '/experiments',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/ExperimentPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
+      },
+    ],
+  },
   {
     path: '/login',
     component: () => import('layouts/MainLayout.vue'),
@@ -29,7 +60,20 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/profile',
+    path: '/profile/',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/ProfilePageSelf.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
+      },
+    ],
+  },
+  {
+    path: '/user/:username',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -37,8 +81,22 @@ const routes: RouteRecordRaw[] = [
         components: {
           main: () => import('pages/ProfilePage.vue'),
           header: () => import('components/HeaderDefault.vue'),
-        }
+        },
+        props: true,
       },
+    ],
+  },
+  {
+    path: '/requests/',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/RequestsPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
+      }
     ],
   },
   {

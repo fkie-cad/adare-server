@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'knox',
     # used for thumbnail generation
     'sorl.thumbnail',
+    # used for filtering
+    'django_filters',
 
     'users',
     'experiments',
@@ -165,6 +167,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend'
+    ]
 }
 
 LOGGING = {

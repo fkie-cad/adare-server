@@ -16,7 +16,7 @@ from rest_framework.parsers import FileUploadParser
 from rest_framework.response import Response
 from rest_framework.authtoken.serializers import AuthTokenSerializer
 
-from users.serializers import LoginSerializer, ProfileSerializer, ProfileAvatarSerializer
+from users.serializers import LoginSerializer, PrivateProfileSerializer, ProfileAvatarSerializer, ProfileSerializer
 from users.models import Profile
 
 # knox imports
@@ -39,9 +39,9 @@ class LoginView(KnoxLoginView):
         return super().post(request, format=None)
 
 
-class ProfileView(generics.RetrieveUpdateAPIView):
+class ProfileViewLoggedIn(generics.RetrieveUpdateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = ProfileSerializer
+    serializer_class = PrivateProfileSerializer
 
     def get_object(self):
         return self.request.user.profile
@@ -51,7 +51,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
         raise NotImplementedError
 
 
-class ProfileAvatarView(generics.RetrieveUpdateDestroyAPIView):
+class ProfileAvatarViewLoggedIn(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = ProfileAvatarSerializer
 
@@ -77,6 +77,37 @@ class ProfileAvatarView(generics.RetrieveUpdateDestroyAPIView):
             profile.avatar.delete()
         messages.success(request, 'avatar was successfully deleted!')
         return Response(status=status.HTTP_200_OK)
+
+
+class ProfileAvatarView(generics.RetrieveAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ProfileAvatarSerializer
+
+    def get_object(self):
+        # get url parameter
+        username = self.kwargs.get('username', None)
+        # get profile
+        try:
+            profile = Profile.objects.get(user__username=username)
+        except Profile.DoesNotExist:
+            profile = None
+        return profile
+
+
+class ProfileView(generics.RetrieveAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ProfileSerializer
+
+    def get_object(self):
+        # get url parameter
+        username = self.kwargs.get('username', None)
+
+        # get profile
+        try:
+            profile = Profile.objects.get(user__username=username)
+        except Profile.DoesNotExist:
+            profile = None
+        return profile
 
 
 class CSRFView(views.APIView):

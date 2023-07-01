@@ -27,7 +27,7 @@ class Command(BaseCommand):
                 log.debug(msg)
                 print(msg)
             else:
-                new_user = User.objects.create_user(username=user, password='test')
+                new_user = User.objects.create_user(username=user, password='test', email=f'{user}@email.com')
                 msg = f'user {user} created'
                 log.info(msg)
                 print(msg)

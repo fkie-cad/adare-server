@@ -5,83 +5,95 @@ import API_URLS from 'src/api';
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    username: '',
-    email: '',
-    avatar_thumbnail: '',
-    groups: [],
-    achievements: [],
+    userDict: {} as UserInfo,
   }),
 
   getters: {
-    GetUser (state) {
-      return state;
-    },
-    GetUserUsername (state) {
-      return state.username;
-    },
-    GetUserEmail (state) {
-      return state.email;
-    },
-    GetUserUserAvatarThumbnail (state) {
-      return state.avatar_thumbnail;
-    },
-    GetUserGroups (state) {
-      return state.groups;
-    },
-    GetUserAchievements (state) {
-      return state.achievements;
-    }
   },
 
   actions: {
-    UpdateUserUsername(username: string){
-      this.username = username
+    clearUserDict(){
+      this.userDict = {} as UserInfo
     },
-    UpdateUserEmail(email: string){
-      this.email = email
+    initializeUserDict(username: string){
+      this.userDict[username] = {
+        email: '',
+        avatar_thumbnail_sm: '',
+        avatar_thumbnail_md: '',
+        avatar_thumbnail_lg: '',
+        groups: [],
+        achievements: [],
+      }
     },
-    UpdateUserAvatarThumbnail(avatar_thumbnail_url: string){
-      this.avatar_thumbnail = avatar_thumbnail_url
-    },
-    UpdateUserGroups(groups: []){
-      this.groups = groups
-    },
-    UpdateUserAchievements(achievements: []){
-      this.achievements = achievements
-    },
-    RemoveUserAvatarThumbnail(){
-      this.avatar_thumbnail = ''
-    },
-    ResetUser(){
-      this.username = ''
-      this.email = ''
-      this.avatar_thumbnail = ''
-      this.groups = []
-      this.achievements = []
-    },
-    async UpdateProfileInformation(){
+    async UpdateProfileInformation(username: string){
+      if (!(username in this.userDict)) {
+        this.initializeUserDict(username)
+      }
+      await axios.get(API_URLS.USER_API + username + '/profile').then((response) => {
+        this.userDict[username].email = response.data.user.email
+        this.userDict[username].achievements = response.data.achievements
+        this.userDict[username].groups = response.data.groups
+      })
       await axios.get(
-        API_URLS.USER_API+'profile/',
+          API_URLS.USER_API+username+'/profile/avatar',
       ).then((response) => {
-        this.UpdateUserEmail(response.data.user.email)
-        this.UpdateUserGroups(response.data.groups)
-        this.UpdateUserUsername(response.data.user.username)
-        if (response.data.achievements) {
-          this.UpdateUserAchievements(response.data.achievements)
+        console.log(response.data)
+        if (response.data.avatar_thumbnail_sm) {
+          this.userDict[username].avatar_thumbnail_sm = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_sm
+        }
+        if (response.data.avatar_thumbnail_md){
+          this.userDict[username].avatar_thumbnail_md = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_md
+        }
+        if (response.data.avatar_thumbnail_lg){
+          this.userDict[username].avatar_thumbnail_lg = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_lg
         }
       }).catch((error) => {
         console.log(error)
       })
-      await axios.get(
-        API_URLS.USER_API+'profile/avatar/',
-      ).then((response) => {
-        if (response.data.avatar_thumbnail){
-          this.UpdateUserAvatarThumbnail(API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail)
-        }
-      }).catch((error) => {
-        console.log(error)
-      })
-      console.log(this.$state)
+    },
+    GetUserGroups(username: string) {
+      if (!(username in this.userDict)) {
+        this.initializeUserDict(username)
+      }
+      return this.userDict[username].groups
+    },
+    GetUserAchievements(username: string) {
+      if (!(username in this.userDict)) {
+        this.initializeUserDict(username)
+      }
+      return this.userDict[username].achievements
+    },
+    GetUserAvatarThumbnail(username: string, size = 'md') {
+      if (!(username in this.userDict)) {
+        this.initializeUserDict(username)
+      }
+      if (size === 'sm'){
+        return this.userDict[username].avatar_thumbnail_sm
+      } else if (size === 'lg'){
+        return this.userDict[username].avatar_thumbnail_lg
+      } else if (size === 'md'){
+        return this.userDict[username].avatar_thumbnail_md
+      }
+    },
+    GetUserEmail(username: string) {
+      if (!(username in this.userDict)) {
+        this.initializeUserDict(username)
+      }
+      return this.userDict[username].email
     }
-  }
+  },
+
+
 });
+
+
+interface UserInfo {
+  [username: string]: {
+    email: string;
+    avatar_thumbnail_sm: string;
+    avatar_thumbnail_md: string;
+    avatar_thumbnail_lg: string;
+    groups: [];
+    achievements: [];
+  };
+}

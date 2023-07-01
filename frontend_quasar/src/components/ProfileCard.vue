@@ -6,8 +6,10 @@
         class="column justify-center items-center bg-teal-2 tw-h-32"
       >
         <ProfileImage
-          editable
-          offset_classes="tw-top-12"
+          offset_classes="tw-top-8"
+          :editable="true"
+          :username="username"
+          size="lg"
         />
       </q-card-section>
       <q-card-section>
@@ -16,7 +18,7 @@
             username
           </div>
           <div class="column text-h6">
-            {{ UserStore.GetUserUsername }}
+            {{ username }}
           </div>
         </div>
         <q-separator />
@@ -25,7 +27,7 @@
             email
           </div>
           <div class="column text-h6">
-            {{ UserStore.GetUserUsername }}
+            {{ UserStore.GetUserEmail(username) }}
           </div>
         </div>
         <q-separator />
@@ -34,7 +36,7 @@
             roles
           </div>
           <div class="column">
-            <span v-for="role in UserStore.GetUserGroups" v-bind:key="role.id" class="tw-rounded q-pa-xs" :class="role_color_mapping[role]">
+            <span v-for="role in UserStore.GetUserGroups(username)" v-bind:key="role.id" class="tw-rounded q-pa-xs" :class="role_color_mapping[role]">
               {{ role }}
             </span>
           </div>
@@ -47,13 +49,13 @@
         </div>
         <div class="row justify-evenly">
           <q-img
-            :src="achievements.image"
+            :src="achiev.image"
             style="height: 110px; width: 110px"
-            v-for="achievements in UserStore.GetUserAchievements.values()"
-            v-bind:key="achievements.id"
+            v-for="achiev in UserStore.GetUserAchievements(username).values()"
+            v-bind:key="achiev.id"
           >
             <q-tooltip>
-              {{ achievements.description }}
+              {{ achiev.description }}
             </q-tooltip>
           </q-img>
         </div>
@@ -64,6 +66,7 @@
 <script lang="ts">
 import { useUserStore } from 'stores/user';
 import { useLoginStore} from 'stores/login';
+import { useLoggedInUserStore } from 'stores/loggedinuser';
 import ProfileImage from 'components/ProfileImage.vue';
 import {onMounted, ref} from 'vue';
 import {storeToRefs} from 'pinia';
@@ -74,15 +77,18 @@ export default {
   components: {
     ProfileImage
   },
+  props: ['username'],
 
-  setup(){
+  setup(props){
+
     const LoginStore = useLoginStore()
     storeToRefs(LoginStore)
 
     const UserStore = useUserStore()
     storeToRefs(UserStore)
 
-    const router = useRouter()
+    const LoggedInUserStore = useLoggedInUserStore()
+    storeToRefs(LoggedInUserStore)
 
     let role_color_mapping = ref({
       'admin': 'bg-red-5',
@@ -90,12 +96,9 @@ export default {
     })
 
     onMounted(async () => {
-      if (!LoginStore.IsLoggedIn){
-        await router.push('/login')
-      }else{
-        await UserStore.UpdateProfileInformation()
-      }
+      await UserStore.UpdateProfileInformation(props.username)
     })
+
 
     return {
       UserStore,
