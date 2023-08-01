@@ -28,6 +28,7 @@ class Result(models.Model):
 class TestParameter(models.Model):
     name = models.CharField(max_length=100, unique=True)
     dtype = models.CharField(max_length=50)
+    description = models.CharField(max_length=500, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -43,8 +44,7 @@ class TestParameterEntries(models.Model):
 
 class TestFunction(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    test_name = models.CharField(max_length=100, unique=True)
-    test_description = models.CharField(max_length=1000, blank=True)
+    description = models.CharField(max_length=1000, blank=True)
     possible_parameters = models.ManyToManyField(TestParameter)
 
     def __str__(self):
@@ -94,10 +94,15 @@ class OsInfo(models.Model):
 
 class Experiment(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
+
+    action_file = models.FileField(upload_to='action_files/')
+    testset_file = models.FileField(upload_to='testset_files/')
+
+    os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)
     publisher = models.ForeignKey(User, on_delete=models.PROTECT, blank=True, null=True)
-    publish_date = models.DateTimeField(auto_now=True)
+    publish_date = models.DateTimeField(null=True, blank=True)
     published = models.BooleanField(default=False)
     abstract_tests = models.ManyToManyField(AbstractTest)
     tags = models.ManyToManyField(Tag)
@@ -108,15 +113,13 @@ class Experiment(models.Model):
 
 class ExperimentRun(models.Model):
     uuid = models.UUIDField(primary_key=True)
-    name = models.CharField(max_length=100)
-    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    publisher = models.ForeignKey(User, on_delete=models.PROTECT)
+    publish_date = models.DateTimeField()
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='scenario_runs')
     timestamp_start = models.DateTimeField()
     timestamp_end = models.DateTimeField()
     tests = models.ManyToManyField(Test)
-    description = models.CharField(max_length=500, blank=True)
     status = models.ForeignKey(Status, on_delete=models.PROTECT)
-    accepted = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.uuid}'
@@ -127,6 +130,7 @@ class Scenario(models.Model):
     name = models.CharField(max_length=100, unique=True)
     publisher = models.ForeignKey(User, on_delete=models.PROTECT)
     publish_date = models.DateTimeField()
+    published = models.BooleanField(default=False)
     experiments = models.ManyToManyField(Experiment, related_name='experiments', blank=True)
     description = models.CharField(max_length=1000, blank=True)
     tags = models.ManyToManyField(Tag, blank=True)
@@ -150,18 +154,22 @@ class Label(models.Model):
 
 
 class Request(models.Model):
+    title = models.CharField(max_length=1000)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    description = models.CharField(max_length=3000, blank=True)
+
     last_changed = models.DateTimeField()
 
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, blank=True, null=True)
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, blank=True, null=True)
 
-    requestor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='requests')
-    supervisor = models.ForeignKey(User, related_name='requests_assigned', blank=True, on_delete=models.PROTECT)
-    supervisor_assigned_by = models.ForeignKey(User, related_name='requests_assigned_by', blank=True, on_delete=models.PROTECT)
+    requestor = models.ForeignKey(User, on_delete=models.PROTECT, related_name='requests')
+    request_creation_date = models.DateTimeField()
+    supervisor = models.ForeignKey(User, related_name='requests_assigned', blank=True, null=True, on_delete=models.PROTECT)
+    supervisor_assigned_by = models.ForeignKey(User, related_name='requests_assigned_by', blank=True, null=True, on_delete=models.PROTECT)
+
     status = models.ForeignKey(RequestStatus, on_delete=models.PROTECT)
     labels = models.ManyToManyField(Label, blank=True)
-    description = models.CharField(max_length=3000, blank=True)
 
     def __str__(self):
         return f'{self.scenario.name} - {self.requestor} - {self.status}'

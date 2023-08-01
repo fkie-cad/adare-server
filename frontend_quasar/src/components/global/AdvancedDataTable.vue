@@ -33,12 +33,12 @@
             :label="'filter: '+col.label"
             v-model="filter_strings_by_columns[col.field]"
             @update:model-value="applyFilter()"
+            :disable="col.disbale_filter"
           />
         </q-td>
       </q-tr>
     </template>
     <template v-slot:top="props">
-
       <q-btn
         flat round dense
         :icon="props.inFullscreen ? 'fullscreen_exit' : 'fullscreen'"
@@ -51,6 +51,7 @@
         icon="filter_list"
         color="primary"
         class="q-mr-md"
+        v-if="data_filter_function"
         @click="filter_row = !filter_row"
       />
       <q-btn
@@ -61,52 +62,154 @@
           anchor="bottom right"
           self="top right"
         >
-          <q-list>
+          <q-list
+            dense
+          >
+            <q-item>
+              <q-checkbox
+                v-model="show_all"
+                label="show all"
+                @update:model-value="showAll()"
+              />
+              <q-checkbox
+                v-model="hide_all"
+                label="hide all"
+                @update:model-value="hideAll()"
+              />
+            </q-item>
+            <q-separator />
             <q-item
               v-for="col in m_hideableColumns"
               :key="col.field"
             >
-              <q-toggle v-model="m_visibleColumns" :val=col.field :label="col.label"></q-toggle>
+              <q-checkbox v-model="m_visibleColumns" :val=col.field :label="col.label" @update:model-value="AdjustShowHideAll()"/>
             </q-item>
           </q-list>
         </q-menu>
       </q-btn>
 
     </template>
-    <template v-slot:body-cell="props">
-      <td v-if="props.col.type=='user_icon'">
-        <ProfileImage
-          :username=props.value
-          size="md"
-          tooltip="true"
-          linktoprofile="true"
-          v-if="props.value"
-        />
-      </td>
-      <td v-else-if="props.col.type=='forward'">
-        <router-link :to="props.col.forward_url+props.row[props.col.forward_field]">
-        <q-icon
-          name="o_arrow_circle_right"
-          size="40px"
-        />
-        </router-link>
-      </td>
-      <td v-else-if="props.col.type=='tags'">
-        <q-badge v-for="item in props.value" :key="item" color="primary" class="q-ma-sm">
-          {{ item }}
-        </q-badge>
-      </td>
-      <td v-else-if="props.col.type=='run_counts'">
-        <q-badge color="positive" class="q-ma-sm">
-          {{ props.value.successful }}
-        </q-badge>
-        <q-badge color="negative" class="q-ma-sm">
-          {{ props.value.failed }}
-        </q-badge>
-      </td>
-      <td v-else>
-        {{ props.value.toString() }}
-      </td>
+    <template v-slot:body="props">
+      <q-tr :props="props">
+        <q-td
+          v-for="col in props.cols"
+          :key="col.field"
+        >
+          <div
+            v-if="col.type=='user_icon'"
+          >
+            <ProfileImage
+              :username=col.value
+              size="md"
+              :tooltip=true
+              :linktoprofile=true
+              v-if=col.value
+            />
+          </div>
+          <div v-else-if="col.type=='link'">
+            <router-link :to="col.link_url+props.row[col.link_field]">
+              <q-icon
+                :name="col.link_icon"
+                size="32px"
+                color="secondary"
+              />
+            </router-link>
+          </div>
+          <div v-else-if="col.type=='tags'">
+            <q-badge v-for="item in col.value" :key="item" color="primary" class="q-ma-sm">
+              #{{ item }}
+            </q-badge>
+          </div>
+          <div v-else-if="col.type=='status'">
+            <q-icon
+              name="check_circle"
+              color="positive"
+              v-if="col.value.name == 'success'"
+              size="32px"
+            />
+            <q-icon
+              name="cancel"
+              color="negative"
+              v-if="col.value.name == 'failed'"
+              size="32px"
+            />
+          </div>
+          <div v-else-if="col.type=='run_counts'">
+            <q-badge color="positive" class="q-ma-sm">
+              {{ col.value.successful }}
+            </q-badge>
+            <q-badge color="negative" class="q-ma-sm">
+              {{ col.value.failed }}
+            </q-badge>
+          </div>
+          <div v-else-if="col.type=='testfunction'">
+            {{ col.value.name }}
+          </div>
+          <div v-else-if="col.type=='subparameter'">
+            <div v-if="col.value">
+              {{ col.value[col.subparameter] }}
+            </div>
+          </div>
+          <div v-else-if="col.type=='os_info'">
+            {{ col.value.os }} {{ col.value.version }}
+          </div>
+          <div v-else-if="col.type=='download'">
+            <q-btn
+              color="primary"
+              icon="get_app"
+              @click="DownloadFile(col.value, col.filename)"
+              v-if="col.filename"
+            />
+            <q-btn
+              color="primary"
+              icon="get_app"
+              @click="DownloadFile(col.value, col.filename_function(props.row))"
+              v-else
+            />
+          </div>
+          <div v-else-if="col.type=='expand'">
+            <q-btn size="sm" color="secondary" round dense @click="props.expand = !props.expand; expand_column=col.field" :icon="props.expand ? 'arrow_upward' : 'arrow_downward'" />
+          </div>
+          <div v-else-if="col.type=='testparameterentry'">
+            <q-markup-table
+              dense
+            >
+              <tbody>
+                <tr v-for="item in col.value" :key="item.parameter.name">
+                  <td>{{ item.parameter.name }}</td>
+                  <td class="tw-text-right">{{ item.value }}</td>
+                </tr>
+              </tbody>
+            </q-markup-table>
+          </div>
+          <div v-else>
+            {{ col.value }}
+          </div>
+        </q-td>
+      </q-tr>
+      <q-tr v-show="props.expand" :props="props">
+          <q-td colspan="100%">
+            <q-markup-table
+              dense
+              bordered
+            >
+              <thead>
+                <q-tr class="tw-bg-blue-900 text-white">
+                  <q-th><div>Parameter</div></q-th>
+                  <q-th><div>Value</div></q-th>
+                  <q-th><div>Description</div></q-th>
+                </q-tr>
+              </thead>
+              <tbody>
+                <q-tr v-for="item in props.row[expand_column]" :key="item.name">
+                  <q-td><div>{{ item.name }}</div></q-td>
+                  <q-td><div>{{ item.dtype }}</div></q-td>
+                  <q-td><div class="tw-whitespace-pre-wrap">{{ item.description }}</div></q-td>
+                </q-tr>
+              </tbody>
+            </q-markup-table>
+          </q-td>
+      </q-tr>
     </template>
   </q-table>
   </div>
@@ -116,6 +219,8 @@
 import {onMounted, ref} from 'vue';
 import ProfileImage from 'components/ProfileImage.vue';
 import {hideableColumnEntry, ColumnEntry} from 'src/datatypes/advancedtable';
+import axios from 'axios';
+import { exportFile } from 'quasar';
 
 export default {
   name: 'AdvancedDataTable',
@@ -128,7 +233,7 @@ export default {
     },
     visibleColumns: {
       type: Array,
-      required: true,
+      required: false,
     },
     title: {
       type: String,
@@ -137,7 +242,7 @@ export default {
     },
     data_load_function: {
       type: Function,
-      required: true,
+      required: false,
     },
     data_get_function: {
       type: Function,
@@ -145,20 +250,26 @@ export default {
     },
     data_filter_function: {
       type: Function,
-      required: true,
-    },
+      required: false,
+    }
   },
 
   setup(props) {
     let rows = ref([])
     let m_columns = ref<ColumnEntry[]>([])
-    let m_visibleColumns = ref<ColumnEntry[]>([])
+    let m_visibleColumns = ref<string[]>([])
     let m_hideableColumns = ref<hideableColumnEntry[]>([])
+    let m_nonHideableColumns = ref<ColumnEntry[]>([])
     let filter_row = ref(false);
     let api_filter_string = ''
 
     let filter_strings_by_columns: any = ref({})
     let filter_strings_total = ref('')
+
+    let show_all = ref(false)
+    let hide_all = ref(false)
+
+    let expand_column = ref('')
 
     onMounted(async () => {
       m_columns.value = props.columns
@@ -168,10 +279,19 @@ export default {
         // add column to hideable columns if hideable property is set
         if (column.hideable) {
           m_hideableColumns.value.push(column)
+        } else {
+          m_nonHideableColumns.value.push(column)
         }
       }
       // set visible columns
-      m_visibleColumns.value = props.visibleColumns
+      if (props.visibleColumns) {
+        m_visibleColumns.value = props.visibleColumns as string[]
+      } else {
+        // if no visible columns are set, set all columns to visible
+        for (let column of m_columns.value) {
+          m_visibleColumns.value.push(column.field)
+        }
+      }
       // setup filter strings
       filter_strings_by_columns.value = Object.keys(props.columns)
       // initialize all values to empty string
@@ -180,10 +300,13 @@ export default {
       }
       // load rows of table
       await loadTableData()
+      AdjustShowHideAll()
     })
 
     async function loadTableData(){
-      await props.data_load_function()
+      if (props.data_load_function) {
+        await props.data_load_function()
+      }
       rows.value = props.data_get_function()
     }
 
@@ -216,8 +339,50 @@ export default {
       }
     }
 
+    function showAll() {
+      if (show_all.value) {
+        m_visibleColumns.value = []
+        for (let column of m_hideableColumns.value) {
+          m_visibleColumns.value.push(column.field)
+        }
+        for (let column of m_nonHideableColumns.value) {
+          m_visibleColumns.value.push(column.field)
+        }
+      }
+      AdjustShowHideAll()
+    }
+
+    function hideAll() {
+      if (hide_all.value) {
+        m_visibleColumns.value = []
+        for (let column of m_nonHideableColumns.value) {
+          console.log(column.field)
+          m_visibleColumns.value.push(column.field)
+        }
+      }
+      AdjustShowHideAll()
+    }
+
+    function AdjustShowHideAll(){
+      show_all.value = m_visibleColumns.value.length === m_columns.value.length;
+      hide_all.value = m_visibleColumns.value.length === m_nonHideableColumns.value.length;
+    }
+
+    function DownloadFile(url: string, filename: string) {
+      axios.get(url, {responseType: 'blob'}).then((response) => {
+        exportFile(filename, response.data)
+      })
+    }
+
     return {
       rows,
+      show_all,
+      hide_all,
+      showAll,
+      hideAll,
+      expand_column,
+      AdjustShowHideAll,
+      DownloadFile,
       m_columns,
       filter_row,
       m_visibleColumns,

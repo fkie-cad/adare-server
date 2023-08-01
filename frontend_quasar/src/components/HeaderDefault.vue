@@ -7,7 +7,7 @@
         class="q-pr-none"
       >
 
-        <q-toolbar-title> Adare Web </q-toolbar-title>
+        <q-toolbar-title>Adare Web</q-toolbar-title>
 
         <q-tabs
           v-model="tab"
@@ -16,22 +16,16 @@
           class="q-pr-md"
         >
           <q-route-tab
-            name="home"
-            icon="home"
-            label="Home"
-            to="/"
+            name="scenario"
+            icon="hive"
+            label="Scenarios"
+            to="/scenario"
           />
           <q-route-tab
             name="experiments"
             icon="science"
             label="Experiments"
-            to="/experiments"
-          />
-          <q-route-tab
-            name="search"
-            icon="search"
-            label="Search"
-            to="/search"
+            to="/experiment"
           />
           <q-route-tab
             name="requests"
@@ -40,6 +34,18 @@
             to="/requests"
             v-if="LoginStore.IsLoggedIn"
           />
+<!--          <q-route-tab-->
+<!--            name="testfunctions"-->
+<!--            icon="collections_bookmark"-->
+<!--            label="Testfunctions"-->
+<!--            to="/testfunction"-->
+<!--          />-->
+<!--          <q-route-tab-->
+<!--            name="wiki"-->
+<!--            icon="article"-->
+<!--            label="Wiki"-->
+<!--            to="/wiki"-->
+<!--          />-->
         </q-tabs>
 
         <div v-if="!IsLoggedIn" class="full-height">

@@ -37,7 +37,6 @@ export const useUserStore = defineStore('user', {
       await axios.get(
           API_URLS.USER_API+username+'/profile/avatar',
       ).then((response) => {
-        console.log(response.data)
         if (response.data.avatar_thumbnail_sm) {
           this.userDict[username].avatar_thumbnail_sm = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_sm
         }
@@ -47,8 +46,6 @@ export const useUserStore = defineStore('user', {
         if (response.data.avatar_thumbnail_lg){
           this.userDict[username].avatar_thumbnail_lg = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_lg
         }
-      }).catch((error) => {
-        console.log(error)
       })
     },
     GetUserGroups(username: string) {

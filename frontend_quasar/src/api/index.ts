@@ -4,7 +4,9 @@ const API_URL = SERVER_URL + 'api/'
 const CSRF_API = API_URL + 'csrf/'
 const USER_API = API_URL + 'user/'
 const EXPERIMENT_API = API_URL + 'experiment/'
+const SCENARIO_API = API_URL + 'scenario/'
 const LIST_EXPERIMENTS = EXPERIMENT_API + 'list/'
+const TESTFUNCTION = API_URL + 'testfunction/'
 
 export default {
   SERVER_URL: SERVER_URL,
@@ -12,5 +14,7 @@ export default {
   CSRF_API: CSRF_API,
   USER_API: USER_API,
   EXPERIMENT_API: EXPERIMENT_API,
+  SCENARIO_API: SCENARIO_API,
   LIST_EXPERIMENTS: LIST_EXPERIMENTS,
+  TESTFUNCTION: TESTFUNCTION,
 }

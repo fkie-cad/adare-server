@@ -1,17 +1,24 @@
 <template>
-  <q-page class="row items-center justify-evenly">
-    <ExperimentList/>
+  <q-page class="flex justify-center">
+    <ExperimentOverview :uuid="uuid" class="q-pa-lg tw-w-full"/>
   </q-page>
 </template>
 
 <script lang="ts">
-import ExperimentList from 'components/ExperimentList.vue';
+import ExperimentOverview from 'components/ExperimentOverview.vue';
 
 export default {
   name: 'ExperimentPage',
 
   components: {
-    ExperimentList
+    ExperimentOverview
+  },
+
+  props: {
+    uuid: {
+      type: String,
+      required: true,
+    },
   },
 
 };

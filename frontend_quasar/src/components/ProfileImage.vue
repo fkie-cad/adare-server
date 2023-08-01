@@ -52,7 +52,7 @@ export default {
     linktoprofile: {
       type: Boolean,
       default: false
-    },
+    }
   },
 
   setup(props) {
@@ -68,11 +68,6 @@ export default {
     const UserStore = useUserStore()
     storeToRefs(UserStore)
     const file = ref<File | null>(null)
-
-
-    onMounted(async () => {
-      await UserStore.UpdateProfileInformation(props.username)
-    })
 
     return {
       UserStore,

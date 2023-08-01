@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import API_URLS from 'src/api';
+import { useLoginStore } from 'src/stores/login';
 
 
 export const useLoggedInUserStore = defineStore('userloggedin', {
@@ -32,8 +33,8 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
     },
     IsSupervisor (state) {
       const groups: string[] = state.groups;
-      return groups.includes('supervisor');
-    }
+      return groups.includes('supervisor') || groups.includes('admin');
+    },
   },
 
   actions: {
@@ -74,6 +75,10 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
     },
 
     async UpdateProfileInformation(){
+      const LoginStore= useLoginStore();
+      if (!LoginStore.IsLoggedIn) {
+        return
+      }
       await axios.get(
         API_URLS.USER_API+'profile/',
       ).then((response) => {

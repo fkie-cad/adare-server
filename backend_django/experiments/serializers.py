@@ -1,5 +1,3 @@
-from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
 from rest_framework import serializers
 
 from experiments.models import *
@@ -16,6 +14,14 @@ class TagSerializer(serializers.ModelSerializer):
                 'validators': [],
             },
         }
+
+
+class LabelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Label
+        fields = [
+            'name',
+        ]
 
 
 class StatusSerializer(serializers.ModelSerializer):
@@ -66,6 +72,7 @@ class ResultSerializer(serializers.ModelSerializer):
         model = Result
         fields = [
             'details',
+            'status'
         ]
 
     def create(self, validated_data):
@@ -88,6 +95,7 @@ class TestParameterSerializer(serializers.ModelSerializer):
         fields = [
             'name',
             'dtype',
+            'description',
         ]
         extra_kwargs = {
             'name': {
@@ -127,15 +135,11 @@ class TestFunctionSerializer(serializers.ModelSerializer):
         model = TestFunction
         fields = [
             'name',
-            'test_name',
-            'test_description',
+            'description',
             'possible_parameters',
         ]
         extra_kwargs = {
-            'test_description': {'required': False},
-            'test_name': {
-                'validators': [],
-            },
+            'description': {'required': False},
             'name': {
                 'validators': [],
             },
@@ -191,7 +195,8 @@ class AbstractTestSerializer(serializers.ModelSerializer):
         test_parameter_entrys = []
         for parameter_entry in parameters_data:
             try:
-                test_parameter_entry = TestParameterEntries.objects.get(parameter__name=parameter_entry['parameter']['name'], value=parameter_entry['value'])
+                test_parameter_entry = TestParameterEntries.objects.get(
+                    parameter__name=parameter_entry['parameter']['name'], value=parameter_entry['value'])
             except TestParameterEntries.DoesNotExist:
                 test_parameter_entry_serializer = TestParameterEntriesSerializer(data=parameter_entry)
                 test_parameter_entry_serializer.is_valid()
@@ -199,7 +204,7 @@ class AbstractTestSerializer(serializers.ModelSerializer):
             test_parameter_entrys.append(test_parameter_entry)
 
         try:
-            testfunction = TestFunction.objects.get(name=testfunction_data['name'], test_name=testfunction_data['test_name'])
+            testfunction = TestFunction.objects.get(name=testfunction_data['name'])
         except TestFunction.DoesNotExist:
             testfunction_serializer = TestFunctionSerializer(data=testfunction_data)
             testfunction_serializer.is_valid()
@@ -212,16 +217,37 @@ class AbstractTestSerializer(serializers.ModelSerializer):
 
 
 class TestSerializer(serializers.ModelSerializer):
-    abstracttest = AbstractTestSerializer(read_only=True)
-    result = ResultSerializer(read_only=True)
+    result = ResultSerializer()
+    abstracttest_uuid = serializers.CharField(source='abstracttest.uuid')
 
     class Meta:
         model = Test
-        fields = '__all__'
+        fields = [
+            'uuid',
+            'abstracttest_uuid',
+            'result',
+        ]
+
+    def create(self, validated_data):
+        abstracttest_data = validated_data.pop('abstracttest')
+        result_data = validated_data.pop('result')
+        abstracttest = AbstractTest.objects.get(uuid=abstracttest_data['uuid'])
+
+        validated_data['abstracttest'] = abstracttest
+
+        try:
+            result = Result.objects.get(status__name=result_data['status']['name'], details=result_data['details'])
+        except Result.DoesNotExist:
+            result_serializer = ResultSerializer(data=result_data)
+            result_serializer.is_valid()
+            result = result_serializer.save()
+        validated_data['result'] = result
+
+        test = Test.objects.create(**validated_data)
+        return test
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = User
         fields = ('username',)
@@ -232,6 +258,9 @@ class ExperimentSerializer(serializers.ModelSerializer):
     abstract_tests = AbstractTestSerializer(read_only=True, many=True)
     tags = serializers.SerializerMethodField('get_tags', read_only=True)
     publisher_name = serializers.SerializerMethodField('get_publisher_name', read_only=True)
+    publish_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    os_info = OsInfoSerializer(read_only=True)
+    experiment_runs = serializers.SerializerMethodField('get_experiment_runs', read_only=True)
 
     class Meta:
         model = Experiment
@@ -239,16 +268,25 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'uuid',
             'name',
             'description',
+            'action_file',
+            'testset_file',
             'publisher_name',
             'publish_date',
             'tags',
             'abstract_tests',
             'run_counts',
+            'os_info',
+            'experiment_runs',
         ]
         extra_kwargs = {
             'tags': {'read_only': True},
             'abstract_tests': {'read_only': True},
         }
+
+    def get_experiment_runs(self, obj):
+        experiment_runs = ExperimentRun.objects.filter(experiment=obj)
+        serializer = ExperimentRunSerializer(experiment_runs, many=True)
+        return serializer.data
 
     def get_tags(self, obj):
         tag_list = []
@@ -272,21 +310,34 @@ class ExperimentSerializer(serializers.ModelSerializer):
         }
 
 
-
 class ExperimentRunSerializer(serializers.ModelSerializer):
-    experiment = ExperimentSerializer(read_only=True)
     tests = TestSerializer(read_only=True, many=True)
-    os_info = OsInfoSerializer(read_only=True)
     status = StatusSerializer(read_only=True)
+    publisher_name = serializers.SerializerMethodField('get_publisher_name', read_only=True)
 
     class Meta:
         model = ExperimentRun
-        fields = '__all__'
+        fields = [
+            'uuid',
+            'publisher_name',
+            'publish_date',
+            'timestamp_start',
+            'timestamp_end',
+            'tests',
+            'status',
+        ]
+
+    def get_publisher_name(self, obj):
+        if obj.publisher is not None:
+            return obj.publisher.username
+        return None
 
 
 class ScenarioSerializer(serializers.ModelSerializer):
     publisher_name = serializers.SerializerMethodField('get_publisher_name', read_only=True)
+    publish_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     # publisher_icon = serializers.SerializerMethodField('get_publisher_icon', read_only=True)
+    tags = serializers.SerializerMethodField('get_tags', read_only=True)
 
     class Meta:
         model = Scenario
@@ -300,26 +351,174 @@ class ScenarioSerializer(serializers.ModelSerializer):
             'experiments',
         ]
 
+    def get_tags(self, obj):
+        tag_list = []
+        for tag in obj.tags.all():
+            tag_list.append(tag.name)
+        return tag_list
+
     def get_publisher_name(self, obj):
         return obj.publisher.username
-
-    # def get_publisher_icon(self, obj):
-    #     if obj.publisher.profile.avatar:
-    #         return obj.publisher.profile.avatar.url
-    #     else:
-    #         return None
 
 
 class RequestStatusSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Request
-        fields = '__all__'
+        model = RequestStatus
+        fields = [
+            'name',
+        ]
 
 
-class RequestSerializer(serializers.ModelSerializer):
+class RequestListSerializer(serializers.ModelSerializer):
+    requestor = serializers.SerializerMethodField('get_requestor', read_only=True)
+    supervisor = serializers.SerializerMethodField('get_supervisor', read_only=True)
+    supervisor_assigned_by = serializers.SerializerMethodField('get_supervisor_assigned_by', read_only=True)
+    category_type = serializers.SerializerMethodField('get_category_type', read_only=True)
     status = RequestStatusSerializer(read_only=True)
-    user = CurrentUserSerializer(read_only=True)
+    labels = LabelSerializer(read_only=True, many=True)
+
+    def get_requestor(self, obj):
+        if obj.requestor is None:
+            return None
+        return obj.requestor.username
+
+    def get_supervisor(self, obj):
+        if obj.supervisor is None:
+            return None
+        return obj.supervisor.username
+
+    def get_supervisor_assigned_by(self, obj):
+        if obj.supervisor_assigned_by is None:
+            return None
+        return obj.supervisor_assigned_by.username
+
+    def get_category_type(self, obj):
+        if obj.scenario:
+            return 'scenario'
+        elif obj.experiment:
+            return 'experiment'
+        return ''
 
     class Meta:
         model = Request
-        fields = '__all__'
+        fields = [
+            'title',
+            'uuid',
+            'description',
+            'last_changed',
+            'category_type',
+            'requestor',
+            'request_creation_date',
+            'supervisor',
+            'supervisor_assigned_by',
+            'status',
+            'labels',
+        ]
+
+
+class RequestSerializer(RequestListSerializer):
+    category = serializers.SerializerMethodField('get_category', read_only=True)
+
+    def get_category(self, obj):
+        if obj.scenario:
+            return {
+                'type': 'scenario',
+                'category': ScenarioSerializer(obj.scenario).data,
+            }
+        elif obj.experiment:
+            return {
+                'type': 'experiment',
+                'category': ExperimentSerializer(obj.experiment).data,
+            }
+
+    class Meta:
+        model = Request
+        fields = [
+            'title',
+            'uuid',
+            'description',
+            'last_changed',
+            'category_type',
+            'category',
+            'requestor',
+            'request_creation_date',
+            'supervisor',
+            'supervisor_assigned_by',
+            'status',
+            'labels',
+        ]
+
+
+# serializers specialized for creating objects
+class ExperimentCreateSerializer(serializers.ModelSerializer):
+    action_file = serializers.FileField(write_only=True)
+    testset_file = serializers.FileField(write_only=True)
+
+    class Meta:
+        model = Experiment
+        fields = [
+            'uuid',
+            'name',
+            'description',
+            'action_file',
+            'testset_file',
+            'publisher',
+            'publish_date',
+            'published',
+            'os_info',
+        ]
+
+
+class ExperimentRunCreateSerializer(serializers.ModelSerializer):
+    tests = TestSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = ExperimentRun
+        fields = [
+            'uuid',
+            'publisher',
+            'publish_date',
+            'timestamp_start',
+            'timestamp_end',
+            'experiment',
+            'tests',
+            'status',
+            'experiment',
+        ]
+        extra_kwargs = {
+            'experiment': {'validators': []},
+        }
+
+
+class ScenarioCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Scenario
+        fields = [
+            'uuid',
+            'name',
+            'description',
+            'publish_date',
+            'publisher',
+            'published',
+            'tags',
+            'experiments',
+        ]
+
+
+class RequestCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Request
+        fields = [
+            'title',
+            'uuid',
+            'description',
+            'last_changed',
+            'scenario',
+            'experiment',
+            'requestor',
+            'request_creation_date',
+            'supervisor',
+            'supervisor_assigned_by',
+            'status',
+        ]

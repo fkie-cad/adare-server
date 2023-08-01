@@ -1,6 +1,6 @@
 <template>
-  <q-page class="row items-center justify-evenly">
-    <ScenarioList></ScenarioList>
+  <q-page class="flex justify-center">
+    <ScenarioList class="q-pa-lg tw-w-full"/>
   </q-page>
 </template>
 

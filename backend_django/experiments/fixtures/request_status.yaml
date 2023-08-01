@@ -5,7 +5,7 @@
 - model: experiments.requeststatus
   pk: 2
   fields:
-    name: declined
+    name: rejected
 - model: experiments.requeststatus
   pk: 3
   fields:

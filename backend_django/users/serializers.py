@@ -109,6 +109,35 @@ class ProfileSerializer(serializers.ModelSerializer):
         }
 
 
+class PublicUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            'username',
+        ]
+
+
+class PublicProfileSerializer(serializers.ModelSerializer):
+    user = PublicUserSerializer(required=True)
+    groups = serializers.SerializerMethodField()
+    achievements = AchievementSerializer(many=True)
+
+    def get_groups(self, obj):
+        return obj.user.groups.values_list('name', flat=True)
+
+    class Meta:
+        model = Profile
+        fields = [
+            'user',
+            'groups',
+            'achievements',
+        ]
+        extra_kwargs = {
+            'achievements': {'read_only': True},
+        }
+
+
+
 class ProfileAvatarSerializer(serializers.ModelSerializer):
     avatar = serializers.ImageField()
     avatar_thumbnail_sm = serializers.SerializerMethodField()

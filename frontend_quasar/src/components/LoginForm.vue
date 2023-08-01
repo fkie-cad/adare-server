@@ -1,86 +1,67 @@
 <template>
-    <div class="row q-pa-none fit items-center justify-evenly">
-      <div class="col-6">
-        <q-card
-          square
-          flat
+  <q-card
+    square
+    flat
+    class=""
+  >
+    <div v-show="!LoginStore.IsLoggedIn">
+      <q-card-section>
+        <h3 class="text-h3 q-ma-none q-mb-xl text-center">Sign In</h3>
+        <div class="flex justify-center">
+          <q-icon name="o_account_circle" size="10em"></q-icon>
+        </div>
+      </q-card-section>
+      <q-card-section>
+        <q-banner
+          class="bg-red-10 text-center"
+          rounded
+          v-show="errorShown"
         >
-          <q-card-section>
-            <h3 class="text-h3 text-center">Welcome!</h3>
-            <h5 class="text-h5 text-center">If you want access please ask for access here:</h5>
-            <h5 class="text-h5 text-center">test@test.com</h5>
-          </q-card-section>
-        </q-card>
-      </div>
-      <div class="col-4 q-pa-xl shadow-24">
-        <q-card
-          square
-          flat
-          class=""
+          <template v-slot:avatar>
+            <q-icon name="error" />
+          </template>
+          <div class="text-h5">{{ errorMessage }}</div>
+        </q-banner>
+      </q-card-section>
+      <q-card-section>
+        <q-form
+          class="q-px-sm q-pt-sm"
+          @submit="login"
+          @reset="reset"
         >
-          <div v-show="!LoginStore.IsLoggedIn">
-            <q-card-section>
-              <h3 class="text-h3 q-ma-none q-mb-xl text-center">Sign In</h3>
-              <div class="flex justify-center">
-                <q-icon name="o_account_circle" size="10em"></q-icon>
-              </div>
-            </q-card-section>
-            <q-card-section>
-              <q-banner
-                class="bg-red-10 text-center"
-                rounded
-                v-show="errorShown"
-              >
-                <template v-slot:avatar>
-                  <q-icon name="error" />
-                </template>
-                <div class="text-h5">{{ errorMessage }}</div>
-              </q-banner>
-            </q-card-section>
-            <q-card-section>
-              <q-form
-                class="q-px-sm q-pt-sm"
-                @submit="login"
-                @reset="reset"
-              >
-                <q-input
-                  square
-                  clearable
-                  v-model="login_data.email"
-                  type="email"
-                  label="Email"
-                  @clear="hideErrorMessage"
-                  class="q-pa-sm"
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="email"/>
-                  </template>
-                </q-input>
-                <q-input
-                  square
-                  clearable
-                  v-model.lazy="login_data.password"
-                  type="password"
-                  label="Password"
-                  @clear="hideErrorMessage"
-                  class="q-pa-sm"
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="lock"/>
-                  </template>
-                </q-input>
-              </q-form>
-            </q-card-section>
-            <q-card-actions class="q-px-lg">
-              <q-btn unelevated size="lg" color="blue-grey-9" class="full-width" @click="login" label="Sign In" />
-            </q-card-actions>
-          </div>
-        </q-card>
-      </div>
+          <q-input
+            square
+            clearable
+            v-model="login_data.email"
+            type="email"
+            label="Email"
+            @clear="hideErrorMessage"
+            class="q-pa-sm"
+          >
+            <template v-slot:prepend>
+              <q-icon name="email"/>
+            </template>
+          </q-input>
+          <q-input
+            square
+            clearable
+            v-model.lazy="login_data.password"
+            type="password"
+            label="Password"
+            @clear="hideErrorMessage"
+            class="q-pa-sm"
+          >
+            <template v-slot:prepend>
+              <q-icon name="lock"/>
+            </template>
+          </q-input>
+        </q-form>
+      </q-card-section>
+      <q-card-actions class="q-px-lg">
+        <q-btn unelevated size="lg" color="blue-grey-9" class="full-width" @click="login" label="Sign In" />
+      </q-card-actions>
     </div>
-
-
-
+  </q-card>
 </template>
 
 <script lang="ts">

@@ -7,14 +7,15 @@ import { Scenario, ScenarioDict, ExperimentDict, Experiment } from 'src/datatype
 export const useScenarioStore = defineStore('scenario', {
   state: () => ({
     scenarios: {} as ScenarioDict,
-    experiment: {} as ExperimentDict,
   }),
 
   getters: {
   },
 
   actions: {
-    // SCEANRIO PART
+    CleanUpScenario(){
+      this.scenarios = {} as ScenarioDict
+    },
     async LoadScenarioAll(){
       await axios.get('http://localhost:8000/api/scenario/').then(
         (response) => {
@@ -46,49 +47,8 @@ export const useScenarioStore = defineStore('scenario', {
       )
       return scenario_list
     },
-
-    // EXPERIMENT PART
-    async LoadExperimentAll(){
-      await axios.get('http://localhost:8000/api/experiment/').then(
-        (response) => {
-          for(const experiment_data of response.data){
-            this.experiment[experiment_data.uuid] = experiment_data
-          }
-        }
-      )
-    },
-    async LoadExperiment(uuid: string){
-      await axios.get('http://localhost:8000/api/experiment/'+uuid+'/').then(
-        (response) => {
-          this.experiment[uuid] = response.data
-        }
-      )
-    },
-    async LoadExperimentByScenario(scenario_uuid: string){
-      await axios.get('http://localhost:8000/api/experiment/scenario_'+scenario_uuid).then(
-        (response) => {
-          for(const experiment_data of response.data){
-            this.experiment[experiment_data.uuid] = experiment_data
-            console.log(experiment_data)
-          }
-        }
-      )
-    },
-    GetExperiment(uuid: string){
-      return this.experiment[uuid]
-    },
-    GetExperimentList(){
-      return Object.values(this.experiment)
-    },
-    async FilterExperimentListRemote(query: string){
-      let experiment_list: Experiment[] = []
-      await axios.get('http://localhost:8000/api/experiment/'+query).then(
-        (response) => {
-          experiment_list = response.data
-        }
-      )
-      return experiment_list
-    },
   },
+
+
 
 });

@@ -10,6 +10,12 @@ USERS = {
     'testuser1_none': [],
     'testuser2_supervisor': ['supervisor'],
     'testuser3_admin': ['admin'],
+    'testuser4_supervisor_admin': ['supervisor', 'admin'],
+    'testuser5_supervisor': ['supervisor'],
+    'testuser6_supervisor': ['supervisor'],
+    'testuser7_supervisor': ['supervisor'],
+    'testuser8_supervisor': ['supervisor'],
+    'testuser9_supervisor': ['supervisor'],
 }
 
 

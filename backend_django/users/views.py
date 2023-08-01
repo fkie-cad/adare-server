@@ -16,7 +16,7 @@ from rest_framework.parsers import FileUploadParser
 from rest_framework.response import Response
 from rest_framework.authtoken.serializers import AuthTokenSerializer
 
-from users.serializers import LoginSerializer, PrivateProfileSerializer, ProfileAvatarSerializer, ProfileSerializer
+from users.serializers import LoginSerializer, PrivateProfileSerializer, ProfileAvatarSerializer, ProfileSerializer, PublicProfileSerializer
 from users.models import Profile
 
 # knox imports
@@ -80,7 +80,7 @@ class ProfileAvatarViewLoggedIn(generics.RetrieveUpdateDestroyAPIView):
 
 
 class ProfileAvatarView(generics.RetrieveAPIView):
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
     serializer_class = ProfileAvatarSerializer
 
     def get_object(self):
@@ -95,8 +95,13 @@ class ProfileAvatarView(generics.RetrieveAPIView):
 
 
 class ProfileView(generics.RetrieveAPIView):
-    permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = ProfileSerializer
+    permission_classes = (permissions.AllowAny,)
+
+    def get_serializer_class(self):
+        if not self.request.user.is_authenticated:
+            return PublicProfileSerializer
+        else:
+            return ProfileSerializer
 
     def get_object(self):
         # get url parameter
@@ -107,7 +112,17 @@ class ProfileView(generics.RetrieveAPIView):
             profile = Profile.objects.get(user__username=username)
         except Profile.DoesNotExist:
             profile = None
+
         return profile
+
+
+class SupervisorListViewNames(generics.ListAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ProfileSerializer
+
+    def get(self, request, *args, **kwargs):
+        profiles = Profile.objects.filter(user__groups__name__contains='supervisor')
+        return Response([p.user.username for p in profiles.all()], status=status.HTTP_200_OK)
 
 
 class CSRFView(views.APIView):

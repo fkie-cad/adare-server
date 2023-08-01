@@ -22,7 +22,7 @@
           </div>
         </div>
         <q-separator />
-        <div class="row justify-between  q-pa-sm">
+        <div class="row justify-between q-pa-sm" v-if="LoginStore.IsLoggedIn">
           <div class="column text-h6 tw-text-gray-600">
             email
           </div>
@@ -101,6 +101,7 @@ export default {
 
 
     return {
+      LoginStore,
       UserStore,
       role_color_mapping,
     }

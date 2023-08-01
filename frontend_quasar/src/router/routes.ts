@@ -3,7 +3,7 @@ import { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/scenario',
+    redirect: '/login',
   },
 
   {
@@ -34,7 +34,20 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/experiments',
+    path: '/experiment',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/ExperimentListPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
+      },
+    ],
+  },
+  {
+    path: '/experiment/:uuid',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -42,7 +55,22 @@ const routes: RouteRecordRaw[] = [
         components: {
           main: () => import('pages/ExperimentPage.vue'),
           header: () => import('components/HeaderDefault.vue'),
-        }
+        },
+        props: true,
+      },
+    ],
+  },
+  {
+    path: '/testfunction/',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/TestfunctionWikiPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
       },
     ],
   },
@@ -93,9 +121,23 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         components: {
-          main: () => import('pages/RequestsPage.vue'),
+          main: () => import('pages/RequestsListPage.vue'),
           header: () => import('components/HeaderDefault.vue'),
         }
+      }
+    ],
+  },
+  {
+    path: '/requests/:uuid',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/RequestsPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
       }
     ],
   },
@@ -113,7 +155,6 @@ const routes: RouteRecordRaw[] = [
       }
     ],
   },
-
 
   // Always leave this as last one,
   // but you can also remove it
