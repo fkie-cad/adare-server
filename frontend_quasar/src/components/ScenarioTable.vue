@@ -76,7 +76,7 @@
         <q-separator class="q-my-md" v-if="show_filters"/>
         <div class="row" v-if="show_filters">
           <div class="col flex justify-start">
-            <div v-for="filter in PREDEFINED_FILTERS" v-bind:key="filter.field" class="q-pr-md">
+            <div v-for="filter in SELECT_FILTERS" v-bind:key="filter.field" class="q-pr-md">
               <q-select
                 outlined
                 dense
@@ -88,10 +88,11 @@
                 :options="filter.options"
                 :multiple="filter.type=='options_mc'"
                 display-value=""
-                @update:model-value="ChangeFilterEntry(filter.api_field)"
-                @clear="ChangeFilterEntry(filter.api_field)"
+                @update:model-value="ChangeSelectFilter(filter.api_field)"
+                @clear="ChangeSelectFilter(filter.api_field)"
                 style="width: 200px"
                 @filter="(val, update, abort) => { FilterSelect(val, update, abort, filter.field) }"
+                v-if="filter.type=='options_mc'"
               >
                 <template v-slot:option="scope">
                   <q-item v-bind="scope.itemProps">
@@ -209,15 +210,15 @@ const COLUMNS = [
   { name: 'publisher_name', align: 'left', label: 'publisher', field: 'publisher_name', hideable: true, type: 'user_icon'},
   { name: 'publish_date', align: 'left', label: 'publish date', field: 'publish_date', hideable: true, sortable: true},
   { name: 'tags', align: 'left', label: 'tags', field: 'tags', hideable: true, type: 'tags'},
-  { name: 'experiments', align: 'left', label: 'experiments', field: 'experiments', default: '', non_api_field: true, type: 'link', link_field: 'uuid', link_url: '/scenario/', link_icon: 'o_arrow_circle_right'}
+  { name: 'experiments', align: 'left', label: 'experiments', field: 'experiments', default: '', non_api_field: true, type: 'link', link_field: 'uuid', link_url: '/experiment/', link_icon: 'o_arrow_circle_right'}
 ]
 
 // visible columns of table (when loading table for the first time)
 const VISIBLE_COLUMNS = ['name', 'description', 'publisher_name', 'experiments', 'tags']
 
 // predefined filters of table
-const PREDEFINED_FILTERS = ref([
-      { name: 'tags', field: 'tags', api_field: 'tags_mc', type: 'options_mc', options: [] as string[], total_options: [] as string[], selected: []}
+const SELECT_FILTERS = ref([
+  { name: 'tags', field: 'tags', api_field: 'tags_mc', type: 'options_mc', option_api_field: 'tags', options: [] as string[], total_options: [] as string[], selected: []},
 ])
 
 
@@ -386,19 +387,48 @@ export default {
 
     // load filter options for all predefined filters
     async function LoadFilterOptions(){
-      for (let filter of PREDEFINED_FILTERS.value) {
-        let url = API.API+'scenario/filteroptions/' + filter.field + '/'
-        let response = await axios.get(url)
-        filter.options = response.data
-        filter.total_options = response.data
+      let url = API.API+'scenario/filteroptions/?'+FilterToQueryString(FilterObject.value)
+      let response = await axios.get(url)
+      // set options of predefined filters
+      for (let filter of SELECT_FILTERS.value) {
+        filter.options = response.data[filter.option_api_field]
+        filter.total_options = response.data[filter.option_api_field]
       }
     }
 
+    function FilterSelect(val: string, update: (arg0: { (): void; (): void; }) => void, abort: never, field: string) {
+      // get options of filter select stored in predefined_filters
+      let options: string[] = []
+      let index = 0
+      for (let filter of SELECT_FILTERS.value) {
+        if (filter.field === field) {
+          options = filter.total_options
+          index = SELECT_FILTERS.value.indexOf(filter)
+        }
+      }
+      if (val === '') {
+        // reset options of filter select
+        update(() => {
+          SELECT_FILTERS.value[index].options = options
+        })
+        return
+      }
+      // filter options
+      let filtered_options = options.filter((option) => {
+        return option.toLowerCase().includes(val.toLowerCase())
+      })
+      // update options of filter select
+      update(() => {
+        // update options of filter select
+        SELECT_FILTERS.value[index].options = filtered_options
+      })
+    }
+
     // called when predefined filter is changed to update the table
-    async function ChangeFilterEntry(field: string){
+    async function ChangeSelectFilter(field: string){
       // get values of filter select stored in predefined_filters as an array
       let values: string[] = []
-      for (let filter of PREDEFINED_FILTERS.value) {
+      for (let filter of SELECT_FILTERS.value) {
         if (filter.api_field === field) {
           values = filter.selected
         }
@@ -437,35 +467,6 @@ export default {
         })
       }
       await ReloadTable()
-    }
-
-    // function used in the quasar select element to update the options of the select element
-    function FilterSelect(val: string, update: (arg0: { (): void; (): void; }) => void, abort: never, field: string) {
-      // get options of filter select stored in predefined_filters
-      let options: string[] = []
-      let index = 0
-      for (let filter of PREDEFINED_FILTERS.value) {
-        if (filter.field === field) {
-          options = filter.total_options
-          index = PREDEFINED_FILTERS.value.indexOf(filter)
-        }
-      }
-      if (val === '') {
-        // reset options of filter select
-        update(() => {
-          PREDEFINED_FILTERS.value[index].options = options
-        })
-        return
-      }
-      // filter options
-      let filtered_options = options.filter((option) => {
-        return option.toLowerCase().includes(val.toLowerCase())
-      })
-      // update options of filter select
-      update(() => {
-        // update options of filter select
-        PREDEFINED_FILTERS.value[index].options = filtered_options
-      })
     }
 
     // called when column filter is changed to update the table
@@ -528,11 +529,8 @@ export default {
     // clear all filters and reload table
     function ClearFilters(){
       FilterObject.value.entries = []
-      for (let filter of PREDEFINED_FILTERS.value) {
+      for (let filter of SELECT_FILTERS.value) {
         filter.selected = []
-      }
-      for (let column of columns.value) {
-        column_filters.value[column.field] = ''
       }
       search_filter.value = ''
       ReloadTable()
@@ -550,14 +548,14 @@ export default {
       hide_all_columns,
       loading,
       show_filters,
-      PREDEFINED_FILTERS,
+      SELECT_FILTERS,
       column_filters,
       search_filter,
       ShowAllColumns,
       HideAllColumns,
       AdjustShowHideAllColumns,
       OnRequest,
-      ChangeFilterEntry,
+      ChangeSelectFilter,
       FilterSelect,
       ChangeColumnFilter,
       ClearFilters,

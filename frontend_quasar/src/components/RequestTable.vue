@@ -14,13 +14,20 @@
       <div class="col">
         <div class="row">
           <q-btn
-            flat round dense
+            flat dense
             :icon="props.inFullscreen ? 'fullscreen_exit' : 'fullscreen'"
             @click="props.toggleFullscreen"
           />
 
           <div class="col-2 q-table__title q-ml-md">{{ title }}</div>
           <q-space />
+          <q-btn-group
+            push
+            class="q-mx-md"
+          >
+            <q-btn push label="Show my" @click="ToggleUserFilter" :color="user_toggle_filter_active? 'primary':'blue-grey-1'" :text-color="user_toggle_filter_active? 'white':'black'"/>
+            <q-btn push label="Show all" @click="ToggleUserFilter" :color="user_toggle_filter_active? 'blue-grey-1':'primary'" :text-color="user_toggle_filter_active? 'black':'white'"/>
+          </q-btn-group>
           <q-input
             outlined
             dense
@@ -73,10 +80,10 @@
             </q-menu>
           </q-btn>
         </div>
-        <q-separator class="q-my-md" v-if="show_filters & PREDEFINED_FILTERS.length > 0"/>
-        <div class="row" v-if="show_filters & PREDEFINED_FILTERS.length > 0">
+        <q-separator class="q-my-md" v-if="show_filters"/>
+        <div class="row" v-if="show_filters">
           <div class="col flex justify-start">
-            <div v-for="filter in PREDEFINED_FILTERS" v-bind:key="filter.field" class="q-pr-md">
+            <div v-for="filter in SELECT_FILTERS" v-bind:key="filter.field" class="q-pr-md">
               <q-select
                 outlined
                 dense
@@ -88,10 +95,11 @@
                 :options="filter.options"
                 :multiple="filter.type=='options_mc'"
                 display-value=""
-                @update:model-value="ChangeFilterEntry(filter.api_field)"
-                @clear="ChangeFilterEntry(filter.api_field)"
+                @update:model-value="ChangeSelectFilter(filter.api_field)"
+                @clear="ChangeSelectFilter(filter.api_field)"
                 style="width: 200px"
                 @filter="(val, update, abort) => { FilterSelect(val, update, abort, filter.field) }"
+                v-if="filter.type=='options_mc'"
               >
                 <template v-slot:option="scope">
                   <q-item v-bind="scope.itemProps">
@@ -105,6 +113,21 @@
                   </q-item>
                 </template>
               </q-select>
+            </div>
+            <div v-for="filter in DATERANGE_FILTERS" v-bind:key="filter.field" class="q-pr-md">
+              <q-btn-dropdown
+                  outline
+                  icon="calendar_today"
+                  :label="filter.name"
+                  text-color="grey-8"
+                  size="1.1em"
+              >
+                <q-date
+                    v-model="filter.selected_daterange"
+                    range
+                    @update:model-value="ChangeDateRangeFilter(filter.api_field, filter.selected_daterange)"
+                />
+              </q-btn-dropdown>
             </div>
           </div>
           <div class="col-auto">
@@ -226,6 +249,8 @@ import API from 'src/api';
 import { useRouter } from 'vue-router';
 import RequestItemIcon from 'components/global/RequestItemIcon.vue';
 import StatusIcon from 'components/global/StatusIcon.vue';
+import { useLoggedInUserStore } from 'src/stores/loggedinuser';
+import { useLoginStore } from 'src/stores/login';
 
 // columns of table
 const COLUMNS = [
@@ -256,10 +281,16 @@ const VISIBLE_COLUMNS =  [
 ]
 
 // predefined filters of table
-const PREDEFINED_FILTERS = ref([
-  { name: 'status', field: 'status', api_field: 'status_mc', type: 'options_mc', options: [] as string[], total_options: [] as string[], selected: []},
-  { name: 'category', field: 'category', api_field: 'category_mc', type: 'options_mc', options: [] as string[], total_options: [] as string[], selected: []},
+const SELECT_FILTERS = ref([
+  { name: 'status', field: 'status', api_field: 'status_mc', type: 'options_mc', option_api_field: 'status', options: [] as string[], total_options: [] as string[], selected: []},
+  { name: 'category', field: 'category', api_field: 'category_mc', type: 'options_mc', option_api_field: 'category', options: [] as string[], total_options: [] as string[], selected: []},
 ])
+
+const DATERANGE_FILTERS = ref([
+  { name: 'last changed', field: 'last_changed', api_field: 'last_changed', type: 'date_range', selected_daterange: null},
+])
+
+
 
 
 export default {
@@ -269,6 +300,9 @@ export default {
   setup(props) {
     // load router
     const router = useRouter()
+
+    //
+    const LoggedInUserStore = useLoggedInUserStore()
 
     // rows of table
     let rows = ref([])
@@ -294,6 +328,11 @@ export default {
     let show_all_columns = ref(false)
     let hide_all_columns = ref(false)
 
+    //
+    let show_date_filter = ref(false)
+
+
+
     // determines if column filters as well as predefined filters are shown
     let show_filters = ref(false)
 
@@ -304,6 +343,9 @@ export default {
 
     // initialize column filters to be empty
     const column_filters = ref<ColumnFilter>({})
+
+    let user_toggle_filter_active = ref(false)
+
     // initialize search filter to be empty
     let search_filter = ref('')
 
@@ -312,8 +354,39 @@ export default {
       'entries': []
     })
 
+    async function ToggleUserFilter() {
+      loading.value = true
+      if (user_toggle_filter_active.value){
+        // remove user filter
+        FilterObject.value.entries = FilterObject.value.entries.filter((entry) => {
+          return entry.field != 'username'
+        })
+      } else {
+        // add user filter
+        FilterObject.value.entries.push({
+          'field': 'username',
+          'type': '',
+          'value': LoggedInUserStore.username
+        })
+      }
+      user_toggle_filter_active.value = !user_toggle_filter_active.value
+      await ReloadTable(true)
+      loading.value = false
+    }
+
+    function SetupUserFilter(){
+      if (user_toggle_filter_active.value){
+        // add user filter
+        FilterObject.value.entries.push({
+          'field': 'username',
+          'type': '',
+          'value': LoggedInUserStore.username
+        })
+      }
+    }
 
     onMounted(async () => {
+      SetupUserFilter()
       columns.value = COLUMNS
       // setup hideable columns
       // get column field and label form props.columns
@@ -349,6 +422,7 @@ export default {
 
     // load rows of table from backend (with pagination, filtering and sorting)
     async function LoadTableData() {
+      loading.value = true
       let offset = (pagination.value.page - 1) * pagination.value.rowsPerPage
       let limit = pagination.value.rowsPerPage
       let url = API.API+'request/?limit=' + limit + '&offset=' + offset
@@ -361,6 +435,7 @@ export default {
       let response = await axios.get(url)
       pagination.value.rowsNumber = response.data.count
       rows.value = response.data.results
+      loading.value = false
     }
 
     // show all columns
@@ -396,7 +471,6 @@ export default {
       hide_all_columns.value = visible_columns.value.length === non_hideable_columns.value.length;
     }
 
-    // used to update pagination and reload table data
     function OnRequest(props: any) {
       const { page, rowsPerPage, sortBy, descending } = props.pagination
       loading.value = true
@@ -419,30 +493,105 @@ export default {
           ongoing_request = true
           setTimeout(async () => {
             await LoadTableData()
+            await LoadFilterOptions()
             ongoing_request = false
           }, 1000)
         }
       }else {
         await LoadTableData()
+        await LoadFilterOptions()
       }
       loading.value = false
     }
 
+
     // load filter options for all predefined filters
     async function LoadFilterOptions(){
-      for (let filter of PREDEFINED_FILTERS.value) {
-        let url = API.API+'request/filteroptions/' + filter.field + '/'
-        let response = await axios.get(url)
-        filter.options = response.data
-        filter.total_options = response.data
+      let url = API.API+'request/filteroptions/?'+FilterToQueryString(FilterObject.value)
+      let response = await axios.get(url)
+      // set options of predefined filters
+      for (let filter of SELECT_FILTERS.value) {
+        filter.options = response.data[filter.option_api_field]
+        filter.total_options = response.data[filter.option_api_field]
       }
     }
 
+    // function used in the quasar select element to update the options of the select element
+    function FilterSelect(val: string, update: (arg0: { (): void; (): void; }) => void, abort: never, field: string) {
+      // get options of filter select stored in predefined_filters
+      let options: string[] = []
+      let index = 0
+      for (let filter of SELECT_FILTERS.value) {
+        if (filter.field === field) {
+          options = filter.total_options
+          index = SELECT_FILTERS.value.indexOf(filter)
+        }
+      }
+      if (val === '') {
+        // reset options of filter select
+        update(() => {
+          SELECT_FILTERS.value[index].options = options
+        })
+        return
+      }
+      // filter options
+      let filtered_options = options.filter((option) => {
+        return option.toLowerCase().includes(val.toLowerCase())
+      })
+      // update options of filter select
+      update(() => {
+        // update options of filter select
+        SELECT_FILTERS.value[index].options = filtered_options
+      })
+    }
+
+    async function ChangeDateRangeFilter(api_field: string, value: { from: string; to: string } | string){
+      // cast value to date string for django
+      let from_date = ''
+      let to_date = ''
+      if (value !== null) {
+        if (typeof value === 'string') {
+          from_date = new Date(value).toISOString().slice(0, 10)
+          to_date = new Date(value).toISOString().slice(0, 10)
+        } else {
+          from_date = new Date(value.from).toISOString().slice(0, 10)
+          to_date = new Date(value.to).toISOString().slice(0, 10)
+        }
+      }
+      // remove filter entry if exists (pay attention that api_field is used with suffix _from and _to)
+      for (let filter of FilterObject.value.entries) {
+        if (filter.type === 'daterange') {
+          FilterObject.value.entries = FilterObject.value.entries.filter((entry) => {
+            return !(entry.field === (api_field+'_from') && entry.type === 'daterange')
+          })
+          FilterObject.value.entries = FilterObject.value.entries.filter((entry) => {
+            return !(entry.field === (api_field+'_to') && entry.type === 'daterange')
+          })
+        }
+      }
+
+      if (value !== null) {
+        // add new filter entry to the given api field
+        FilterObject.value.entries.push({
+          'field': api_field+'_from',
+          'type': 'daterange',
+          'value': from_date
+        })
+        FilterObject.value.entries.push({
+          'field': api_field+'_to',
+          'type': 'daterange',
+          'value': to_date
+        })
+      }
+
+      await ReloadTable()
+    }
+
     // called when predefined filter is changed to update the table
-    async function ChangeFilterEntry(field: string){
+    async function ChangeSelectFilter(field: string){
       // get values of filter select stored in predefined_filters as an array
       let values: string[] = []
-      for (let filter of PREDEFINED_FILTERS.value) {
+      for (let filter of SELECT_FILTERS.value) {
         if (filter.api_field === field) {
           values = filter.selected
         }
@@ -481,35 +630,6 @@ export default {
         })
       }
       await ReloadTable()
-    }
-
-    // function used in the quasar select element to update the options of the select element
-    function FilterSelect(val: string, update: (arg0: { (): void; (): void; }) => void, abort: never, field: string) {
-      // get options of filter select stored in predefined_filters
-      let options: string[] = []
-      let index = 0
-      for (let filter of PREDEFINED_FILTERS.value) {
-        if (filter.field === field) {
-          options = filter.total_options
-          index = PREDEFINED_FILTERS.value.indexOf(filter)
-        }
-      }
-      if (val === '') {
-        // reset options of filter select
-        update(() => {
-          PREDEFINED_FILTERS.value[index].options = options
-        })
-        return
-      }
-      // filter options
-      let filtered_options = options.filter((option) => {
-        return option.toLowerCase().includes(val.toLowerCase())
-      })
-      // update options of filter select
-      update(() => {
-        // update options of filter select
-        PREDEFINED_FILTERS.value[index].options = filtered_options
-      })
     }
 
     // called when column filter is changed to update the table
@@ -572,8 +692,11 @@ export default {
     // clear all filters and reload table
     function ClearFilters(){
       FilterObject.value.entries = []
-      for (let filter of PREDEFINED_FILTERS.value) {
+      for (let filter of SELECT_FILTERS.value) {
         filter.selected = []
+      }
+      for (let filter of DATERANGE_FILTERS.value) {
+        filter.selected_daterange = null
       }
       for (let column of columns.value) {
         column_filters.value[column.field] = ''
@@ -598,19 +721,24 @@ export default {
       hide_all_columns,
       loading,
       show_filters,
-      PREDEFINED_FILTERS,
+      SELECT_FILTERS,
+      DATERANGE_FILTERS,
       column_filters,
       search_filter,
+      user_toggle_filter_active,
+      show_date_filter,
       ShowAllColumns,
       HideAllColumns,
       AdjustShowHideAllColumns,
       OnRequest,
-      ChangeFilterEntry,
+      ChangeDateRangeFilter,
+      ChangeSelectFilter,
       FilterSelect,
       ChangeColumnFilter,
       ClearFilters,
       ChangeSearchFilter,
       NavigateToDetails,
+      ToggleUserFilter,
     }
   }
 }

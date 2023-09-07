@@ -13,7 +13,7 @@
       </q-card-section>
       <q-card-section>
         <q-banner
-          class="bg-red-10 text-center"
+          class="bg-red-10 text-center text-white"
           rounded
           v-show="errorShown"
         >
@@ -96,10 +96,9 @@ export default {
 
     const login = async () => {
       if (LoginStore.IsLoggedIn) {
-        console.log('user already logged in -> log out user')
         await logout()
       }
-
+      let logged_in = false;
       await axios.post(
       API_URLS.USER_API+'login/',
       {
@@ -114,6 +113,7 @@ export default {
             response.data.expiry
           )
           directly_logged_in.value = true
+          logged_in = true
         }
       }).catch((error) => {
         if (!error) {
@@ -131,8 +131,10 @@ export default {
         }
         showErrorMessage()
       })
-      await LoggedInUserStore.UpdateProfileInformation()
-      await router.push('/profile')
+      if (logged_in) {
+        await LoggedInUserStore.UpdateProfileInformation()
+        await router.push('/profile')
+      }
     }
 
     async function logout () {

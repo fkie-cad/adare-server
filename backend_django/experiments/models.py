@@ -115,11 +115,12 @@ class ExperimentRun(models.Model):
     uuid = models.UUIDField(primary_key=True)
     publisher = models.ForeignKey(User, on_delete=models.PROTECT)
     publish_date = models.DateTimeField()
-    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='scenario_runs')
+    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='experiment_runs')
     timestamp_start = models.DateTimeField()
     timestamp_end = models.DateTimeField()
     tests = models.ManyToManyField(Test)
     status = models.ForeignKey(Status, on_delete=models.PROTECT)
+    logfile = models.FileField(upload_to='logfiles/')
 
     def __str__(self):
         return f'{self.uuid}'
@@ -131,7 +132,7 @@ class Scenario(models.Model):
     publisher = models.ForeignKey(User, on_delete=models.PROTECT)
     publish_date = models.DateTimeField()
     published = models.BooleanField(default=False)
-    experiments = models.ManyToManyField(Experiment, related_name='experiments', blank=True)
+    experiments = models.ManyToManyField(Experiment, related_name='scenarios', blank=True)
     description = models.CharField(max_length=1000, blank=True)
     tags = models.ManyToManyField(Tag, blank=True)
 
@@ -153,15 +154,29 @@ class Label(models.Model):
         return str(self.name)
 
 
+class AssignRequestData(models.Model):
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE)
+    scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE)
+
+
 class Request(models.Model):
+    CATEGORY_TYPE_CHOICES = [
+        ('experiment', 'experiment'),
+        ('scenario', 'scenario'),
+        ('assign', 'assign'),
+    ]
+
     title = models.CharField(max_length=1000)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     description = models.CharField(max_length=3000, blank=True)
 
     last_changed = models.DateTimeField()
 
+    category_type = models.CharField(choices=CATEGORY_TYPE_CHOICES, max_length=100, null=False, blank=False)
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, blank=True, null=True)
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, blank=True, null=True)
+    assign = models.ForeignKey(AssignRequestData, on_delete=models.CASCADE, blank=True, null=True)
 
     requestor = models.ForeignKey(User, on_delete=models.PROTECT, related_name='requests')
     request_creation_date = models.DateTimeField()

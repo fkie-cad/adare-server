@@ -4,3 +4,10 @@ djangorestframework
 django-filter
 django-cors-headers
 sorl-thumbnail
+python-decouple
+gunicorn
+psycopg2-binary
+django-rest-knox
+django-redis
+django-csp
+PyYAML

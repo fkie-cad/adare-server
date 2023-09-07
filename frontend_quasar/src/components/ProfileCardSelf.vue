@@ -41,22 +41,13 @@
           </div>
         </div>
         <q-separator />
-        <div class="row justify-between  q-pa-sm">
+        <div class="row justify-between q-pa-sm">
           <div class="column text-h6 tw-text-gray-600">
             achievements
           </div>
         </div>
         <div class="row justify-evenly">
-          <q-img
-            :src="achievements.image"
-            style="height: 110px; width: 110px"
-            v-for="achievements in LoggedInUserStore.GetUserAchievements.values()"
-            v-bind:key="achievements.id"
-          >
-            <q-tooltip>
-              {{ achievements.description }}
-            </q-tooltip>
-          </q-img>
+          <AchievementIcon  :image="achiev.image" :description="achiev.description" :count="achiev.count" v-for="achiev in LoggedInUserStore.GetUserAchievements.values()" v-bind:key="achiev.id" />
         </div>
       </q-card-section>
     </q-card>
@@ -69,10 +60,12 @@ import ProfileImageSelf from 'components/ProfileImageSelf.vue';
 import {onMounted, ref} from 'vue';
 import {storeToRefs} from 'pinia';
 import { useRouter } from 'vue-router';
+import AchievementIcon from 'components/global/AchievmentIcon.vue';
 
 export default {
   name: 'ProfileCardSelf',
   components: {
+    AchievementIcon,
     ProfileImageSelf
   },
 

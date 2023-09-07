@@ -20,13 +20,27 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/scenario/:uuid',
+    path: '/scenariodetails/:uuid',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
         path: '',
         components: {
           main: () => import('pages/ScenarioExperimentPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
+      },
+    ],
+  },
+  {
+    path: '/logfile/:experimentrunuuid',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/LogfilePage.vue'),
           header: () => import('components/HeaderDefault.vue'),
         },
         props: true,
@@ -47,7 +61,21 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/experiment/:uuid',
+    path: '/experiment/:scenario',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/ExperimentListPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
+      },
+    ],
+  },
+  {
+    path: '/experimentdetails/:uuid',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {

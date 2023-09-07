@@ -1,9 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils.timezone import make_aware
+
+from experiments.models import Request, RequestStatus
+from datetime import datetime
 
 
-class Achievement(models.Model):
-    name = models.CharField(max_length=100)
+class AchievementCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=1000)
     image = models.ImageField(upload_to='achievements/')
 
@@ -11,17 +15,48 @@ class Achievement(models.Model):
         return self.name
 
 
-# todo: think about real achievements and select items
+class Achievement(models.Model):
+    profile = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='achievements')
+    category = models.ForeignKey('AchievementCategory', on_delete=models.CASCADE, related_name='achievements')
+    date_earned = models.DateTimeField(auto_now=True)
+    date_updated = models.DateTimeField(auto_now_add=True)
+    count = models.IntegerField(default=0)
+
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     avatar = models.ImageField(blank=True, null=True, upload_to='users/avatars/')
-    # achievements = models.ManyToManyField(Achievement, blank=True, related_name='users')
 
-    @property
-    def achievements(self):
-        achievements = []
-        if self.user.requests.count() >= 0:
-            achievements.append(Achievement.objects.get(name='first_request'))
-            achievements.append(Achievement.objects.get(name='test2'))
-            achievements.append(Achievement.objects.get(name='test3'))
-        return achievements
+    def update_achievements(self):
+        user_request_count = self.user.requests.count()
+        if user_request_count >= 1:
+            category = AchievementCategory.objects.get(name='first_request')
+            achievement, created = Achievement.objects.get_or_create(profile=self, category=category)
+            if achievement.count != user_request_count:
+                # set updated date to now
+                achievement.date_updated = make_aware(datetime.now())
+                achievement.count = user_request_count
+                achievement.save()
+            achievement.save()
+
+        accepted_experiment_count = self.user.requests.filter(status__name='accepted', category_type='experiment').count()
+        if accepted_experiment_count >= 1:
+            category = AchievementCategory.objects.get(name='first_accepted_experiment')
+            achievement, created = Achievement.objects.get_or_create(profile=self, category=category)
+            if achievement.count != accepted_experiment_count:
+                # set updated date to now
+                achievement.date_updated = make_aware(datetime.now())
+                achievement.count = accepted_experiment_count
+                achievement.save()
+            achievement.save()
+
+        accepted_scenario_count = self.user.requests.filter(status__name='accepted', category_type='scenario').count()
+        if accepted_scenario_count >= 1:
+            category = AchievementCategory.objects.get(name='first_accepted_scenario')
+            achievement, created = Achievement.objects.get_or_create(profile=self, category=category)
+            if achievement.count != accepted_scenario_count:
+                # set updated date to now
+                achievement.date_updated = make_aware(datetime.now())
+                achievement.count = accepted_scenario_count
+                achievement.save()
+            achievement.save()

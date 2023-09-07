@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from users.models import Profile, Achievement
 from sorl.thumbnail import get_thumbnail
+import sorl
 
 
 class LoginSerializer(serializers.Serializer):
@@ -57,14 +58,17 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class AchievementSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField()
+    name = serializers.CharField(source='category.name', read_only=True)
+    image = serializers.ImageField(source='category.image', read_only=True)
+    description = serializers.CharField(source='category.description', read_only=True)
 
     class Meta:
         model = Achievement
         fields = [
             'name',
-            'description',
             'image',
+            'description',
+            'count',
         ]
 
 
@@ -137,7 +141,6 @@ class PublicProfileSerializer(serializers.ModelSerializer):
         }
 
 
-
 class ProfileAvatarSerializer(serializers.ModelSerializer):
     avatar = serializers.ImageField()
     avatar_thumbnail_sm = serializers.SerializerMethodField()
@@ -153,7 +156,6 @@ class ProfileAvatarSerializer(serializers.ModelSerializer):
             'avatar_thumbnail_lg',
         ]
         extra_kwargs = {
-            'avatar': {'write_only': True},
             'avatar_thumbnail:sm': {'read_only': True},
             'avatar_thumbnail:md': {'read_only': True},
             'avatar_thumbnail:lg': {'read_only': True},

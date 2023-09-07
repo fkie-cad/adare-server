@@ -48,16 +48,7 @@
           </div>
         </div>
         <div class="row justify-evenly">
-          <q-img
-            :src="achiev.image"
-            style="height: 110px; width: 110px"
-            v-for="achiev in UserStore.GetUserAchievements(username).values()"
-            v-bind:key="achiev.id"
-          >
-            <q-tooltip>
-              {{ achiev.description }}
-            </q-tooltip>
-          </q-img>
+          <AchievementIcon  :image="achiev.image" :description="achiev.description" :count="achiev.count" v-for="achiev in UserStore.GetUserAchievements(username).values()" v-bind:key="achiev.id" />
         </div>
       </q-card-section>
     </q-card>
@@ -71,10 +62,12 @@ import ProfileImage from 'components/ProfileImage.vue';
 import {onMounted, ref} from 'vue';
 import {storeToRefs} from 'pinia';
 import { useRouter } from 'vue-router';
+import AchievementIcon from 'components/global/AchievmentIcon.vue';
 
 export default {
   name: 'ProfileCard',
   components: {
+    AchievementIcon,
     ProfileImage
   },
   props: ['username'],

@@ -52,21 +52,23 @@
                 <td class="tw-text-left">description</td>
                 <td class="tw-text-right">
                   <div class="tw-whitespace-pre-wrap">
-                    Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+                    {{ experiment_data.description }}
                   </div>
                 </td>
               </tr>
               <tr>
                 <td class="tw-text-left">tags</td>
                 <td class="tw-text-right">
-                  <q-chip
-                    v-for="tag in experiment_data.tags"
-                    :key="tag"
-                    :label="'#'+tag"
-                    color="primary"
-                    text-color="white"
-                    class="q-ma-xs"
-                  />
+                  <div class="tw-whitespace-pre-wrap">
+                    <q-chip
+                      v-for="tag in experiment_data.tags"
+                      :key="tag"
+                      :label="'#'+tag"
+                      color="primary"
+                      text-color="white"
+                      class="q-ma-xs"
+                    />
+                  </div>
                 </td>
               </tr>
               </tbody>
@@ -157,12 +159,8 @@
         />
       </q-card-section>
       <q-card-section>
-        <AdvancedDataTable
-          :data_get_function="GetExperimentRuns"
-          :visible-columns="vis_columns_experimentrun"
-          :columns="columns_experimentrun"
-          title="Runs"
-          class="tw-w-full"
+        <ExperimentrunTable
+          :experiment="experiment_data.uuid"
         />
       </q-card-section>
     </q-card>
@@ -176,6 +174,7 @@ import {storeToRefs} from 'pinia';
 import {onMounted, ref} from 'vue';
 import {Experiment} from 'src/datatypes/scenario';
 import AdvancedDataTable from 'components/global/AdvancedDataTable.vue';
+import ExperimentrunTable from 'components/ExperimentrunTable.vue';
 import ProfileImage from 'components/ProfileImage.vue';
 
 const columns_test = [
@@ -190,21 +189,10 @@ const columns_test = [
 
 const vis_columns_test = ['name', 'description', 'testfunction', 'parameters', 'tool__name', 'tool__command']
 
-const columns_experimentrun = [
-  { name: 'status', label: 'status', field: 'status', align: 'left', sortable: true, hideable: true, type: 'status'},
-  { name: 'uuid', label: 'uuid', field: 'uuid', align: 'left', sortable: true, hideable: true, },
-  { name: 'publisher_name', align: 'left', label: 'publisher', field: 'publisher_name', hideable: true, type: 'user_icon'},
-  { name: 'publish_date', align: 'left', label: 'publish date', field: 'publish_date', hideable: true},
-  { name: 'timestamp_start', label: 'timestamp start', field: 'timestamp_start', align: 'left', sortable: true, hideable: true, },
-  { name: 'timestamp_end', label: 'timestamp end', field: 'timestamp_end', align: 'left', sortable: true, hideable: true, },
-]
-
-const vis_columns_experimentrun = ['publisher_name', 'publish_date', 'timestamp_start', 'timestamp_end', 'status']
-
 export default {
   name: 'ExperimentOverview',
 
-  components: {AdvancedDataTable, ProfileImage},
+  components: {AdvancedDataTable, ProfileImage, ExperimentrunTable},
 
   props: {
     uuid: {
@@ -228,18 +216,11 @@ export default {
       return experiment_data.value?.abstract_tests
     }
 
-    let GetExperimentRuns = () => {
-      return experiment_data.value?.experiment_runs
-    }
-
     return {
       experiment_data,
       GetAbstractTests,
-      GetExperimentRuns,
       vis_columns_test,
       columns_test,
-      vis_columns_experimentrun,
-      columns_experimentrun,
     }
   }
 }

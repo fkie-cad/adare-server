@@ -29,23 +29,11 @@
           />
           <q-route-tab
             name="requests"
-            icon="request_page"
+            icon="ion-git-pull-request"
             label="Requests"
             to="/requests"
             v-if="LoginStore.IsLoggedIn"
           />
-<!--          <q-route-tab-->
-<!--            name="testfunctions"-->
-<!--            icon="collections_bookmark"-->
-<!--            label="Testfunctions"-->
-<!--            to="/testfunction"-->
-<!--          />-->
-<!--          <q-route-tab-->
-<!--            name="wiki"-->
-<!--            icon="article"-->
-<!--            label="Wiki"-->
-<!--            to="/wiki"-->
-<!--          />-->
         </q-tabs>
 
         <div v-if="!IsLoggedIn" class="full-height">

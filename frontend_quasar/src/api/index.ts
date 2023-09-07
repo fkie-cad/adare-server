@@ -1,4 +1,6 @@
+
 const SERVER_URL = 'http://localhost:8000/'
+// const SERVER_URL = 'https://adare.seclab-bonn.de/'
 const API_URL = SERVER_URL + 'api/'
 
 const CSRF_API = API_URL + 'csrf/'

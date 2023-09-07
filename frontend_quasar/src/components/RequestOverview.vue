@@ -322,7 +322,7 @@
           <div class="text-h6">Are you sure you want to reject this request?</div>
           <br>
           <q-btn-group spread>
-            <q-btn label="yes" @click="RejectRequest()" v-close-popup class="bg-negative"/>
+            <q-btn label="yes" @click="RejectRequest()" v-close-popup class="bg-negative text-white"/>
             <q-btn label="no" v-close-popup class="tw-bg-slate-200"/>
           </q-btn-group>
         </q-card-section>
@@ -446,7 +446,7 @@ export default {
     const selected_supervisor = ref<string>('')
 
     async function LoadRequest() {
-      await axios.get('http://localhost:8000/api/request/'+props.uuid+'/').then(
+      await axios.get('http://localhost:8000/api/request/request_'+props.uuid+'/').then(
         (response) => {
           request.value = response.data
         }
@@ -463,7 +463,7 @@ export default {
 
     function NavigateToCategory() {
       if (request.value){
-        router.push('/'+ request.value.category.type + '/'+request.value.category.category.uuid)
+        router.push('/'+ request.value.category.type + 'details/'+request.value.category.category.uuid)
       }
     }
 

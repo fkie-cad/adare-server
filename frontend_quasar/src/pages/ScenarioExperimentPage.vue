@@ -1,6 +1,6 @@
 <template>
-  <q-page class="row items-center justify-evenly">
-    <ScenarioExperimentList :uuid="uuid"/>
+  <q-page class="flex justify-center">
+    <ScenarioExperimentList :uuid="uuid" class="q-pa-lg tw-w-full"/>
   </q-page>
 </template>
 

@@ -14,12 +14,15 @@
       <div class="col">
         <div class="row">
           <q-btn
-            flat round dense
+            flat dense
             :icon="props.inFullscreen ? 'fullscreen_exit' : 'fullscreen'"
             @click="props.toggleFullscreen"
           />
 
-          <div class="col-2 q-table__title q-ml-md">{{ title }}</div>
+          <div class="col-3 q-ml-md">
+            <div class="row q-table__title">{{ title }}</div>
+            <div class="row q-table__subtitle" v-if="scenario">(Scenario {{ scenario }})</div>
+          </div>
           <q-space />
           <q-input
             outlined
@@ -76,7 +79,7 @@
         <q-separator class="q-my-md" v-if="show_filters"/>
         <div class="row" v-if="show_filters">
           <div class="col flex justify-start">
-            <div v-for="filter in PREDEFINED_FILTERS" v-bind:key="filter.field" class="q-pr-md">
+            <div v-for="filter in SELECT_FILTERS" v-bind:key="filter.field" class="q-pr-md">
               <q-select
                 outlined
                 dense
@@ -88,10 +91,11 @@
                 :options="filter.options"
                 :multiple="filter.type=='options_mc'"
                 display-value=""
-                @update:model-value="ChangeFilterEntry(filter.api_field)"
-                @clear="ChangeFilterEntry(filter.api_field)"
+                @update:model-value="ChangeSelectFilter(filter.api_field)"
+                @clear="ChangeSelectFilter(filter.api_field)"
                 style="width: 200px"
                 @filter="(val, update, abort) => { FilterSelect(val, update, abort, filter.field) }"
+                v-if="filter.type=='options_mc'"
               >
                 <template v-slot:option="scope">
                   <q-item v-bind="scope.itemProps">
@@ -105,6 +109,73 @@
                   </q-item>
                 </template>
               </q-select>
+            </div>
+            <div class="q-pr-md">
+              <q-btn-dropdown
+                  outline
+                  icon="123"
+                  label="run counts"
+                  text-color="grey-8"
+                  size="1.1em"
+                >
+                  <div
+                   v-for="filter in COUNT_FILTERS" v-bind:key="filter.field" class="q-pr-md"
+                  >
+                    <q-input
+                      dense
+                      outlined
+                      v-model="filter.value"
+                      :label="filter.name"
+                      class="tw-w-full q-pa-sm"
+                      @update:model-value="ChangeCountFilter(filter.api_field, filter.value)"
+                      :rules="[ val => (Number(val) <= filter.max_value && Number(val) >= 0) || 'invalid input']"
+                    />
+                    <q-slider
+                      v-model="filter.value"
+                      :min="0"
+                      :max="filter.max_value"
+                      :step="1"
+                      color="primary"
+                      class="q-px-md"
+                      :thumb-color="filter.color"
+                      :selection-color="filter.color"
+                      @update:model-value="ChangeCountFilter(filter.api_field, filter.value)"
+                    />
+                  </div>
+                </q-btn-dropdown>
+            </div>
+            <div v-for="filter in DATE_FILTERS" v-bind:key="filter.field" class="q-pr-md">
+              <q-btn-dropdown
+                  outline
+                  icon="calendar_today"
+                  :label="filter.name"
+                  text-color="grey-8"
+                  size="1.1em"
+              >
+                <div class="col">
+                  <div class="row tw-bg-slate-100">
+                    <q-toggle
+                      :label="filter.toggle?'before the date':'after the date'"
+                      color="primary"
+                      v-model="filter.toggle"
+                      class="q-pa-sm"
+                      @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"
+                    />
+                  </div>
+                  <div class="row tw-bg-slate-100">
+                    <div class="q-gutter-sm">
+                      <q-radio v-model="filter.experimentrun_status" val="success" label="Success" color="positive" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
+                      <q-radio v-model="filter.experimentrun_status" val="all" label="Total" color="secondary" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
+                      <q-radio v-model="filter.experimentrun_status" val="failed" label="Failed" color="negative" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
+                    </div>
+                  </div>
+                  <q-date
+                    v-model="filter.selected_date"
+                    @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"
+                    class="row q-pa-sm"
+                  />
+                </div>
+              </q-btn-dropdown>
             </div>
           </div>
           <div class="col-auto">
@@ -184,7 +255,10 @@
               color="primary"
               icon="get_app"
               @click="DownloadFile(col.value, col.filename_function(props.row))"
-            />
+              class="q-px-sm q-mx-sm"
+            >
+              <q-tooltip>download</q-tooltip>
+            </q-btn>
           </div>
           <div v-else-if="col.type=='os_info'">
             <OsIcon :item="col.value.os"/> {{ col.value.distribution }}
@@ -228,7 +302,7 @@ function GetTestsetFileName(row: any) {
 
 // columns of table
 const COLUMNS = [
-  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, non_api_field: true, type: 'link', link_field: 'uuid', link_url: '/experiment/', link_icon: 'o_add_circle', hide_filter: true},
+  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, non_api_field: true, type: 'link', link_field: 'uuid', link_url: '/experimentdetails/', link_icon: 'o_add_circle', hide_filter: true},
   { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true},
   { name: 'os_info', label: 'os', field: 'os_info', align: 'left', sortable: true, hideable: true, type: 'os_info'},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true},
@@ -244,15 +318,33 @@ const COLUMNS = [
 // visible columns of table (when loading table for the first time)
 const VISIBLE_COLUMNS = ['details', 'name', 'os', 'description', 'publisher_name', 'tags', 'run_counts', 'action_file', 'testset_file']
 
-// predefined filters of table
-const PREDEFINED_FILTERS = ref([
-      { name: 'tags', field: 'tags', api_field: 'tags_mc', type: 'options_mc', options: [] as string[], total_options: [] as string[], selected: []}
+// predefined selection filters of table
+const SELECT_FILTERS = ref([
+  { name: 'tags', field: 'tags', api_field: 'tags_mc', option_api_field: 'tags', type: 'options_mc', options: [] as string[], total_options: [] as string[], selected: []},
+])
+
+// predefined count filters of table
+const COUNT_FILTERS = ref([
+  { name: 'success', color: 'positive', field: 'min_runs_success', api_field: 'min_runcount_pos', max_api_field: 'max_success', max_value: 0, value: 0},
+  { name: 'failed', color: 'negative', field: 'min_runs_failed', api_field: 'min_runcount_neg', max_api_field: 'max_failed', max_value: 0, value: 0},
+  { name: 'total', color: 'info', field: 'min_runs_total', api_field: 'min_runcount', max_api_field: 'total_count', max_value: 0, value: 0},
+])
+
+const DATE_FILTERS = ref([
+  { name: 'latest experiment run', field: 'latest_experiment_run', api_field: 'latest_experiment_run', selected_date: '', toggle: false, experimentrun_status: 'all'}
 ])
 
 
 export default {
   name: 'ExperimentTable',
   components: {OsIcon, ProfileImage},
+
+  props: {
+    scenario: {
+      type: String,
+      required: false,
+    },
+  },
 
   setup(props) {
     // rows of table
@@ -289,6 +381,9 @@ export default {
 
     // initialize column filters to be empty
     const column_filters = ref<ColumnFilter>({})
+    // unchangable column filters (e.g. scenario)
+    const unchangable_column_filters = ref<ColumnFilter>({})
+
     // initialize search filter to be empty
     let search_filter = ref('')
 
@@ -297,8 +392,31 @@ export default {
       'entries': []
     })
 
+    // table title
+    let table_title = ref('Experiment Table')
+
+
+    function SetUnchangableColumnFilter() {
+      // apply unchangable column filters to column filters
+      for (let column in unchangable_column_filters.value) {
+        FilterObject.value.entries.push({
+          'field': column,
+          'type': 'eq',
+          'value': unchangable_column_filters.value[column]
+        })
+      }
+    }
+
 
     onMounted(async () => {
+
+      // add scenario to unchangable column filters and remove column for scenario
+      if (props.scenario) {
+        unchangable_column_filters.value['scenario_eq'] = props.scenario
+        columns.value = columns.value.filter(column => column.field != 'scenario')
+        SetUnchangableColumnFilter()
+      }
+
       columns.value = COLUMNS
       // setup hideable columns
       // get column field and label form props.columns
@@ -326,8 +444,6 @@ export default {
 
       // load rows of table
       await ReloadTable()
-      // load predefined filter options
-      await LoadFilterOptions()
 
       AdjustShowHideAllColumns()
     })
@@ -404,30 +520,80 @@ export default {
           ongoing_request = true
           setTimeout(async () => {
             await LoadTableData()
+            await LoadFilterOptions()
             ongoing_request = false
           }, 1000)
         }
       }else {
         await LoadTableData()
+        await LoadFilterOptions()
       }
       loading.value = false
     }
 
     // load filter options for all predefined filters
     async function LoadFilterOptions(){
-      for (let filter of PREDEFINED_FILTERS.value) {
-        let url = API.API+'experiment/filteroptions/' + filter.field + '/'
-        let response = await axios.get(url)
-        filter.options = response.data
-        filter.total_options = response.data
+      let url = API.API+'experiment/filteroptions/?'+FilterToQueryString(FilterObject.value)
+      let response = await axios.get(url)
+      // set options of predefined filters
+      for (let filter of SELECT_FILTERS.value) {
+        filter.options = response.data[filter.option_api_field]
+        filter.total_options = response.data[filter.option_api_field]
+      }
+      // set run count max values
+      for (let filter of COUNT_FILTERS.value) {
+        filter.max_value = response.data[filter.max_api_field]
       }
     }
 
+    async function ChangeCountFilter(api_field: string, value: number){
+      // remove filter entry if exists
+      for (let filter of FilterObject.value.entries) {
+        if (filter.field === api_field && filter.type === 'count') {
+          FilterObject.value.entries = FilterObject.value.entries.filter((entry) => {
+            return !(entry.field === api_field && entry.type === 'count')
+          })
+        }
+      }
+
+      // add new filter entry to the given api field
+      if (value > 0){
+        FilterObject.value.entries.push({
+          'field': api_field,
+          'type': 'count',
+          'value': value.toString()
+        })
+      }
+      await ReloadTable()
+    }
+
+    async function ChangeDateFilter(api_field: string, value: string, before: boolean, experimentrun_status: string){
+      // cast value to date string for django
+      value = new Date(value).toISOString().slice(0, 10)
+      // remove filter entry if exists
+      for (let filter of FilterObject.value.entries) {
+        if (filter.field.includes(api_field) && filter.type === 'date') {
+          FilterObject.value.entries = FilterObject.value.entries.filter((entry) => {
+            return !(entry.field.includes(api_field) && entry.type === 'date')
+          })
+        }
+      }
+
+      // add new filter entry to the given api field
+      FilterObject.value.entries.push({
+        'field': api_field+'_'+(before? 'before' : 'after'),
+        'type': 'date',
+        'value': value.toString()+','+experimentrun_status
+      })
+
+      await ReloadTable()
+    }
+
     // called when predefined filter is changed to update the table
-    async function ChangeFilterEntry(field: string){
+    async function ChangeSelectFilter(field: string){
       // get values of filter select stored in predefined_filters as an array
       let values: string[] = []
-      for (let filter of PREDEFINED_FILTERS.value) {
+      for (let filter of SELECT_FILTERS.value) {
         if (filter.api_field === field) {
           values = filter.selected
         }
@@ -473,16 +639,16 @@ export default {
       // get options of filter select stored in predefined_filters
       let options: string[] = []
       let index = 0
-      for (let filter of PREDEFINED_FILTERS.value) {
+      for (let filter of SELECT_FILTERS.value) {
         if (filter.field === field) {
           options = filter.total_options
-          index = PREDEFINED_FILTERS.value.indexOf(filter)
+          index = SELECT_FILTERS.value.indexOf(filter)
         }
       }
       if (val === '') {
         // reset options of filter select
         update(() => {
-          PREDEFINED_FILTERS.value[index].options = options
+          SELECT_FILTERS.value[index].options = options
         })
         return
       }
@@ -493,7 +659,7 @@ export default {
       // update options of filter select
       update(() => {
         // update options of filter select
-        PREDEFINED_FILTERS.value[index].options = filtered_options
+        SELECT_FILTERS.value[index].options = filtered_options
       })
     }
 
@@ -501,7 +667,6 @@ export default {
     function ChangeColumnFilter(field: string){
       let contains_suffix = '_contains'
       let field_wsuffix = field + contains_suffix
-      console.log(field_wsuffix)
 
       if (column_filters.value[field] === '') {
         // remove filter entry to the given field
@@ -558,13 +723,22 @@ export default {
     // clear all filters and reload table
     function ClearFilters(){
       FilterObject.value.entries = []
-      for (let filter of PREDEFINED_FILTERS.value) {
+      for (let filter of SELECT_FILTERS.value) {
         filter.selected = []
+      }
+      for (let filter of COUNT_FILTERS.value) {
+        filter.max_value = 0
+      }
+      for (let filter of DATE_FILTERS.value) {
+        filter.selected_date = ''
+        filter.toggle = false
+        filter.experimentrun_status = 'all'
       }
       for (let column of columns.value) {
         column_filters.value[column.field] = ''
       }
       search_filter.value = ''
+      SetUnchangableColumnFilter()
       ReloadTable()
     }
 
@@ -575,7 +749,7 @@ export default {
     }
 
     return {
-      title: 'Experiment Table',
+      title: table_title,
       rows,
       COLUMNS,
       visible_columns,
@@ -586,14 +760,18 @@ export default {
       hide_all_columns,
       loading,
       show_filters,
-      PREDEFINED_FILTERS,
+      SELECT_FILTERS,
+      COUNT_FILTERS,
+      DATE_FILTERS,
       column_filters,
       search_filter,
       ShowAllColumns,
       HideAllColumns,
       AdjustShowHideAllColumns,
       OnRequest,
-      ChangeFilterEntry,
+      ChangeSelectFilter,
+      ChangeCountFilter,
+      ChangeDateFilter,
       FilterSelect,
       ChangeColumnFilter,
       ClearFilters,

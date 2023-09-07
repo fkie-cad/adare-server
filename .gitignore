@@ -47,6 +47,9 @@ coverage.xml
 *.log
 *.pot
 
+# environment
+*.env
+
 # PyCharmStuff
 .idea
 
@@ -56,3 +59,8 @@ docsrc/_build/
 # test python file
 testfile.py
 cleanup_package_dir.py
+
+# setup scripts
+setup/
+media/
+*.sqlite3

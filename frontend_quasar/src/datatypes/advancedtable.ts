@@ -32,7 +32,7 @@ interface ColumnFilter {
 function FilterToQueryString(filter: Filter): string {
   let query = '';
   filter.entries.forEach((entry) => {
-    query += `&${entry.field}=${entry.value}`
+      query += `&${entry.field}=${entry.value}`
   })
   return query
 }

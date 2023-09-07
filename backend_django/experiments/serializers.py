@@ -260,7 +260,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
     publisher_name = serializers.SerializerMethodField('get_publisher_name', read_only=True)
     publish_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     os_info = OsInfoSerializer(read_only=True)
-    experiment_runs = serializers.SerializerMethodField('get_experiment_runs', read_only=True)
+    # experiment_runs = serializers.SerializerMethodField('get_experiment_runs', read_only=True)
 
     class Meta:
         model = Experiment
@@ -268,15 +268,13 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'uuid',
             'name',
             'description',
-            'action_file',
-            'testset_file',
             'publisher_name',
             'publish_date',
             'tags',
             'abstract_tests',
             'run_counts',
             'os_info',
-            'experiment_runs',
+            # 'experiment_runs',
         ]
         extra_kwargs = {
             'tags': {'read_only': True},
@@ -314,6 +312,7 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
     tests = TestSerializer(read_only=True, many=True)
     status = StatusSerializer(read_only=True)
     publisher_name = serializers.SerializerMethodField('get_publisher_name', read_only=True)
+    experiment = serializers.CharField(source='experiment.name', read_only=True)
 
     class Meta:
         model = ExperimentRun
@@ -325,6 +324,7 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
             'timestamp_end',
             'tests',
             'status',
+            'experiment',
         ]
 
     def get_publisher_name(self, obj):
@@ -373,7 +373,6 @@ class RequestListSerializer(serializers.ModelSerializer):
     requestor = serializers.SerializerMethodField('get_requestor', read_only=True)
     supervisor = serializers.SerializerMethodField('get_supervisor', read_only=True)
     supervisor_assigned_by = serializers.SerializerMethodField('get_supervisor_assigned_by', read_only=True)
-    category_type = serializers.SerializerMethodField('get_category_type', read_only=True)
     status = RequestStatusSerializer(read_only=True)
     labels = LabelSerializer(read_only=True, many=True)
 
@@ -391,13 +390,6 @@ class RequestListSerializer(serializers.ModelSerializer):
         if obj.supervisor_assigned_by is None:
             return None
         return obj.supervisor_assigned_by.username
-
-    def get_category_type(self, obj):
-        if obj.scenario:
-            return 'scenario'
-        elif obj.experiment:
-            return 'experiment'
-        return ''
 
     class Meta:
         model = Request
@@ -420,15 +412,20 @@ class RequestSerializer(RequestListSerializer):
     category = serializers.SerializerMethodField('get_category', read_only=True)
 
     def get_category(self, obj):
-        if obj.scenario:
+        if obj.category_type == 'scenario':
             return {
-                'type': 'scenario',
+                'type': obj.category_type,
                 'category': ScenarioSerializer(obj.scenario).data,
             }
-        elif obj.experiment:
+        elif obj.category_type == 'experiment':
             return {
-                'type': 'experiment',
+                'type': obj.category_type,
                 'category': ExperimentSerializer(obj.experiment).data,
+            }
+        else:
+            return {
+                'type': 'not supported',
+                'category': None,
             }
 
     class Meta:
@@ -437,9 +434,10 @@ class RequestSerializer(RequestListSerializer):
             'title',
             'uuid',
             'description',
+            'category',
+            'category_type',
             'last_changed',
             'category_type',
-            'category',
             'requestor',
             'request_creation_date',
             'supervisor',
@@ -484,6 +482,7 @@ class ExperimentRunCreateSerializer(serializers.ModelSerializer):
             'tests',
             'status',
             'experiment',
+            'logfile',
         ]
         extra_kwargs = {
             'experiment': {'validators': []},
@@ -513,6 +512,7 @@ class RequestCreateSerializer(serializers.ModelSerializer):
             'title',
             'uuid',
             'description',
+            'category_type',
             'last_changed',
             'scenario',
             'experiment',

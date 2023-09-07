@@ -1,6 +1,6 @@
 <template>
   <q-page class="flex justify-center">
-    <ExperimentList class="q-pa-lg tw-w-full" />
+    <ExperimentList :scenario="scenario" class="q-pa-lg tw-w-full" />
   </q-page>
 </template>
 
@@ -12,6 +12,13 @@ export default {
 
   components: {
     ExperimentList
+  },
+
+  props: {
+    scenario: {
+      type: String,
+      required: false,
+    },
   },
 
 };

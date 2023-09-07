@@ -1,5 +1,6 @@
 import axios from 'axios'
 import API_URLS from 'src/api/index'
+import {useLoginStore} from 'src/stores/login'
 
 axios.defaults.xsrfCookieName = 'csrftoken'
 axios.defaults.xsrfHeaderName = 'X-CSRFToken'

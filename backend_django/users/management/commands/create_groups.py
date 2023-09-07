@@ -1,15 +1,16 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group
-from django.contrib.auth.models import Permission
-
+from setup.predefined import GROUPS
 
 import logging
 log = logging.getLogger(__name__)
 
-
-GROUPS = [
-    'supervisor',
-]
+# GROUPS have the following format:
+# GROUPS = [
+#     $GROUP1,
+#     $GROUP2,
+#     ...
+# ]
 
 
 class Command(BaseCommand):

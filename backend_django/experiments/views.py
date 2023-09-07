@@ -10,14 +10,13 @@ import rest_framework.status as http_status_codes
 import django_filters.rest_framework
 from django.utils.timezone import make_aware
 from experiments.parsers import MultiPartJSONParser
+from django.db.models import Count, Max, Q
 
 from datetime import datetime
-
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from permissions import HasGroupPermission
 
 from experiments.models import *
-from experiments.filters import ScenarioFilter, ExperimentFilter, RequestFilter
+from experiments.filters import ScenarioFilter, ExperimentFilter, RequestFilter, ExperimentRunFilter
 from experiments.serializers import *
 
 
@@ -111,7 +110,33 @@ def create_experiment(data, publisher_id, action_file, testset_file, published=F
     return experiment
 
 
-class ExperimentRunListView(generics.ListAPIView, generics.RetrieveAPIView):
+def create_request_data(title: str, category_type: str, publisher_id) -> dict:
+    data = dict()
+    data['title'] = title
+    data['category_type'] = category_type
+    data['requestor'] = publisher_id
+    data['supervisor'] = None
+    data['supervisor_assigned_by'] = None
+    data['last_changed'] = make_aware(datetime.now())
+    data['request_creation_date'] = make_aware(datetime.now())
+    status = 'not assigned'
+    status_object = RequestStatus.objects.get(name=status)
+    data['status'] = status_object.id
+
+    return data
+
+
+class ExperimentRunListView(generics.ListAPIView):
+    serializer_class = ExperimentRunSerializer
+    queryset = ExperimentRun.objects.all()
+    permission_classes = [AllowAny]
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = ExperimentRunFilter
+    search_fields = ['uuid', 'experiment__name', 'publisher__username', 'publish_date', 'status__name']
+    pagination_class = LimitOffsetPagination
+
+
+class ExperimentRunRetrieveView(generics.RetrieveAPIView):
     serializer_class = ExperimentRunSerializer
     queryset = ExperimentRun.objects.all()
     permission_classes = [AllowAny]
@@ -156,55 +181,83 @@ class ScenarioListView(generics.ListAPIView):
     queryset = Scenario.objects.filter(published=True).all()
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ScenarioFilter
-    search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date', 'experiments__name']
+    search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date',
+                     'experiments__name']
     pagination_class = LimitOffsetPagination
 
 
 class ScenarioFilterOptionsView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     queryset = Scenario.objects.filter(published=True).all()
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = ScenarioFilter
+    search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date',
+                     'experiments__name']
 
     def get(self, request, *args, **kwargs):
-        field = kwargs['field']
-        if field == 'tags':
-            tags = Tag.objects.all()
-            return Response([tag.name for tag in tags])
-        elif field == 'publisher':
-            publishers = User.objects.all()
-            return Response([publisher.username for publisher in publishers])
-        elif field == 'experiments':
-            experiments = Experiment.objects.filter(published=True).all()
-            return Response([experiment.name for experiment in experiments])
-        else:
-            return Response('Field not found', status=http_status_codes.HTTP_404_NOT_FOUND)
+        # get all tags of all scenarios in queryset
+        tags = self.filter_queryset(self.get_queryset()).values_list('tags__name', flat=True).distinct()
+
+        return Response({
+            'tags': tags,
+        }, status=http_status_codes.HTTP_200_OK)
 
 
 class ExperimentFilterOptionsView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     queryset = Experiment.objects.filter(published=True).all()
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = ExperimentFilter
+    search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date']
 
     def get(self, request, *args, **kwargs):
-        field = kwargs['field']
-        if field == 'tags':
-            tags = Tag.objects.all()
-            return Response([tag.name for tag in tags])
-        else:
-            return Response('Field not found', status=http_status_codes.HTTP_404_NOT_FOUND)
+        # get all tags of all experiments in queryset
+        tags = self.filter_queryset(self.get_queryset()).values_list('tags__name', flat=True).distinct()
+
+        # get max number of successfull experiment runs through all experiments in queryset
+        max_success = self.filter_queryset(self.get_queryset()).annotate(
+            success_count=Count('experiment_runs', filter=Q(experiment_runs__status__name='success'))
+        ).aggregate(Max('success_count'))['success_count__max']
+
+        # get max number of failed experiment runs through all experiments in queryset
+        max_failed = self.filter_queryset(self.get_queryset()).annotate(
+            failed_count=Count('experiment_runs', filter=Q(experiment_runs__status__name='failed'))
+        ).aggregate(Max('failed_count'))['failed_count__max']
+
+        # get total number of experiment runs through all experiments in queryset
+        total_count = self.filter_queryset(self.get_queryset()).annotate(
+            total_count=Count('experiment_runs')
+        ).aggregate(Max('total_count'))['total_count__max']
+
+        return Response({
+            'tags': tags,
+            'max_success': max_success,
+            'max_failed': max_failed,
+            'total_count': total_count,
+        }, status=http_status_codes.HTTP_200_OK)
 
 
 class RequestFilterOptionsView(generics.RetrieveAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = []
     queryset = Request.objects.all()
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = RequestFilter
+    search_fields = ['title', 'uuid', 'description', 'status__name', 'requestor__username', 'supervisor__username',
+                     'last_changed', 'labels__name']
 
     def get(self, request, *args, **kwargs):
-        field = kwargs['field']
-        if field == 'status':
-            status = RequestStatus.objects.all()
-            return Response([status.name for status in status])
-        elif field == 'category':
-            return Response(['experiment', 'scenario'])
-        else:
-            return Response('Field not found', status=http_status_codes.HTTP_404_NOT_FOUND)
+        # get all status names of all requests in queryset
+        status = self.filter_queryset(self.get_queryset()).values_list('status__name', flat=True).distinct()
+        # get all category types of all requests in queryset
+        category_type = self.filter_queryset(self.get_queryset()).values_list('category_type', flat=True).distinct()
+        # get all labels of all requests in queryset
+        labels = self.filter_queryset(self.get_queryset()).values_list('labels__name', flat=True).distinct()
+
+        return Response({
+            'status': status,
+            'category': category_type,
+            'labels': labels,
+        }, status=http_status_codes.HTTP_200_OK)
 
 
 class RequestListView(generics.ListAPIView):
@@ -212,6 +265,7 @@ class RequestListView(generics.ListAPIView):
     serializer_class = RequestListSerializer
     queryset = Request.objects.all()
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['title', 'uuid', 'description', 'status__name', 'requestor__username', 'supervisor__username', 'last_changed', 'labels__name']
     filterset_class = RequestFilter
     pagination_class = LimitOffsetPagination
 
@@ -233,15 +287,22 @@ class RequestAcceptView(generics.UpdateAPIView):
     lookup_field = 'uuid'
 
     def update(self, request, *args, **kwargs):
-        request = self.get_object()
-        if request.experiment:
-            request.experiment.published = True
-            request.experiment.publish_date = make_aware(datetime.now())
-            request.experiment.save()
+        req = self.get_object()
+        if req.experiment:
+            req.experiment.published = True
+            req.experiment.publish_date = make_aware(datetime.now())
+            req.experiment.save()
         status = RequestStatus.objects.get(name='accepted')
-        request.status = status
-        request.save()
-        return Response(f'Request {request.uuid} accepted successfully', status=http_status_codes.HTTP_200_OK)
+        req.status = status
+        req.save()
+
+        # update achievements
+        if req.requestor:
+            req.requestor.profile.update_achievements()
+        if req.supervisor:
+            req.supervisor.profile.update_achievements()
+
+        return Response(f'Request {req.uuid} accepted successfully', status=http_status_codes.HTTP_200_OK)
 
 
 class RequestRejectView(generics.UpdateAPIView):
@@ -323,11 +384,14 @@ class ExperimentRunCreateView(generics.CreateAPIView):
     serializer_class = ExperimentRunCreateSerializer
     queryset = ExperimentRun.objects.all()
     permission_classes = [HasGroupPermission]
+    parser_classes = [MultiPartJSONParser]
+
     required_groups = {
         'POST': ['supervisor'],
     }
 
     def create(self, request, *args, **kwargs):
+        logfile = request.FILES.get('log_file')
         data = request.data
         experimentrun_uuid = data['uuid']
         experiment_uuid = data.pop('experiment_uuid')
@@ -348,7 +412,7 @@ class ExperimentRunCreateView(generics.CreateAPIView):
 
         # check if experiment run already exists
         try:
-            experiment_run = ExperimentRun.objects.get(uuid=experimentrun_uuid)
+            ExperimentRun.objects.get(uuid=experimentrun_uuid)
             return Response(f'Experiment run for experiment {experiment_uuid} already exists',
                             status=http_status_codes.HTTP_400_BAD_REQUEST)
         except ExperimentRun.DoesNotExist:
@@ -385,6 +449,7 @@ class ExperimentRunCreateView(generics.CreateAPIView):
 
         data['publisher'] = request.user.id
         data['publish_date'] = make_aware(datetime.now())
+        data['logfile'] = logfile
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         experiment_run = serializer.save()
@@ -411,19 +476,11 @@ class RequestsExperimentCreateView(generics.CreateAPIView):
         experiment = create_experiment(experiment_data, request.user.id, action_file, testset_file)
 
         # create request
-        data['requestor'] = request.user.id
-        data['supervisor'] = None
-        data['supervisor_assigned_by'] = None
-        data['last_changed'] = make_aware(datetime.now())
-        data['request_creation_date'] = make_aware(datetime.now())
-
-        status = 'not assigned'
-        try:
-            status_object = RequestStatus.objects.get(name=status)
-        except RequestStatus.DoesNotExist:
-            return Response(f'Status with name {status} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        data['status'] = status_object.id
+        data = create_request_data(
+            data['title'],
+            'experiment',
+            request.user.id,
+        )
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -433,6 +490,10 @@ class RequestsExperimentCreateView(generics.CreateAPIView):
         request_object.experiment = experiment
 
         request_object.save()
+
+        # update achievements
+        request_object.requestor.profile.update_achievements()
+
         return Response(f'request {request_object.uuid} created successfully',
                         status=http_status_codes.HTTP_201_CREATED)
 
@@ -454,19 +515,11 @@ class RequestsScenarioCreateView(generics.CreateAPIView):
         scenario = create_scenario(scenario_data, request.user.id)
 
         # create request
-        data['requestor'] = request.user.id
-        data['supervisor'] = None
-        data['supervisor_assigned_by'] = None
-        data['last_changed'] = make_aware(datetime.now())
-        data['request_creation_date'] = make_aware(datetime.now())
-
-        status = 'not assigned'
-        try:
-            status_object = RequestStatus.objects.get(name=status)
-        except RequestStatus.DoesNotExist:
-            return Response(f'Status with name {status} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        data['status'] = status_object.id
+        data = create_request_data(
+            data['title'],
+            'scenario',
+            request.user.id,
+        )
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -475,7 +528,64 @@ class RequestsScenarioCreateView(generics.CreateAPIView):
         # add scenario or experiment to request
         request_object.scenario = scenario
 
+        # update achievements
+        request_object.requestor.profile.update_achievements()
+
         request_object.save()
+        return Response(f'request {request_object.uuid} created successfully',
+                        status=http_status_codes.HTTP_201_CREATED)
+
+
+class RequestAssignCreateView(generics.CreateAPIView):
+    serializer_class = RequestCreateSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartJSONParser]
+
+    def create(self, request, *args, **kwargs):
+        # get experiment and scenario uuids from json data
+        data = request.data
+        experiment_uuid = data.get('experiment_uuid')
+        scenario_uuid = data.get('scenario_uuid')
+
+        try:
+            experiment = Experiment.objects.get(uuid=experiment_uuid)
+        except Experiment.DoesNotExist:
+            return Response(f'Experiment with uuid {experiment_uuid} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        try:
+            scenario = Scenario.objects.get(uuid=scenario_uuid)
+        except Scenario.DoesNotExist:
+            return Response(f'Scenario with uuid {scenario_uuid} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+
+        # check if experiment is already assigned to scenario
+        if scenario.experiments.filter(uuid=experiment_uuid).exists():
+            return Response(f'Experiment {experiment_uuid} is already assigned to scenario {scenario_uuid}',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+
+        # create AssignExperimentToScenarioRequestData object
+        assign_exp_to_sce_data = {
+            'experiment_uuid': experiment_uuid,
+            'scenario_uuid': scenario_uuid,
+        }
+        assign_exp_to_sce_obj = AssignRequestData.objects.create(**assign_exp_to_sce_data)
+
+        # create the request
+        data = create_request_data(
+            data['title'],
+            'assign_experiment_to_scenario',
+            request.user.id,
+        )
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        request_object = serializer.save()
+
+        request_object.assign_experiment_to_scenario_request_data = assign_exp_to_sce_obj
+        request_object.save()
+
+        # update achievements
+        request_object.requestor.profile.update_achievements()
+
         return Response(f'request {request_object.uuid} created successfully',
                         status=http_status_codes.HTTP_201_CREATED)
 
@@ -499,3 +609,16 @@ class RequestCancelView(generics.DestroyAPIView):
             return Response(f'Request {request_obj.uuid} deleted successfully', status=http_status_codes.HTTP_200_OK)
         return Response(f'You are not allowed to delete request {request_obj.uuid}',
                         status=http_status_codes.HTTP_403_FORBIDDEN)
+
+
+class StatisticView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        response_data = {'experiment_count': Experiment.objects.count(),
+                         'scenario_count': Scenario.objects.count(),
+                         'experiment_run_count': ExperimentRun.objects.count(),
+                         'request_count': Request.objects.count(),
+                         'user_count': User.objects.count()
+                         }
+        return Response(response_data, status=http_status_codes.HTTP_200_OK)
