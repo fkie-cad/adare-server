@@ -1,17 +1,12 @@
 <template>
     <div class="tw-overflow-visible tw-relative" :class="offset_classes">
-      <q-avatar
-        color="secondary"
-        :size="size_to_width[size]"
-        text-color="white"
-      >
-        <div v-if="LoggedInUserStore.GetUserAvatarThumbnail(size) != ''">
-            <img v-bind:src="LoggedInUserStore.GetUserAvatarThumbnail(size)" alt="" class="object-cover">
-        </div>
-        <div v-else>
-          {{ LoggedInUserStore.GetUserUsername.charAt(0).toUpperCase() }}
-        </div>
-      </q-avatar>
+      <UserAvatar
+        :size="size"
+        :img="LoggedInUserStore.GetUserAvatarThumbnail(size)"
+        :username="LoggedInUserStore.username"
+        :key="LoggedInUserStore.updatetrigger"
+        :tooltip=false
+      />
       <div>
         <q-btn
             icon="edit"
@@ -40,18 +35,13 @@
             </div>
             <div class="row justify-center q-my-md">
               <div class="tw-overflow-visible tw-relative">
-                <q-avatar
-                  color="secondary"
-                  size="100px"
-                  text-color="white"
-                >
-                  <div v-if="LoggedInUserStore.GetUserAvatarThumbnail(size) != ''">
-                      <img v-bind:src="LoggedInUserStore.GetUserAvatarThumbnail(size)" alt="" class="object-cover">
-                  </div>
-                  <div v-else>
-                    {{ LoggedInUserStore.GetUserUsername.charAt(0).toUpperCase() }}
-                  </div>
-                </q-avatar>
+                <UserAvatar
+                  :size="size"
+                  :img="LoggedInUserStore.GetUserAvatarThumbnail(size)"
+                  :username="LoggedInUserStore.username"
+                  :key="LoggedInUserStore.updatetrigger"
+                  :tooltip=false
+                />
                 <div>
                   <q-btn
                       icon="delete"
@@ -92,11 +82,13 @@
 import { useUserStore } from 'stores/user';
 import { useLoggedInUserStore } from 'stores/loggedinuser';
 import {onMounted, ref} from 'vue';
-import { storeToRefs } from 'pinia'
+import { storeToRefs } from 'pinia';
+import UserAvatar from 'components/global/UserAvatar.vue';
 
 
 export default {
   name: 'ProfileImageSelf',
+  components: {UserAvatar},
 
   props: {
     editable: {
@@ -118,11 +110,6 @@ export default {
   },
 
   setup(props) {
-    const size_to_width = {
-      'sm': '30px',
-      'md': '50px',
-      'lg': '100px',
-    }
 
     const show_dialog = ref(false)
     const LoggedInUserStore = useLoggedInUserStore()
@@ -134,7 +121,6 @@ export default {
     return {
       LoggedInUserStore,
       file,
-      size_to_width,
       show_dialog,
     }
 

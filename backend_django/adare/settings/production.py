@@ -1,8 +1,6 @@
 from .base import *
 from decouple import config, Csv
 
-MODE = "production"
-
 # database configuration
 DATABASES = {
     "default": {
@@ -52,6 +50,12 @@ LOGGING = {
 # media files
 MEDIA_ROOT = '/media'
 MEDIA_URL = '/media/'
+STATIC_ROOT = '/static'
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR / 'adare/static_files',
+]
 
 # setup redis
 # CACHES = {

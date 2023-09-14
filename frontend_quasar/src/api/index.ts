@@ -1,6 +1,9 @@
 
+// FOR LOCAL TESTING
 const SERVER_URL = 'http://localhost:8000/'
+// FOR PRODUCTION
 // const SERVER_URL = 'https://adare.seclab-bonn.de/'
+
 const API_URL = SERVER_URL + 'api/'
 
 const CSRF_API = API_URL + 'csrf/'
@@ -9,6 +12,7 @@ const EXPERIMENT_API = API_URL + 'experiment/'
 const SCENARIO_API = API_URL + 'scenario/'
 const LIST_EXPERIMENTS = EXPERIMENT_API + 'list/'
 const TESTFUNCTION = API_URL + 'testfunction/'
+const FILE_API = API_URL + 'file/'
 
 export default {
   SERVER_URL: SERVER_URL,
@@ -19,4 +23,5 @@ export default {
   SCENARIO_API: SCENARIO_API,
   LIST_EXPERIMENTS: LIST_EXPERIMENTS,
   TESTFUNCTION: TESTFUNCTION,
+  FILE_API: FILE_API
 }

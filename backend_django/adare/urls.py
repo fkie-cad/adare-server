@@ -107,6 +107,7 @@ urlpatterns = [
     path('api/file/logfile/<str:experimentrun_uuid>/', files_views.LogFileView.as_view()),
     path('api/file/actionfile/<str:experiment_uuid>/', files_views.ActionFileView.as_view()),
     path('api/file/testsetfile/<str:experiment_uuid>/', files_views.TestsetFileView.as_view()),
+    path('api/file/achievements/<str:achievement_name>/', files_views.AchievementIconView.as_view()),
 
     # ### statistics urls ###
     path('api/statistics/', experiment_frontend_views.StatisticView.as_view()),

@@ -11,14 +11,14 @@ from pathlib import Path
 MODE = config('MODE', default='production')
 
 
-def get_response(filepath: str, disposition: str = 'inline'):
+def get_response(filepath: str, disposition: str = 'inline', typ: str = 'media'):
     response = Response()
     response.headers['Content-Disposition'] = disposition
     if MODE == 'production':
-        response['X-Accel-Redirect'] = f'/protected/{filepath}'
+        response['X-Accel-Redirect'] = f'/protected/{typ}/{filepath}'
     else:
-        # no nginx so redirect to the file directly
-        response = redirect(f'http://localhost:8000/media/{filepath}')
+        # no nginx so redirect to the media file directly
+        response = redirect(f'http://localhost:8000/{typ}/{filepath}')
     return response
 
 
@@ -62,7 +62,7 @@ class LogFileView(generics.RetrieveAPIView):
         # get experiment run
         experiment_run = ExperimentRun.objects.get(uuid=experiment_run_uuid)
         if not experiment_run.logfile:
-            return Response(status=404)
+            return Response(status=400)
         # get filepath of logfile
         filepath = experiment_run.logfile.name
         disposition = f'attachment; filename="{experiment_run_uuid}.log"'
@@ -99,3 +99,11 @@ class TestsetFileView(generics.RetrieveAPIView):
         return get_response(filepath)
 
 
+class AchievementIconView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        # get achievement name from url
+        achievement_name = kwargs['achievement_name']
+        filepath = f'achievements/{achievement_name}'
+        return get_response(filepath, typ='static')

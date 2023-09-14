@@ -32,14 +32,14 @@
           <q-input
             square
             clearable
-            v-model="login_data.email"
-            type="email"
-            label="Email"
+            v-model="login_data.username"
+            type="text"
+            label="username"
             @clear="hideErrorMessage"
             class="q-pa-sm"
           >
             <template v-slot:prepend>
-              <q-icon name="email"/>
+              <q-icon name="person"/>
             </template>
           </q-input>
           <q-input
@@ -47,7 +47,7 @@
             clearable
             v-model.lazy="login_data.password"
             type="password"
-            label="Password"
+            label="password"
             @clear="hideErrorMessage"
             class="q-pa-sm"
           >
@@ -79,7 +79,7 @@ export default {
   setup() {
 
     let login_data = reactive({
-      email: '',
+      username: '',
       password: '',
     })
     let errorMessage = ref('')
@@ -102,13 +102,13 @@ export default {
       await axios.post(
       API_URLS.USER_API+'login/',
       {
-        username: login_data.email,
+        username: login_data.username,
         password: login_data.password
       }).then((response) => {
         // successful login
         if (response.status == 200) {
           LoginStore.SetLoginToken(
-            login_data.email,
+            login_data.username,
             response.data.token,
             response.data.expiry
           )
@@ -154,7 +154,7 @@ export default {
       errorShown.value = false
     }
     function reset () {
-      login_data.email = ''
+      login_data.username = ''
       login_data.password = ''
     }
 

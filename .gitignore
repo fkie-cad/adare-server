@@ -63,6 +63,7 @@ cleanup_package_dir.py
 # setup scripts
 setup/
 media/
+static/
 *.sqlite3
 
 .DS_Store

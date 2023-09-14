@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import API_URLS from 'src/api';
+import { Achievement, UserInfo } from 'src/datatypes/user';
 
 
 export const useUserStore = defineStore('user', {
@@ -18,9 +19,6 @@ export const useUserStore = defineStore('user', {
     initializeUserDict(username: string){
       this.userDict[username] = {
         email: '',
-        avatar_thumbnail_sm: '',
-        avatar_thumbnail_md: '',
-        avatar_thumbnail_lg: '',
         groups: [],
         achievements: [],
       }
@@ -32,21 +30,13 @@ export const useUserStore = defineStore('user', {
       await axios.get(API_URLS.USER_API + username + '/profile').then((response) => {
         this.userDict[username].email = response.data.user.email
         this.userDict[username].achievements = response.data.achievements
+        // get all iconfile names and convert them to urls
+        for (let i = 0; i < this.userDict[username].achievements.length; i++) {
+          this.userDict[username].achievements[i].iconfile = API_URLS.FILE_API + 'achievements/' + this.userDict[username].achievements[i].iconfile
+        }
         this.userDict[username].groups = response.data.groups
       })
-      await axios.get(
-          API_URLS.USER_API+username+'/profile/avatar',
-      ).then((response) => {
-        if (response.data.avatar_thumbnail_sm) {
-          this.userDict[username].avatar_thumbnail_sm = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_sm
-        }
-        if (response.data.avatar_thumbnail_md){
-          this.userDict[username].avatar_thumbnail_md = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_md
-        }
-        if (response.data.avatar_thumbnail_lg){
-          this.userDict[username].avatar_thumbnail_lg = API_URLS.SERVER_URL.slice(0,-1) + response.data.avatar_thumbnail_lg
-        }
-      })
+      console.log(this.userDict[username])
     },
     GetUserGroups(username: string) {
       if (!(username in this.userDict)) {
@@ -61,16 +51,7 @@ export const useUserStore = defineStore('user', {
       return this.userDict[username].achievements
     },
     GetUserAvatarThumbnail(username: string, size = 'md') {
-      if (!(username in this.userDict)) {
-        this.initializeUserDict(username)
-      }
-      if (size === 'sm'){
-        return this.userDict[username].avatar_thumbnail_sm
-      } else if (size === 'lg'){
-        return this.userDict[username].avatar_thumbnail_lg
-      } else if (size === 'md'){
-        return this.userDict[username].avatar_thumbnail_md
-      }
+      return API_URLS.FILE_API+'avatar/'+username+'/thumbnail/' + size + '/';
     },
     GetUserEmail(username: string) {
       if (!(username in this.userDict)) {
@@ -82,15 +63,3 @@ export const useUserStore = defineStore('user', {
 
 
 });
-
-
-interface UserInfo {
-  [username: string]: {
-    email: string;
-    avatar_thumbnail_sm: string;
-    avatar_thumbnail_md: string;
-    avatar_thumbnail_lg: string;
-    groups: [];
-    achievements: [];
-  };
-}

@@ -14,7 +14,7 @@
       </q-card-section>
       <q-card-section>
         <div class="row justify-between q-pa-sm">
-          <div class="column text-h6 tw-text-gray-600">
+          <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             username
           </div>
           <div class="column text-h6">
@@ -23,7 +23,7 @@
         </div>
         <q-separator />
         <div class="row justify-between q-pa-sm" v-if="LoginStore.IsLoggedIn">
-          <div class="column text-h6 tw-text-gray-600">
+          <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             email
           </div>
           <div class="column text-h6">
@@ -32,7 +32,7 @@
         </div>
         <q-separator />
         <div class="row justify-between  q-pa-sm">
-          <div class="column text-h6 tw-text-gray-600">
+          <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             roles
           </div>
           <div class="column">
@@ -43,12 +43,12 @@
         </div>
         <q-separator />
         <div class="row justify-between  q-pa-sm">
-          <div class="column text-h6 tw-text-gray-600">
+          <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             achievements
           </div>
         </div>
         <div class="row justify-evenly">
-          <AchievementIcon  :image="achiev.image" :description="achiev.description" :count="achiev.count" v-for="achiev in UserStore.GetUserAchievements(username).values()" v-bind:key="achiev.id" />
+          <AchievementIcon :image="achiev.iconfile" :description="achiev.description" :count="achiev.count" v-for="achiev in UserStore.GetUserAchievements(username).values()" v-bind:key="achiev.id" />
         </div>
       </q-card-section>
     </q-card>

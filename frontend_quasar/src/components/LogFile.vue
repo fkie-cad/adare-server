@@ -61,7 +61,7 @@ export default {
     experimentrunuuid: {
       type: String,
       required: true,
-    },
+    }
   },
 
   setup(props) {
@@ -73,9 +73,13 @@ export default {
       // load experimentrun data
       const response = await axios.get(API.API + 'experimentrun/experimentrun_' + props.experimentrunuuid)
       experimentrun_data.value = response.data
-      await axios.get(response.data.logfile).then((response) => {
-        logfile_data.value = response.data
-      })
+      // get logfile url
+      const logfile_url = response.data.logfile
+
+      // load logfile data
+      let full_logfile_url = API.SERVER_URL + logfile_url
+      const response2 = await axios.get(full_logfile_url)
+      logfile_data.value = response2.data
     })
 
     return {

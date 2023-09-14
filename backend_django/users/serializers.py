@@ -59,14 +59,14 @@ class UserSerializer(serializers.ModelSerializer):
 
 class AchievementSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='category.name', read_only=True)
-    image = serializers.ImageField(source='category.image', read_only=True)
+    iconfile = serializers.CharField(source='category.iconfile', read_only=True)
     description = serializers.CharField(source='category.description', read_only=True)
 
     class Meta:
         model = Achievement
         fields = [
             'name',
-            'image',
+            'iconfile',
             'description',
             'count',
         ]

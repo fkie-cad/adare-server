@@ -2,17 +2,15 @@ import { defineStore } from 'pinia';
 import axios from 'axios';
 import API_URLS from 'src/api';
 import { useLoginStore } from 'src/stores/login';
-
+import { Achievement, UserInfo } from 'src/datatypes/user';
 
 export const useLoggedInUserStore = defineStore('userloggedin', {
   state: () => ({
     username: '',
     email: '',
-    avatar_thumbnail_sm: '',
-    avatar_thumbnail_md: '',
-    avatar_thumbnail_lg: '',
     groups: [],
-    achievements: [],
+    achievements: [] as Achievement[],
+    updatetrigger: 0,
   }),
 
   getters: {
@@ -34,16 +32,13 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
     IsSupervisor (state) {
       const groups: string[] = state.groups;
       return groups.includes('supervisor') || groups.includes('admin');
-    },
+    }
   },
 
   actions: {
     ResetUser(){
       this.username = ''
       this.email = ''
-      this.avatar_thumbnail_sm = ''
-      this.avatar_thumbnail_md = ''
-      this.avatar_thumbnail_lg = ''
       this.groups = []
       this.achievements = []
     },
@@ -60,7 +55,15 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
             }
           }
         )
-        await this.UpdateProfileInformation()
+      }
+      this.TriggerUpdate()
+    },
+
+    TriggerUpdate(){
+      if (this.updatetrigger > 1000) {
+        this.updatetrigger = 0
+      } else {
+        this.updatetrigger += 1
       }
     },
 
@@ -68,10 +71,7 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
       await axios.delete(
         API_URLS.USER_API + 'profile/avatar/',
       )
-      this.avatar_thumbnail_sm = ''
-      this.avatar_thumbnail_md = ''
-      this.avatar_thumbnail_lg = ''
-      await this.UpdateProfileInformation()
+      this.TriggerUpdate()
     },
 
     async UpdateProfileInformation(){
@@ -85,38 +85,23 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
         this.email = response.data.user.email
         this.groups = response.data.groups
         this.username = response.data.user.username
-        if (response.data.achievements) {
-          this.achievements = response.data.achievements
-        }
-      }).catch((error) => {
-        console.log(error)
-      })
-      await axios.get(
-        API_URLS.USER_API+'profile/avatar/',
-      ).then((response) => {
-        if (response.data.avatar_thumbnail_sm) {
-          this.avatar_thumbnail_sm = API_URLS.SERVER_URL.slice(0, -1) + response.data.avatar_thumbnail_sm
-        }
-        if (response.data.avatar_thumbnail_md) {
-          this.avatar_thumbnail_md = API_URLS.SERVER_URL.slice(0, -1) + response.data.avatar_thumbnail_md
-        }
-        if (response.data.avatar_thumbnail_lg) {
-          this.avatar_thumbnail_lg = API_URLS.SERVER_URL.slice(0, -1) + response.data.avatar_thumbnail_lg
+        this.achievements = response.data.achievements
+        // get all iconfile names and convert them to urls
+        for (let i = 0; i < this.achievements.length; i++) {
+          this.achievements[i].iconfile = API_URLS.FILE_API + 'achievements/' + this.achievements[i].iconfile
         }
       }).catch((error) => {
         console.log(error)
       })
     },
-    GetUserAvatarThumbnail (size: string) {
-      if (size == 'lg') {
-        return this.avatar_thumbnail_lg;
+
+    GetUserAvatarThumbnail (size: string):string {
+      if (this.username === '') {
+        return ''
       }
-      else if (size == 'md') {
-        return this.avatar_thumbnail_md;
-      }
-      else if (size == 'sm') {
-        return this.avatar_thumbnail_sm;
-      }
+      return API_URLS.FILE_API+'avatar/'+this.username+'/thumbnail/' + size + '/?trigger='+this.updatetrigger.toString()+'/';
     },
   }
 });
+
+

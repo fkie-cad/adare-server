@@ -260,7 +260,15 @@ class ExperimentSerializer(serializers.ModelSerializer):
     publisher_name = serializers.SerializerMethodField('get_publisher_name', read_only=True)
     publish_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     os_info = OsInfoSerializer(read_only=True)
+    action_file = serializers.SerializerMethodField('get_action_file', read_only=True)
+    testset_file = serializers.SerializerMethodField('get_testset_file', read_only=True)
     # experiment_runs = serializers.SerializerMethodField('get_experiment_runs', read_only=True)
+
+    def get_action_file(self, obj):
+        return f'api/file/actionfile/{obj.uuid}/'
+
+    def get_testset_file(self, obj):
+        return f'api/file/testsetfile/{obj.uuid}/'
 
     class Meta:
         model = Experiment
@@ -274,6 +282,8 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'abstract_tests',
             'run_counts',
             'os_info',
+            'action_file',
+            'testset_file',
             # 'experiment_runs',
         ]
         extra_kwargs = {
@@ -313,6 +323,12 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
     status = StatusSerializer(read_only=True)
     publisher_name = serializers.SerializerMethodField('get_publisher_name', read_only=True)
     experiment = serializers.CharField(source='experiment.name', read_only=True)
+    logfile = serializers.SerializerMethodField('get_logfile', read_only=True)
+
+    def get_logfile(self, obj):
+        if obj.logfile:
+            return f'api/file/logfile/{obj.uuid}/'
+        return None
 
     class Meta:
         model = ExperimentRun
@@ -325,6 +341,7 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
             'tests',
             'status',
             'experiment',
+            'logfile',
         ]
 
     def get_publisher_name(self, obj):

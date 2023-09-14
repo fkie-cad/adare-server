@@ -3,16 +3,16 @@
   fields:
     name: first_request
     description: First Request
-    image: achievments/first_request.png
+    iconfile: firstrequest.png
 - model: users.achievementcategory
   pk: 2
   fields:
     name: first_accepted_scenario
     description: First Accepted Scenario
-    image: achievments/frist_accepted_scenario.png
+    iconfile: firstacceptedscenario.png
 - model: users.achievementcategory
   pk: 3
   fields:
     name: first_accepted_experiment
     description: First Accepted Experiment
-    image: achievments/first_accepted_experiment.png
+    iconfile: firstacceptedexperiment.png

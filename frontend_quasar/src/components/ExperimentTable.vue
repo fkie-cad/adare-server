@@ -132,7 +132,7 @@
                     />
                     <q-slider
                       v-model="filter.value"
-                      :min="0"
+                      :min="filter.min_value"
                       :max="filter.max_value"
                       :step="1"
                       color="primary"
@@ -153,19 +153,35 @@
                   size="1.1em"
               >
                 <div class="col">
-                  <div class="row tw-bg-slate-100">
-                    <q-toggle
-                      :label="filter.toggle?'before the date':'after the date'"
-                      color="primary"
+                  <div class="row tw-bg-slate-100 justify-between">
+                    <q-radio
                       v-model="filter.toggle"
-                      class="q-pa-sm"
+                      :val="true"
+                      label="before"
+                      color="secondary"
                       @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"
                     />
+                    <q-radio
+                      v-model="filter.toggle"
+                      :val="false"
+                      label="after"
+                      color="secondary"
+                      left-label
+                      @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"
+                    />
+<!--                    <q-toggle-->
+<!--                      :label="filter.toggle?'before the date':'after the date'"-->
+<!--                      color="primary"-->
+<!--                      v-model="filter.toggle"-->
+<!--                      class="q-pa-sm"-->
+<!--                      @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"-->
+<!--                    />-->
+
                   </div>
                   <div class="row tw-bg-slate-100">
                     <div class="q-gutter-sm">
                       <q-radio v-model="filter.experimentrun_status" val="success" label="Success" color="positive" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
-                      <q-radio v-model="filter.experimentrun_status" val="all" label="Total" color="secondary" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
+                      <q-radio v-model="filter.experimentrun_status" val="all" label="All" color="secondary" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
                       <q-radio v-model="filter.experimentrun_status" val="failed" label="Failed" color="negative" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
                     </div>
                   </div>
@@ -325,9 +341,9 @@ const SELECT_FILTERS = ref([
 
 // predefined count filters of table
 const COUNT_FILTERS = ref([
-  { name: 'success', color: 'positive', field: 'min_runs_success', api_field: 'min_runcount_pos', max_api_field: 'max_success', max_value: 0, value: 0},
-  { name: 'failed', color: 'negative', field: 'min_runs_failed', api_field: 'min_runcount_neg', max_api_field: 'max_failed', max_value: 0, value: 0},
-  { name: 'total', color: 'info', field: 'min_runs_total', api_field: 'min_runcount', max_api_field: 'total_count', max_value: 0, value: 0},
+  { name: 'success', color: 'positive', field: 'min_runs_success', api_field: 'min_runcount_pos', max_api_field: 'max_success', min_value: 0, max_value: 0, value: 0},
+  { name: 'failed', color: 'negative', field: 'min_runs_failed', api_field: 'min_runcount_neg', max_api_field: 'max_failed', min_value: 0, max_value: 0, value: 0},
+  { name: 'all', color: 'info', field: 'min_runs_total', api_field: 'min_runcount', max_api_field: 'total_count', min_value: 0, max_value: 0, value: 0},
 ])
 
 const DATE_FILTERS = ref([
@@ -554,6 +570,21 @@ export default {
             return !(entry.field === api_field && entry.type === 'count')
           })
         }
+      }
+      // change min value for all run count filter to sum of the other run count filters
+      let sum = 0
+      for (let filter of COUNT_FILTERS.value) {
+        if (filter.field !== 'min_runs_total') {
+          sum += filter.value
+        }
+      }
+      // get count filter with field 'min_runs_total'
+      let total_count_filter = COUNT_FILTERS.value.filter((filter) => {
+        return filter.field === 'min_runs_total'
+      })
+      total_count_filter[0].min_value = sum
+      if (total_count_filter[0].value < sum) {
+        total_count_filter[0].value = sum
       }
 
       // add new filter entry to the given api field

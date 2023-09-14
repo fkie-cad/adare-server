@@ -492,7 +492,8 @@ export default {
     }
 
     function DownloadFile(url: string, filename: string) {
-      axios.get(url, {responseType: 'blob'}).then((response) => {
+      const full_url = API.SERVER_URL + url
+      axios.get(full_url, {responseType: 'blob'}).then((response) => {
         exportFile(filename, response.data)
       })
     }
