@@ -69,16 +69,23 @@ urlpatterns = [
     path('api/experiment/scenario_<str:uuid>/', experiment_frontend_views.ExperimentByScenarioListView.as_view()),
     #
     path('api/experiment/filteroptions/', experiment_frontend_views.ExperimentFilterOptionsView.as_view()),
-    # add an experiment run to an experiment
-    path('api/experimentrun/create/', experiment_frontend_views.ExperimentRunCreateView.as_view()),
     # create a new experiment (only for supervisors) - ONLY FOR TESTING SINCE EXPERIMENTS ARE CREATED VIA REQUESTS
     path('api/experiment/create/', experiment_frontend_views.ExperimentCreateView.as_view()),
+    # check if an experiment is published to the webapp if yes, return the experiment information
+    path('api/experiment/check/', experiment_frontend_views.ExperimentCheckView.as_view()),
+    path('api/experiment/checkmuliple/', experiment_frontend_views.ExperimentCheckMultipleView.as_view()),
 
     # ### experiment run urls ###
     # get all experiment runs (paginated, filtered, sorted)
     path('api/experimentrun/', experiment_frontend_views.ExperimentRunListView.as_view()),
     # get a single experiment run by uuid
     path('api/experimentrun/experimentrun_<str:uuid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
+    #
+    path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
+    # check if an experiment run is published to the webapp
+    path('api/experimentrun/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
+
+
 
     # ### request urls ###
     # get all requests (paginated, filtered, sorted)
@@ -101,6 +108,8 @@ urlpatterns = [
     path('api/request/<str:uuid>/cancel/', experiment_frontend_views.RequestCancelView.as_view()),
     # assign a request to a supervisor (only for supervisors)
     path('api/request/<str:uuid>/assign/<str:username>/', experiment_frontend_views.RequestAssignView.as_view()),
+    # check request status
+    path('api/request/check/', experiment_frontend_views.RequestCheckView.as_view()),
 
     # ### protected file access urls ###
     path('api/file/avatar/<str:username>/thumbnail/<str:size>/', files_views.AvatarThumbnailFileView.as_view()),

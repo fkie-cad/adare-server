@@ -71,6 +71,15 @@ def create_experiment(data, publisher_id, action_file, testset_file, published=F
     data['publish_date'] = make_aware(datetime.now())
     data['published'] = published
     data['os_info'] = osinfo_object.id
+
+    # get action file hash
+    action_file_hash = hash_file_sha256(action_file.read())
+    # get testset file hash
+    testset_file_hash = hash_file_sha256(testset_file.read())
+    # combine hashes
+    experiment_hash = combine_hashes([action_file_hash, testset_file_hash])
+    data['sha256hash'] = experiment_hash
+
     serializer = ExperimentCreateSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     experiment = serializer.save()
@@ -380,83 +389,6 @@ class ExperimentCreateView(generics.CreateAPIView):
         return Response(f'experiment {experiment.uuid} created successfully', status=http_status_codes.HTTP_201_CREATED)
 
 
-class ExperimentRunCreateView(generics.CreateAPIView):
-    serializer_class = ExperimentRunCreateSerializer
-    queryset = ExperimentRun.objects.all()
-    permission_classes = [HasGroupPermission]
-    parser_classes = [MultiPartJSONParser]
-
-    required_groups = {
-        'POST': ['supervisor'],
-    }
-
-    def create(self, request, *args, **kwargs):
-        logfile = request.FILES.get('log_file')
-        data = request.data
-        experimentrun_uuid = data['uuid']
-        experiment_uuid = data.pop('experiment_uuid')
-        status = data.pop('status')
-
-        # get experiment for experiment run
-        try:
-            experiment = Experiment.objects.get(uuid=experiment_uuid)
-        except Experiment.DoesNotExist:
-            return Response(f'Experiment with uuid {experiment_uuid} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        data['experiment'] = experiment.uuid
-
-        # check if experiment is published
-        if not experiment.published:
-            return Response(f'Experiment with uuid {experiment_uuid} is not published',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-
-        # check if experiment run already exists
-        try:
-            ExperimentRun.objects.get(uuid=experimentrun_uuid)
-            return Response(f'Experiment run for experiment {experiment_uuid} already exists',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        except ExperimentRun.DoesNotExist:
-            pass
-
-        # create or get Status
-        try:
-            status_object = Status.objects.get(name=status['name'])
-        except Status.DoesNotExist:
-            return Response(f'Status with name {status} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        data['status'] = status_object.id
-
-        tests = data.pop('tests')
-        test_object_list = []
-        for test in tests:
-            try:
-                test_object = Test.objects.get(uuid=test['uuid'])
-            except Test.DoesNotExist:
-                test_serializer = TestSerializer(data=test)
-                test_serializer.is_valid(raise_exception=True)
-                test_object = test_serializer.save()
-            test_object_list.append(test_object)
-
-        # check if all tests of the experiment are included in the experiment run and vice versa
-        uuid_tests = [test.abstracttest.uuid for test in test_object_list]
-        uuid_abstract_tests = [abstract_test.uuid for abstract_test in experiment.abstract_tests.all()]
-        if not set(uuid_abstract_tests).issubset(set(uuid_tests)):
-            return Response(f'Not all tests of experiment {experiment_uuid} are included in the experiment run',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        if not set(uuid_tests).issubset(set(uuid_abstract_tests)):
-            return Response(f'Not all tests of experiment run {experimentrun_uuid} are included in the experiment',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-
-        data['publisher'] = request.user.id
-        data['publish_date'] = make_aware(datetime.now())
-        data['logfile'] = logfile
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        experiment_run = serializer.save()
-        experiment_run.tests.set(test_object_list)
-        return Response(serializer.data, status=http_status_codes.HTTP_201_CREATED)
-
-
 class RequestsExperimentCreateView(generics.CreateAPIView):
     serializer_class = RequestCreateSerializer
     permission_classes = [IsAuthenticated]
@@ -622,3 +554,196 @@ class StatisticView(generics.RetrieveAPIView):
                          'user_count': User.objects.count()
                          }
         return Response(response_data, status=http_status_codes.HTTP_200_OK)
+
+
+class ExperimentCheckView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        """
+        checks if experiment with given sha256 hash is published
+        """
+        experiment_sha256hash = request.query_params.get('sha256hash')
+        if not experiment_sha256hash:
+            return Response('No sha256 hash given', status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # check if experiment with given sha256 hash exists
+        try:
+            experiment = Experiment.objects.get(sha256hash=experiment_sha256hash)
+        except Experiment.DoesNotExist:
+            resp_data = {'published': None, 'publish_date': None, 'uuid': None, 'request_uuid': None}
+            return Response(resp_data,
+                            status=http_status_codes.HTTP_200_OK)
+        # check if experiment is published
+        if experiment.published:
+            resp_data = {'published': True, 'publish_date': experiment.publish_date, 'uuid': experiment.uuid, 'request_uuid': None}
+            return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+        # check if request for experiment exists
+        try:
+            request = Request.objects.get(experiment=experiment)
+            resp_data = {'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': request.uuid}
+        except Request.DoesNotExist:
+            resp_data = {'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': None}
+
+        return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+
+
+class ExperimentCheckMultipleView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        """
+        checks if experiments with given sha256 hashes are published
+        """
+        # get sha256 hashes from request data
+        experiment_sha256hashes = request.data.get('sha256hashes')
+        if not experiment_sha256hashes:
+            return Response('No sha256 hashes given', status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # check if experiment with given sha256 hash exists
+        try:
+            experiment_sha256hashes = experiment_sha256hashes.split(',')
+            experiments = Experiment.objects.filter(sha256hash__in=experiment_sha256hashes)
+        except Experiment.DoesNotExist:
+            resp_data = {'published': None, 'publish_date': None, 'uuid': None, 'request_uuid': None}
+            return Response(resp_data,
+                            status=http_status_codes.HTTP_200_OK)
+        # check if experiment is published
+        resp_data = []
+        for experiment in experiments:
+            if experiment.published:
+                resp_data.append({'published': True, 'publish_date': experiment.publish_date, 'uuid': experiment.uuid, 'request_uuid': None})
+            else:
+                # check if request for experiment exists
+                try:
+                    request = Request.objects.get(experiment=experiment)
+                    resp_data.append({'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': request.uuid})
+                except Request.DoesNotExist:
+                    resp_data.append({'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': None})
+
+        return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+
+
+class RequestCheckView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        """
+        checks if request with given uuid exists
+        """
+        resp_data = {
+            'exists': False,
+            'status': None,
+        }
+
+        request_uuid = request.query_params.get('uuid')
+        if not request_uuid:
+            return Response('No request uuid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # check if request with given uuid exists
+        try:
+            request = Request.objects.get(uuid=request_uuid)
+        except Request.DoesNotExist:
+            return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+        resp_data.update({
+            'exists': True,
+            'status': request.status.name,
+        })
+        return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+
+
+class ExperimentRunCheckView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        """
+            checks if experiment run with given uuid exists
+        """
+        resp_data = {
+            'exists': False,
+        }
+
+        experimentrun_uuid = request.query_params.get('uuid')
+        if not experimentrun_uuid:
+            return Response('No experiment run uuid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # check if experiment run with given uuid exists
+        try:
+            experimentrun = ExperimentRun.objects.get(uuid=experimentrun_uuid)
+        except ExperimentRun.DoesNotExist:
+            return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+        resp_data.update({
+            'exists': True,
+        })
+        return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+
+
+class ExperimentRunPublishView(generics.CreateAPIView):
+    serializer_class = ExperimentRunCreateSerializer
+    queryset = ExperimentRun.objects.all()
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartJSONParser]
+
+    def create(self, request, *args, **kwargs):
+        logfile = request.FILES.get('log_file')
+        data = request.data
+
+        exp_sha256hash = data['sha256hash']
+        experimentrun_uuid = data['uuid']
+        # experiment_uuid = data.pop('experiment_uuid')
+        status = data.pop('status')
+
+        # get experiment for experiment run
+        try:
+            experiment = Experiment.objects.get(sha256hash=exp_sha256hash)
+        except Experiment.DoesNotExist:
+            return Response(f'Experiment with hash {exp_sha256hash} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        data['experiment'] = experiment.uuid
+
+        # check if experiment is published
+        if not experiment.published:
+            return Response(f'Experiment with uuid {experiment.uuid} is not published',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+
+        # check if experiment run already exists
+        try:
+            ExperimentRun.objects.get(uuid=experimentrun_uuid)
+            return Response(f'Experiment run for experiment {experiment.uuid} already exists',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        except ExperimentRun.DoesNotExist:
+            pass
+
+        # create or get Status
+        try:
+            status_object = Status.objects.get(name=status['name'])
+        except Status.DoesNotExist:
+            return Response(f'Status with name {status} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        data['status'] = status_object.id
+
+        tests = data.pop('tests')
+        test_object_list = []
+        for test in tests:
+            try:
+                test_object = Test.objects.get(uuid=test['uuid'])
+            except Test.DoesNotExist:
+                test_serializer = TestSerializer(data=test)
+                test_serializer.is_valid(raise_exception=True)
+                test_object = test_serializer.save()
+            test_object_list.append(test_object)
+
+        # check if all tests of the experiment are included in the experiment run and vice versa
+        uuid_tests = [test.abstracttest.uuid for test in test_object_list]
+        uuid_abstract_tests = [abstract_test.uuid for abstract_test in experiment.abstract_tests.all()]
+        if not set(uuid_abstract_tests).issubset(set(uuid_tests)):
+            return Response(f'Not all tests of experiment {experiment.uuid} are included in the experiment run',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        if not set(uuid_tests).issubset(set(uuid_abstract_tests)):
+            return Response(f'Not all tests of experiment run {experimentrun_uuid} are included in the experiment',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+
+        data['publisher'] = request.user.id
+        data['publish_date'] = make_aware(datetime.now())
+        data['logfile'] = logfile
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        experiment_run = serializer.save()
+        experiment_run.tests.set(test_object_list)
+        return Response(serializer.data, status=http_status_codes.HTTP_201_CREATED)

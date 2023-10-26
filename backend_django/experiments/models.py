@@ -65,7 +65,7 @@ class AbstractTest(models.Model):
     description = models.CharField(max_length=500, blank=True)
     testfunction = models.ForeignKey(TestFunction, on_delete=models.CASCADE)
     parameters = models.ManyToManyField(TestParameterEntries)
-    tool = models.ForeignKey(Tool, on_delete=models.PROTECT, null=True)
+    tool = models.ForeignKey(Tool, on_delete=models.PROTECT, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -107,6 +107,8 @@ class Experiment(models.Model):
     abstract_tests = models.ManyToManyField(AbstractTest)
     tags = models.ManyToManyField(Tag)
 
+    sha256hash = models.CharField(max_length=64, unique=True)
+
     def __str__(self):
         return f'{self.name}'
 
@@ -120,6 +122,7 @@ class ExperimentRun(models.Model):
     timestamp_end = models.DateTimeField()
     tests = models.ManyToManyField(Test)
     status = models.ForeignKey(Status, on_delete=models.PROTECT)
+
     logfile = models.FileField(upload_to='logfiles/')
 
     def __str__(self):

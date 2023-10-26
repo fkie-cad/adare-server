@@ -1,7 +1,8 @@
 from rest_framework import serializers
+from pathlib import Path
 
 from experiments.models import *
-
+from helperfunctions.hash import hash_file_sha256, combine_hashes
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -165,7 +166,7 @@ class TestFunctionSerializer(serializers.ModelSerializer):
 class AbstractTestSerializer(serializers.ModelSerializer):
     testfunction = TestFunctionSerializer()
     parameters = TestParameterEntriesSerializer(many=True)
-    tool = ToolSerializer(required=False)
+    tool = ToolSerializer(required=False, allow_null=True)
 
     class Meta:
         model = AbstractTest
@@ -184,13 +185,14 @@ class AbstractTestSerializer(serializers.ModelSerializer):
 
         if 'tool' in validated_data.keys():
             tool_data = validated_data.pop('tool')
-            try:
-                tool = Tool.objects.get(name=tool_data['name'], command=tool_data['command'])
-            except Tool.DoesNotExist:
-                tool_serializer = ToolSerializer(data=tool_data)
-                tool_serializer.is_valid()
-                tool = tool_serializer.save()
-            validated_data['tool'] = tool
+            if tool_data:
+                try:
+                    tool = Tool.objects.get(name=tool_data['name'], command=tool_data['command'])
+                except Tool.DoesNotExist:
+                    tool_serializer = ToolSerializer(data=tool_data)
+                    tool_serializer.is_valid()
+                    tool = tool_serializer.save()
+                validated_data['tool'] = tool
 
         test_parameter_entrys = []
         for parameter_entry in parameters_data:
@@ -264,12 +266,6 @@ class ExperimentSerializer(serializers.ModelSerializer):
     testset_file = serializers.SerializerMethodField('get_testset_file', read_only=True)
     # experiment_runs = serializers.SerializerMethodField('get_experiment_runs', read_only=True)
 
-    def get_action_file(self, obj):
-        return f'api/file/actionfile/{obj.uuid}/'
-
-    def get_testset_file(self, obj):
-        return f'api/file/testsetfile/{obj.uuid}/'
-
     class Meta:
         model = Experiment
         fields = [
@@ -284,6 +280,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'os_info',
             'action_file',
             'testset_file',
+            'sha256hash',
             # 'experiment_runs',
         ]
         extra_kwargs = {
@@ -316,6 +313,12 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'successful': num_successful,
             'failed': num_failed,
         }
+
+    def get_action_file(self, obj):
+        return f'api/file/actionfile/{obj.uuid}/'
+
+    def get_testset_file(self, obj):
+        return f'api/file/testsetfile/{obj.uuid}/'
 
 
 class ExperimentRunSerializer(serializers.ModelSerializer):
@@ -481,6 +484,7 @@ class ExperimentCreateSerializer(serializers.ModelSerializer):
             'publish_date',
             'published',
             'os_info',
+            'sha256hash',
         ]
 
 
