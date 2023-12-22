@@ -15,6 +15,11 @@ from rest_framework import views
 from rest_framework.parsers import FileUploadParser
 from rest_framework.response import Response
 from rest_framework.authtoken.serializers import AuthTokenSerializer
+from rest_framework import status
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 from users.serializers import LoginSerializer, PrivateProfileSerializer, ProfileAvatarSerializer, ProfileSerializer, PublicProfileSerializer
 from users.models import Profile
@@ -131,3 +136,4 @@ class CSRFView(views.APIView):
     @method_decorator(ensure_csrf_cookie, 'dispatch')
     def get(self, request):
         return Response(status=status.HTTP_200_OK)
+

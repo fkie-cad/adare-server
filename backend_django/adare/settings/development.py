@@ -46,3 +46,6 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'adare/static_files',
 ]
+
+# djosers allowed redirect uris
+DJOSER['SOCIAL_AUTH_ALLOWED_REDIRECT_URIS'] = ['http://127.0.0.1:8000/auth/o/gitea/']

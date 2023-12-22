@@ -14,13 +14,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, re_path
 
 import users.views as users_views
 import experiments.views as experiment_frontend_views
 import files.views as files_views
+import giteaeventmanager.views as giteaeventmanager_views
 from knox.views import LogoutView as KnoxLogoutView
 from django.conf.urls.static import static
+from django.urls import path, include, re_path
 from django.conf import settings
 from decouple import config
 
@@ -35,10 +36,8 @@ urlpatterns = [
     path('api/csrf/', users_views.CSRFView.as_view()),
 
     # ### authentication urls ###
-    # login
-    path('api/user/login/', users_views.LoginView.as_view()),
-    # logout
-    path('api/user/logout/', KnoxLogoutView.as_view()),
+    path(r'auth/', include('djoser.social.urls')),
+
 
     # ### user profile urls ###
     # get the profile of the logged-in user
@@ -120,5 +119,8 @@ urlpatterns = [
 
     # ### statistics urls ###
     path('api/statistics/', experiment_frontend_views.StatisticView.as_view()),
+
+    # ### gitea webhook url ###
+    path('internal/gitea/webhook/', giteaeventmanager_views.GiteaWebhookView.as_view()),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -76,8 +76,9 @@ SESSION_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
-#
-SECURE_SSL_REDIRECT = True
+# redirect all requests to https -> handled by nginx proxy
+# if enabled, django is not accessible internally via http (e.g. for gitea webhooks)
+SECURE_SSL_REDIRECT = False
 
 # setup HSTS
 SECURE_HSTS_SECONDS = 86400  # 1 day
@@ -92,3 +93,5 @@ CSP_SCRIPT_SRC = ("'self'", )
 CSP_IMG_SRC = ("'self'", )
 CSP_FONT_SRC = ("'self'", )
 
+# djosers allowed redirect uris
+DJOSER['SOCIAL_AUTH_ALLOWED_REDIRECT_URIS'] = ['https://adare.seclab-bonn.de/git/auth/o/gitea/']

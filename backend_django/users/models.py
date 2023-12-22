@@ -1,5 +1,6 @@
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, PermissionsMixin
 from django.utils.timezone import make_aware
 
 from experiments.models import Request, RequestStatus
