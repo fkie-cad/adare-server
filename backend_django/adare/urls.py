@@ -13,7 +13,10 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import urllib
+
 from django.contrib import admin
+from django.shortcuts import redirect
 
 import users.views as users_views
 import experiments.views as experiment_frontend_views
@@ -22,10 +25,15 @@ import giteaeventmanager.views as giteaeventmanager_views
 from knox.views import LogoutView as KnoxLogoutView
 from django.conf.urls.static import static
 from django.urls import path, include, re_path
-from django.conf import settings
 from decouple import config
+from django.conf import settings
+from allauth.socialaccount.providers.gitea import views as gitea_views
 
 MODE = config('MODE', default='production')
+
+def gitea_callback(request):
+    params = urllib.parse.urlencode(request.GET)
+    return redirect(f'{settings.FRONTEND_URL}?{params}')
 
 
 urlpatterns = [
@@ -36,20 +44,22 @@ urlpatterns = [
     path('api/csrf/', users_views.CSRFView.as_view()),
 
     # ### authentication urls ###
-    path(r'auth/', include('djoser.social.urls')),
+    path('auth/gitea/', users_views.GiteaLoginView.as_view()),
+    path('auth/gitea/', gitea_callback, name='gitea_callback'),
+    path('auth/gitea/url/', gitea_views.oauth2_login),
 
 
     # ### user profile urls ###
     # get the profile of the logged-in user
     path('api/user/profile/', users_views.ProfileViewLoggedIn.as_view()),
-    # get a list of all supervisors (only usernames)
-    path('api/user/supervisors/names/', users_views.SupervisorListViewNames.as_view()),
-    # get the avatar of the logged-in user
-    path('api/user/profile/avatar/', users_views.ProfileAvatarViewLoggedIn.as_view()),
-    # get the profile of a user by username
-    path('api/user/<str:username>/profile/', users_views.ProfileView.as_view()),
-    # get the avatar of a user by username
-    path('api/user/<str:username>/profile/avatar/', users_views.ProfileAvatarView.as_view()),
+    # # get a list of all supervisors (only usernames)
+    # path('api/user/supervisors/names/', users_views.SupervisorListViewNames.as_view()),
+    # # get the avatar of the logged-in user
+    # path('api/user/profile/avatar/', users_views.ProfileAvatarViewLoggedIn.as_view()),
+    # # get the profile of a user by username
+    # path('api/user/<str:username>/profile/', users_views.ProfileView.as_view()),
+    # # get the avatar of a user by username
+    # path('api/user/<str:username>/profile/avatar/', users_views.ProfileAvatarView.as_view()),
 
     # ### scenario urls ###
     # get all scenarios (paginated, filtered, sorted)
@@ -111,7 +121,7 @@ urlpatterns = [
     path('api/request/check/', experiment_frontend_views.RequestCheckView.as_view()),
 
     # ### protected file access urls ###
-    path('api/file/avatar/<str:username>/thumbnail/<str:size>/', files_views.AvatarThumbnailFileView.as_view()),
+    # path('api/file/avatar/<str:username>/thumbnail/<str:size>/', files_views.AvatarThumbnailFileView.as_view()),
     path('api/file/logfile/<str:experimentrun_uuid>/', files_views.LogFileView.as_view()),
     path('api/file/actionfile/<str:experiment_uuid>/', files_views.ActionFileView.as_view()),
     path('api/file/testsetfile/<str:experiment_uuid>/', files_views.TestsetFileView.as_view()),

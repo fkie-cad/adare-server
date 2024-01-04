@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
-import API_URLS from 'src/api'
 import {useLoggedInUserStore} from 'stores/loggedinuser';
 
 

@@ -93,5 +93,15 @@ CSP_SCRIPT_SRC = ("'self'", )
 CSP_IMG_SRC = ("'self'", )
 CSP_FONT_SRC = ("'self'", )
 
+# frontend url
+FRONTEND_URL = 'https://adare.seclab-bonn.de/'
+
 # djosers allowed redirect uris
-DJOSER['SOCIAL_AUTH_ALLOWED_REDIRECT_URIS'] = ['https://adare.seclab-bonn.de/git/auth/o/gitea/']
+DJOSER['SOCIAL_AUTH_ALLOWED_REDIRECT_URIS'] = [
+    'https://adare.seclab-bonn.de/git/auth/o/gitea/',
+    'https://adare.seclab-bonn.de/login/oauth/'
+]
+
+# social auth credentials
+SOCIAL_AUTH_GITEA_KEY = config("SOCIAL_AUTH_GITEA_KEY")
+SOCIAL_AUTH_GITEA_SECRET = config("SOCIAL_AUTH_GITEA_SECRET")

@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from users.models import Profile, Achievement
+from users.models import Profile
 from sorl.thumbnail import get_thumbnail
 import sorl
 
@@ -48,7 +48,6 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = User
         fields = [
@@ -57,25 +56,10 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
 
-class AchievementSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source='category.name', read_only=True)
-    iconfile = serializers.CharField(source='category.iconfile', read_only=True)
-    description = serializers.CharField(source='category.description', read_only=True)
-
-    class Meta:
-        model = Achievement
-        fields = [
-            'name',
-            'iconfile',
-            'description',
-            'count',
-        ]
-
-
 class PrivateProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(required=True)
+
     groups = serializers.SerializerMethodField()
-    achievements = AchievementSerializer(many=True)
 
     def get_groups(self, obj):
         return obj.user.groups.values_list('name', flat=True)
@@ -84,94 +68,126 @@ class PrivateProfileSerializer(serializers.ModelSerializer):
         model = Profile
         fields = [
             'user',
-            'groups',
-            'achievements',
-        ]
-        extra_kwargs = {
-            'achievements': {'read_only': True},
-        }
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(required=True)
-    groups = serializers.SerializerMethodField()
-    achievements = AchievementSerializer(many=True)
-
-
-    def get_groups(self, obj):
-        return obj.user.groups.values_list('name', flat=True)
-
-    class Meta:
-        model = Profile
-        fields = [
-            'user',
-            'groups',
-            'achievements',
-        ]
-        extra_kwargs = {
-            'achievements': {'read_only': True},
-        }
-
-
-class PublicUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            'username',
-        ]
-
-
-class PublicProfileSerializer(serializers.ModelSerializer):
-    user = PublicUserSerializer(required=True)
-    groups = serializers.SerializerMethodField()
-    achievements = AchievementSerializer(many=True)
-
-    def get_groups(self, obj):
-        return obj.user.groups.values_list('name', flat=True)
-
-    class Meta:
-        model = Profile
-        fields = [
-            'user',
-            'groups',
-            'achievements',
-        ]
-        extra_kwargs = {
-            'achievements': {'read_only': True},
-        }
-
-
-class ProfileAvatarSerializer(serializers.ModelSerializer):
-    avatar = serializers.ImageField()
-    avatar_thumbnail_sm = serializers.SerializerMethodField()
-    avatar_thumbnail_md = serializers.SerializerMethodField()
-    avatar_thumbnail_lg = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Profile
-        fields = [
             'avatar',
-            'avatar_thumbnail_sm',
-            'avatar_thumbnail_md',
-            'avatar_thumbnail_lg',
+            'groups',
         ]
-        extra_kwargs = {
-            'avatar_thumbnail:sm': {'read_only': True},
-            'avatar_thumbnail:md': {'read_only': True},
-            'avatar_thumbnail:lg': {'read_only': True},
-        }
 
-    def get_avatar_thumbnail_sm(self, obj):
-        if not obj.avatar:
-            return None
-        return get_thumbnail(obj.avatar, '30x30', crop='center', quality=99).url
-
-    def get_avatar_thumbnail_md(self, obj):
-        if not obj.avatar:
-            return None
-        return get_thumbnail(obj.avatar, '50x50', crop='center', quality=99).url
-
-    def get_avatar_thumbnail_lg(self, obj):
-        if not obj.avatar:
-            return None
-        return get_thumbnail(obj.avatar, '100x100', crop='center', quality=99).url
+#
+# class AchievementSerializer(serializers.ModelSerializer):
+#     name = serializers.CharField(source='category.name', read_only=True)
+#     iconfile = serializers.CharField(source='category.iconfile', read_only=True)
+#     description = serializers.CharField(source='category.description', read_only=True)
+#
+#     class Meta:
+#         model = Achievement
+#         fields = [
+#             'name',
+#             'iconfile',
+#             'description',
+#             'count',
+#         ]
+#
+#
+# class PrivateProfileSerializer(serializers.ModelSerializer):
+#     user = UserSerializer(required=True)
+#     groups = serializers.SerializerMethodField()
+#     achievements = AchievementSerializer(many=True)
+#
+#     def get_groups(self, obj):
+#         return obj.user.groups.values_list('name', flat=True)
+#
+#     class Meta:
+#         model = Profile
+#         fields = [
+#             'user',
+#             'groups',
+#             'achievements',
+#         ]
+#         extra_kwargs = {
+#             'achievements': {'read_only': True},
+#         }
+#
+#
+# class ProfileSerializer(serializers.ModelSerializer):
+#     user = UserSerializer(required=True)
+#     groups = serializers.SerializerMethodField()
+#     achievements = AchievementSerializer(many=True)
+#
+#
+#     def get_groups(self, obj):
+#         return obj.user.groups.values_list('name', flat=True)
+#
+#     class Meta:
+#         model = Profile
+#         fields = [
+#             'user',
+#             'groups',
+#             'achievements',
+#         ]
+#         extra_kwargs = {
+#             'achievements': {'read_only': True},
+#         }
+#
+#
+# class PublicUserSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = User
+#         fields = [
+#             'username',
+#         ]
+#
+#
+# class PublicProfileSerializer(serializers.ModelSerializer):
+#     user = PublicUserSerializer(required=True)
+#     groups = serializers.SerializerMethodField()
+#     achievements = AchievementSerializer(many=True)
+#
+#     def get_groups(self, obj):
+#         return obj.user.groups.values_list('name', flat=True)
+#
+#     class Meta:
+#         model = Profile
+#         fields = [
+#             'user',
+#             'groups',
+#             'achievements',
+#         ]
+#         extra_kwargs = {
+#             'achievements': {'read_only': True},
+#         }
+#
+#
+# class ProfileAvatarSerializer(serializers.ModelSerializer):
+#     avatar = serializers.ImageField()
+#     avatar_thumbnail_sm = serializers.SerializerMethodField()
+#     avatar_thumbnail_md = serializers.SerializerMethodField()
+#     avatar_thumbnail_lg = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = Profile
+#         fields = [
+#             'avatar',
+#             'avatar_thumbnail_sm',
+#             'avatar_thumbnail_md',
+#             'avatar_thumbnail_lg',
+#         ]
+#         extra_kwargs = {
+#             'avatar_thumbnail:sm': {'read_only': True},
+#             'avatar_thumbnail:md': {'read_only': True},
+#             'avatar_thumbnail:lg': {'read_only': True},
+#         }
+#
+#     def get_avatar_thumbnail_sm(self, obj):
+#         if not obj.avatar:
+#             return None
+#         return get_thumbnail(obj.avatar, '30x30', crop='center', quality=99).url
+#
+#     def get_avatar_thumbnail_md(self, obj):
+#         if not obj.avatar:
+#             return None
+#         return get_thumbnail(obj.avatar, '50x50', crop='center', quality=99).url
+#
+#     def get_avatar_thumbnail_lg(self, obj):
+#         if not obj.avatar:
+#             return None
+#         return get_thumbnail(obj.avatar, '100x100', crop='center', quality=99).url

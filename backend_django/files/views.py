@@ -4,7 +4,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from decouple import config
 from users.models import User
-from users.serializers import ProfileAvatarSerializer
 from experiments.models import ExperimentRun, Experiment
 from pathlib import Path
 
@@ -21,36 +20,35 @@ def get_response(filepath: str, disposition: str = 'inline', typ: str = 'media')
         response = redirect(f'http://localhost:8000/{typ}/{filepath}')
     return response
 
-
-class AvatarThumbnailFileView(generics.RetrieveAPIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request, *args, **kwargs):
-        # get username from url
-        username = kwargs['username']
-        # get thumbnail size from url
-        size = kwargs['size']
-        # get user
-        user = User.objects.get(username=username)
-        if not user.profile.avatar:
-            return Response(status=404)
-        # apply serializer
-        serializer = ProfileAvatarSerializer(user.profile)
-        # get filepath of thumbnail
-        if size == 'sm':
-            filepath = serializer.data['avatar_thumbnail_sm']
-        elif size == 'md':
-            filepath = serializer.data['avatar_thumbnail_md']
-        elif size == 'lg':
-            filepath = serializer.data['avatar_thumbnail_lg']
-        elif size == 'orig':
-            filepath = serializer.data['avatar']
-        else:
-            return Response(status=404)
-        # strip leading /media/ from filepath
-        filepath = filepath[7:]
-
-        return get_response(filepath)
+#
+# class AvatarThumbnailFileView(generics.RetrieveAPIView):
+#     permission_classes = [AllowAny]
+#
+#     def get(self, request, *args, **kwargs):
+#         # get username from url
+#         username = kwargs['username']
+#         # get thumbnail size from url
+#         size = kwargs['size']
+#         # get user
+#         user = User.objects.get(username=username)
+#         if not user.profile.avatar:
+#             return Response(status=404)
+#
+#         # get filepath of thumbnail
+#         if size == 'sm':
+#             filepath = serializer.data['avatar_thumbnail_sm']
+#         elif size == 'md':
+#             filepath = serializer.data['avatar_thumbnail_md']
+#         elif size == 'lg':
+#             filepath = serializer.data['avatar_thumbnail_lg']
+#         elif size == 'orig':
+#             filepath = serializer.data['avatar']
+#         else:
+#             return Response(status=404)
+#         # strip leading /media/ from filepath
+#         filepath = filepath[7:]
+#
+#         return get_response(filepath)
 
 
 class LogFileView(generics.RetrieveAPIView):

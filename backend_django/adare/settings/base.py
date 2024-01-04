@@ -50,9 +50,11 @@ INSTALLED_APPS = [
     'experiments',
     'files',
 
-    # used for social authentication (OAuth2 via Gitea)
-    'social_django',
-    'djoser',
+    # used for authentication (OAuth2 via Gitea)
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.gitea'
 ]
 
 MIDDLEWARE = [
@@ -66,7 +68,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     "django.middleware.common.CommonMiddleware",
     'csp.middleware.CSPMiddleware',
-    'social_django.middleware.SocialAuthExceptionMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'adare.urls'
@@ -146,58 +148,12 @@ REST_FRAMEWORK = {
 # Authentication backends
 DJOSER = {
     'SOCIAL_AUTH_TOKEN_STRATEGY': 'users.knox_token.TokenStrategy',
+    'TOKEN_MODEL': 'knox.models.AuthToken',
 }
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.gitea.GiteaOAuth2',
 )
 
-SOCIAL_AUTH_GITEA_KEY = 'e5c4ef88-67a3-4453-8200-9f16021c2750'
-SOCIAL_AUTH_GITEA_SECRET = 'gto_qzdvswnp67awtl2c2anregkpspa24vqr727twdfv3mqdvyqkui2a'
-SOCIAL_AUTH_GITEA_API_URL = 'https://adare.seclab-bonn.de/git'
-SOCIAL_AUTH_PIPELINE = (
-    # Get the information we can about the user and return it in a simple
-    # format to create the user instance later. In some cases the details are
-    # already part of the auth response from the provider, but sometimes this
-    # could hit a provider API.
-    'social_core.pipeline.social_auth.social_details',
-
-    # Get the social uid from whichever service we're authing thru. The uid is
-    # the unique identifier of the given user in the provider.
-    'social_core.pipeline.social_auth.social_uid',
-
-    # Verifies that the current auth process is valid within the current
-    # project, this is where emails and domains whitelists are applied (if
-    # defined).
-    'social_core.pipeline.social_auth.auth_allowed',
-
-    # Checks if the current social-account is already associated in the site.
-    'social_core.pipeline.social_auth.social_user',
-
-    # Make up a username for this person, appends a random string at the end if
-    # there's any collision.
-    'social_core.pipeline.user.get_username',
-
-    # Send a validation email to the user to verify its email address.
-    # Disabled by default.
-    # 'social_core.pipeline.mail.mail_validation',
-
-    # Associates the current social details with another user account with
-    # a similar email address. Disabled by default.
-    # 'social_core.pipeline.social_auth.associate_by_email',
-
-    # Create a user account if we haven't found one yet.
-    'social_core.pipeline.user.create_user',
-
-    # Create the record that associates the social account with the user.
-    'social_core.pipeline.social_auth.associate_user',
-
-    # Populate the extra_data field in the social record with the values
-    # specified by settings (and the default ones like access_token, etc).
-    'social_core.pipeline.social_auth.load_extra_data',
-
-    # Update the user record with any changed info from the auth service.
-    'social_core.pipeline.user.user_details',
-
-    #
-    'users.pipeline.update_user_social_data',
-)
+# define a GITEA repository which contains experiments and requests
+GITEA_EXPERIMENTS_REPO = 'adareTEST'
+GITEA_EXPERIMENTS_REPO_OWNER = 'miq'

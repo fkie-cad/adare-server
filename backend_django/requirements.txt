@@ -11,5 +11,4 @@ django-rest-knox
 django-redis
 django-csp
 PyYAML
-social-auth-app-django
-djoser
+django-rest-auth[with_social]

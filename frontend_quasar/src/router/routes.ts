@@ -106,13 +106,20 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     component: () => import('layouts/MainLayout.vue'),
     children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/LoginPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
+        {
+          path: '',
+          components: {
+            main: () => import('pages/LoginPage.vue'),
+            header: () => import('components/HeaderDefault.vue'),
+          }
+        },
+        {
+          path: 'oauth',
+          components: {
+            main: () => import('pages/OauthWaítingPage.vue'),
+            header: () => import('components/HeaderDefault.vue'),
+          }
         }
-      },
     ],
   },
   {

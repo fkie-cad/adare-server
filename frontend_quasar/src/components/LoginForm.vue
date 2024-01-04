@@ -23,42 +23,8 @@
           <div class="text-h5">{{ errorMessage }}</div>
         </q-banner>
       </q-card-section>
-      <q-card-section>
-        <q-form
-          class="q-px-sm q-pt-sm"
-          @submit="login"
-          @reset="reset"
-        >
-          <q-input
-            square
-            clearable
-            v-model="login_data.username"
-            type="text"
-            label="username"
-            @clear="hideErrorMessage"
-            class="q-pa-sm"
-          >
-            <template v-slot:prepend>
-              <q-icon name="person"/>
-            </template>
-          </q-input>
-          <q-input
-            square
-            clearable
-            v-model.lazy="login_data.password"
-            type="password"
-            label="password"
-            @clear="hideErrorMessage"
-            class="q-pa-sm"
-          >
-            <template v-slot:prepend>
-              <q-icon name="lock"/>
-            </template>
-          </q-input>
-        </q-form>
-      </q-card-section>
       <q-card-actions class="q-px-lg">
-        <q-btn unelevated size="lg" color="blue-grey-9" class="full-width" @click="login" label="Sign In" />
+        <q-btn unelevated size="lg" color="blue-grey-9" class="full-width" @click="login" label="Sign In with Gitea" />
       </q-card-actions>
     </div>
   </q-card>
@@ -95,46 +61,19 @@ export default {
     storeToRefs(LoginStore)
 
     const login = async () => {
-      if (LoginStore.IsLoggedIn) {
-        await logout()
-      }
-      let logged_in = false;
-      await axios.post(
-      API_URLS.USER_API+'login/',
-      {
-        username: login_data.username,
-        password: login_data.password
-      }).then((response) => {
-        // successful login
-        if (response.status == 200) {
-          LoginStore.SetLoginToken(
-            login_data.username,
-            response.data.token,
-            response.data.expiry
-          )
-          directly_logged_in.value = true
-          logged_in = true
-        }
-      }).catch((error) => {
-        if (!error) {
-          setErrorMessage('Network error')
-        } else {
-          if (error.response.status == 400) {
-            setErrorMessage('Wrong username or password')
-          } else if (error.response.status == 401) {
-            setErrorMessage('Unauthorized')
-          } else if (error.response.status == 500) {
-            setErrorMessage('Server error')
-          } else {
-            setErrorMessage('Unknown error ('+error.response.status+')')
-          }
-        }
+      // send request to oauth backend to get the redirect url
+      axios.defaults.withCredentials = true
+      const resp = await axios.get(API_URLS.GITEA_OAUTH_API + `?redirect_uri=${API_URLS.GITEA_REDIRECT_URI}`)
+      console.log(resp.data)
+      if (resp.status === 200) {
+        // open the redirect url in a new tab
+        window.open(resp.data.authorization_url, '_blank')
+
+      } else {
+        setErrorMessage('Something went wrong. Please try again later.')
         showErrorMessage()
-      })
-      if (logged_in) {
-        await LoggedInUserStore.UpdateProfileInformation()
-        await router.push('/profile')
       }
+
     }
 
     async function logout () {
