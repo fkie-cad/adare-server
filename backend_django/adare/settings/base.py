@@ -20,11 +20,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-=1wppni6d7yah@h7f&ieyno$&=_5plu6-u2l=d8^fui67967+#'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
+
+# database configuration
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": config("DB_NAME"),
+        "USER": config("DB_USERNAME"),
+        "PASSWORD": config("DB_PASSWORD"),
+        "HOST": config("DB_HOST"),
+        "PORT": config("DB_PORT", cast=int),
+    }
+}
 
 # Application definition
 INSTALLED_APPS = [
@@ -40,8 +50,6 @@ INSTALLED_APPS = [
     'rest_framework',
     # used for token authentication
     'knox',
-    # used for thumbnail generation
-    'sorl.thumbnail',
     # used for filtering
     'django_filters',
 
@@ -51,10 +59,11 @@ INSTALLED_APPS = [
     'files',
 
     # used for authentication (OAuth2 via Gitea)
+    'dj_rest_auth',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'allauth.socialaccount.providers.gitea'
+    'allauth.socialaccount.providers.gitea',
 ]
 
 MIDDLEWARE = [
@@ -85,8 +94,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'social_django.context_processors.backends',
-                'social_django.context_processors.login_redirect'
             ],
         },
     },
@@ -146,14 +153,63 @@ REST_FRAMEWORK = {
 }
 
 # Authentication backends
-DJOSER = {
-    'SOCIAL_AUTH_TOKEN_STRATEGY': 'users.knox_token.TokenStrategy',
-    'TOKEN_MODEL': 'knox.models.AuthToken',
-}
 AUTHENTICATION_BACKENDS = (
-    'social_core.backends.gitea.GiteaOAuth2',
+    'allauth.account.auth_backends.AuthenticationBackend',
 )
+
+REST_AUTH = {
+    'USE_JWT': False,
+    'TOKEN_MODEL': 'knox.models.AuthToken',
+    'TOKEN_CREATOR': 'users.utils.create_token',
+    'TOKEN_SERIALIZER': 'users.utils.KnoxTokenSerializer',
+}
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+
+
+# setup celery
+CELERY_BROKER_URL = config('CELERY_BROKER')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND')
+
+
+# setup redis
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': config('REDIS_URL'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'adare'
+    }
+}
+
+# setup that social auth stores tokens
+SOCIALACCOUNT_STORE_TOKENS = True
+
+# get the Gitea webhook secret from the environment
+GITEA_WEBHOOK_SECRET = config("GITEA_WEBHOOK_SECRET")
+
+# social auth credentials
+GITEA_URL = config("SOCIAL_AUTH_GITEA_INTERNAL_URL")
+GITEA_API = f'{GITEA_URL}api/v1/'
+GITEA_URL_OUTSIDE = config("SOCIAL_AUTH_GITEA_URL")
+
+SOCIALACCOUNT_PROVIDERS = {
+    'gitea': {
+        'GITEA_URL': config("SOCIAL_AUTH_GITEA_INTERNAL_URL"),
+        'VERIFIED_EMAIL': False,
+        'APP': {
+            'client_id': config("SOCIAL_AUTH_GITEA_CLIENT_ID"),
+            'secret': config("SOCIAL_AUTH_GITEA_SECRET"),
+            'key': ''
+        },
+    }
+}
+
+# URL used to forward the user to the frontend after login
+FRONTEND_URL = config("FRONTEND_URL")
 
 # define a GITEA repository which contains experiments and requests
 GITEA_EXPERIMENTS_REPO = 'adareTEST'
 GITEA_EXPERIMENTS_REPO_OWNER = 'miq'
+GITEA_REPO_API = f'{GITEA_API}repos/{GITEA_EXPERIMENTS_REPO_OWNER}/{GITEA_EXPERIMENTS_REPO}/'

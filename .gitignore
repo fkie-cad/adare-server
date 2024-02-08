@@ -47,9 +47,6 @@ coverage.xml
 *.log
 *.pot
 
-# environment
-*.env
-
 # PyCharmStuff
 .idea
 
@@ -100,3 +97,11 @@ yarn-error.log*
 *.njsproj
 *.sln
 .vscode
+
+# exclude files used for production build
+/backend_django/compose/production
+/backend_django/docker-compose.prod.yml
+*/.prod.env
+# exlude celery beat schedule file
+*/celerybeat-schedule
+*/deploy

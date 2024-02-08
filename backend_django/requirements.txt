@@ -11,4 +11,12 @@ django-rest-knox
 django-redis
 django-csp
 PyYAML
-django-rest-auth[with_social]
+dj-rest-auth
+django-allauth
+requests
+urllib3
+celery
+redis
+flower
+attrs
+tqdm

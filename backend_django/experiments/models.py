@@ -143,13 +143,6 @@ class Scenario(models.Model):
         return f'{self.name}'
 
 
-class RequestStatus(models.Model):
-    name = models.CharField(max_length=20, unique=True)
-
-    def __str__(self):
-        return str(self.name)
-
-
 class Label(models.Model):
     name = models.CharField(max_length=20, unique=True)
 
@@ -157,37 +150,35 @@ class Label(models.Model):
         return str(self.name)
 
 
-class AssignRequestData(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE)
-    scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE)
+class GiteaStatus(models.Model):
+    name = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return str(self.name)
 
 
 class Request(models.Model):
-    CATEGORY_TYPE_CHOICES = [
-        ('experiment', 'experiment'),
-        ('scenario', 'scenario'),
-        ('assign', 'assign'),
-    ]
-
     title = models.CharField(max_length=1000)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     description = models.CharField(max_length=3000, blank=True)
 
-    last_changed = models.DateTimeField()
+    gitea_url = models.URLField(max_length=2000, blank=True)
+    gitea_status = models.ForeignKey(GiteaStatus, on_delete=models.PROTECT, blank=True, null=True)
 
-    category_type = models.CharField(choices=CATEGORY_TYPE_CHOICES, max_length=100, null=False, blank=False)
+    objective = models.CharField(max_length=100, null=False, blank=False)
+    action = models.CharField(max_length=100, null=False, blank=False)
+
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, blank=True, null=True)
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, blank=True, null=True)
-    assign = models.ForeignKey(AssignRequestData, on_delete=models.CASCADE, blank=True, null=True)
 
     requestor = models.ForeignKey(User, on_delete=models.PROTECT, related_name='requests')
     request_creation_date = models.DateTimeField()
     supervisor = models.ForeignKey(User, related_name='requests_assigned', blank=True, null=True, on_delete=models.PROTECT)
     supervisor_assigned_by = models.ForeignKey(User, related_name='requests_assigned_by', blank=True, null=True, on_delete=models.PROTECT)
 
-    status = models.ForeignKey(RequestStatus, on_delete=models.PROTECT)
+    assigned = models.BooleanField(default=False)
+
     labels = models.ManyToManyField(Label, blank=True)
 
     def __str__(self):
-        return f'{self.scenario.name} - {self.requestor} - {self.status}'
+        return f'{self.title} - {self.gitea_status.name}'

@@ -32,11 +32,11 @@
         <q-separator />
         <div class="row justify-between  q-pa-sm">
           <div class="column text-h6 tw-text-gray-600 q-pr-xl">
-            roles
+            teams
           </div>
           <div class="column">
-            <span v-for="role in LoggedInUserStore.GetUserGroups" v-bind:key="role.id" class="tw-rounded q-pa-xs" :class="role_color_mapping[role]">
-              {{ role }}
+            <span v-for="role in LoggedInUserStore.GetUserTeams" v-bind:key="role.id" class="tw-rounded q-pa-xs q-ma-xs tw-text-center tw-font-bold tw-border-2" :class="getColorForRole(role.name)">
+              {{ role.name }}
             </span>
           </div>
         </div>
@@ -79,10 +79,18 @@ export default {
 
     const router = useRouter()
 
-    let role_color_mapping = ref({
-      'admin': 'bg-red-5',
-      'supervisor': 'bg-amber-5',
+    let role_color_mapping = ref<{ [key: string]: string }>({
+      'Owners': 'bg-black text-white tw-border-gray-700',
+      'Supervisor': 'bg-pink-9 text-white tw-border-pink-600',
     })
+
+    function getColorForRole(role: string){
+      if (role_color_mapping.value[role]){
+        return role_color_mapping.value[role]
+      }else{
+        return 'bg-amber-5 text-black tw-border-amber-400'
+      }
+    }
 
     onMounted(async () => {
       if (!LoginStore.IsLoggedIn){
@@ -94,7 +102,7 @@ export default {
 
     return {
       LoggedInUserStore,
-      role_color_mapping,
+      getColorForRole
     }
 
   }

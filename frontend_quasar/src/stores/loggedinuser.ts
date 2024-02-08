@@ -8,9 +8,9 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
   state: () => ({
     username: '',
     email: '',
-    groups: [],
+    teams: [],
     achievements: [] as Achievement[],
-    updatetrigger: 0,
+    avatar: '',
   }),
 
   getters: {
@@ -23,14 +23,14 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
     GetUserEmail (state) {
       return state.email;
     },
-    GetUserGroups (state) {
-      return state.groups;
+    GetUserTeams (state) {
+      return state.teams;
     },
     GetUserAchievements (state) {
       return state.achievements;
     },
     IsSupervisor (state) {
-      const groups: string[] = state.groups;
+      const groups: string[] = state.teams;
       return groups.includes('supervisor') || groups.includes('admin');
     }
   },
@@ -39,39 +39,9 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
     ResetUser(){
       this.username = ''
       this.email = ''
-      this.groups = []
+      this.teams = []
       this.achievements = []
-    },
-    async UploadUserAvatar(file: File|null){
-      if (file != null) {
-        const formData = new FormData();
-        formData.append('avatar', file as File);
-        await axios.put(
-          API_URLS.USER_API + 'profile/avatar/',
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          }
-        )
-      }
-      this.TriggerUpdate()
-    },
-
-    TriggerUpdate(){
-      if (this.updatetrigger > 1000) {
-        this.updatetrigger = 0
-      } else {
-        this.updatetrigger += 1
-      }
-    },
-
-    async RemoveUserAvatar(){
-      await axios.delete(
-        API_URLS.USER_API + 'profile/avatar/',
-      )
-      this.TriggerUpdate()
+      this.avatar = ''
     },
 
     async UpdateProfileInformation(){
@@ -82,25 +52,21 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
       await axios.get(
         API_URLS.USER_API+'profile/',
       ).then((response) => {
+        console.log(response.data)
         this.email = response.data.user.email
-        this.groups = response.data.groups
+        this.teams = response.data.teams
         this.username = response.data.user.username
-        this.achievements = response.data.achievements
+        this.avatar = response.data.avatar
+        // this.achievements = response.data.achievements
         // get all iconfile names and convert them to urls
-        for (let i = 0; i < this.achievements.length; i++) {
-          this.achievements[i].iconfile = API_URLS.FILE_API + 'achievements/' + this.achievements[i].iconfile
-        }
+        // for (let i = 0; i < this.achievements.length; i++) {
+        //   this.achievements[i].iconfile = API_URLS.FILE_API + 'achievements/' + this.achievements[i].iconfile
+        // }
       }).catch((error) => {
         console.log(error)
       })
     },
 
-    GetUserAvatarThumbnail (size: string):string {
-      if (this.username === '') {
-        return ''
-      }
-      return API_URLS.FILE_API+'avatar/'+this.username+'/thumbnail/' + size + '/?trigger='+this.updatetrigger.toString()+'/';
-    },
   }
 });
 

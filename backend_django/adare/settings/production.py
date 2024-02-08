@@ -1,18 +1,8 @@
 from .base import *
 from decouple import config, Csv
 
-# database configuration
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME"),
-        "USER": config("DB_USERNAME"),
-        "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST"),
-        "PORT": config("DB_PORT", cast=int),
-    }
-}
-
+# get the secret key from the environment
+SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 # CORS configuration
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", cast=Csv(delimiter=','))
@@ -33,7 +23,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'file': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': '/logs/django.log',
         },
@@ -41,7 +31,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': True,
         },
     },
@@ -56,17 +46,6 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'adare/static_files',
 ]
-
-# setup redis
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django_redis.cache.RedisCache',
-#         'LOCATION': 'redis://redis:6379/1',
-#         'OPTIONS': {
-#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-#         }
-#     }
-# }
 
 # setup secure cookies
 CSRF_COOKIE_SECURE = True
@@ -93,15 +72,4 @@ CSP_SCRIPT_SRC = ("'self'", )
 CSP_IMG_SRC = ("'self'", )
 CSP_FONT_SRC = ("'self'", )
 
-# frontend url
-FRONTEND_URL = 'https://adare.seclab-bonn.de/'
 
-# djosers allowed redirect uris
-DJOSER['SOCIAL_AUTH_ALLOWED_REDIRECT_URIS'] = [
-    'https://adare.seclab-bonn.de/git/auth/o/gitea/',
-    'https://adare.seclab-bonn.de/login/oauth/'
-]
-
-# social auth credentials
-SOCIAL_AUTH_GITEA_KEY = config("SOCIAL_AUTH_GITEA_KEY")
-SOCIAL_AUTH_GITEA_SECRET = config("SOCIAL_AUTH_GITEA_SECRET")

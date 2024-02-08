@@ -1,61 +1,77 @@
-from django.contrib.auth import login, logout
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect, get_token
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
-from django.contrib import messages
-
-from PIL import Image
-from social_django.utils import load_strategy
-from sorl.thumbnail import get_thumbnail, delete
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
+import urllib
 
 from rest_framework import generics
 from rest_framework import permissions
-from rest_framework import status
 from rest_framework import views
-from rest_framework.parsers import FileUploadParser
-from rest_framework.response import Response
-from rest_framework.authtoken.serializers import AuthTokenSerializer
 from rest_framework import status
-from rest_framework.authtoken.models import Token
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
 from users.models import Profile
 from django.conf import settings
-from django.urls import reverse
+from rest_framework.response import Response
+from allauth.socialaccount.providers.gitea.views import GiteaOAuth2Adapter
+from allauth.socialaccount.models import SocialAccount
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.registration.views import SocialLoginView
+import urllib.parse
+from users.serializers import ProfileSerializer, PublicProfileSerializer
+import users.tasks as tasks
 
-# knox imports
-from knox.views import LoginView as KnoxLoginView
-from knox.models import AuthToken
 
 import logging
-
-from users.serializers import PrivateProfileSerializer
-
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
+class GiteaLoginView(SocialLoginView):
+    adapter_class = GiteaOAuth2Adapter
+    client_class = OAuth2Client
+    callback_url = settings.FRONTEND_URL + '/login/oauth/'
+
+    def get_response(self):
+        # get extra data sent by gitea
+        user_extra_data = SocialAccount.objects.filter(user=self.request.user).first().extra_data
+
+        profile = self.user.profile
+        profile.avatar = user_extra_data.get('avatar_url')
+        profile.save()
+
+        response_data = self.token
+
+        response_data['user'] = self.user.username
+
+        # update teams but do not block the response
+        tasks.update_teams.delay(self.request.user.username, )
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
+class GiteaRedirectView(views.APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def get(self, request):
+        # get state from url
+        state = request.GET.get('state', None)
+        # get redirect uri from url
+        redirect_uri = request.GET.get('redirect_uri', None)
+
+        if not state:
+            return Response({'error': 'no state provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not redirect_uri:
+            return Response({'error': 'no redirect_uri provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # return the gitea url for login
+        client_id = settings.SOCIALACCOUNT_PROVIDERS['gitea']['APP']['client_id']
+        gitea_url = settings.GITEA_URL_OUTSIDE
+        # encode redirect uri to be url safe
+        redirect_uri = urllib.parse.quote(redirect_uri, safe='')
+        gitea_oauth_url = f'{gitea_url}login/oauth/authorize?client_id={client_id}&response_type=code&state={state}&redirect_uri={redirect_uri}'
+        return Response({'url': gitea_oauth_url}, status=status.HTTP_200_OK)
 
 
-#
-# class LoginView(KnoxLoginView):
-#     permission_classes = (permissions.AllowAny,)
-#
-#     @method_decorator(csrf_protect, 'dispatch')
-#     def post(self, request, format=None):
-#         serializer = LoginSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         user = serializer.validated_data['user']
-#         login(request, user)
-#         return super().post(request, format=None)
-
-
-class ProfileViewLoggedIn(generics.RetrieveUpdateAPIView):
+class ProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = PrivateProfileSerializer
+    serializer_class = ProfileSerializer
 
     def get_object(self):
         return self.request.user.profile
@@ -65,82 +81,23 @@ class ProfileViewLoggedIn(generics.RetrieveUpdateAPIView):
         raise NotImplementedError
 
 
-#
-#
-# class ProfileAvatarViewLoggedIn(generics.RetrieveUpdateDestroyAPIView):
-#     permission_classes = (permissions.IsAuthenticated,)
-#     serializer_class = ProfileAvatarSerializer
-#
-#     def get_object(self):
-#         return self.request.user.profile
-#
-#     @method_decorator(csrf_protect, 'dispatch')
-#     def update(self, request, *args, **kwargs):
-#         profile = self.get_object()
-#         if profile.avatar:
-#             delete(profile.avatar, delete_file=False)
-#             profile.avatar.delete()
-#         profile.avatar = request.FILES.get('avatar')
-#         profile.save()
-#         messages.success(request, 'avatar was successfully updated!')
-#         return Response(status=status.HTTP_200_OK)
-#
-#     @method_decorator(csrf_protect, 'dispatch')
-#     def delete(self, request, *args, **kwargs):
-#         profile = self.get_object()
-#         if profile.avatar:
-#             delete(profile.avatar, delete_file=False)
-#             profile.avatar.delete()
-#         messages.success(request, 'avatar was successfully deleted!')
-#         return Response(status=status.HTTP_200_OK)
-#
-#
-# class ProfileAvatarView(generics.RetrieveAPIView):
-#     permission_classes = (permissions.AllowAny,)
-#     serializer_class = ProfileAvatarSerializer
-#
-#     def get_object(self):
-#         # get url parameter
-#         username = self.kwargs.get('username', None)
-#         # get profile
-#         try:
-#             profile = Profile.objects.get(user__username=username)
-#         except Profile.DoesNotExist:
-#             profile = None
-#         return profile
-#
-#
-# class ProfileView(generics.RetrieveAPIView):
-#     permission_classes = (permissions.AllowAny,)
-#
-#     def get_serializer_class(self):
-#         if not self.request.user.is_authenticated:
-#             return PublicProfileSerializer
-#         else:
-#             return ProfileSerializer
-#
-#     def get_object(self):
-#         # get url parameter
-#         username = self.kwargs.get('username', None)
-#
-#         # get profile
-#         try:
-#             profile = Profile.objects.get(user__username=username)
-#         except Profile.DoesNotExist:
-#             profile = None
-#
-#         return profile
-#
-#
-# class SupervisorListViewNames(generics.ListAPIView):
-#     permission_classes = (permissions.IsAuthenticated,)
-#     serializer_class = ProfileSerializer
-#
-#     def get(self, request, *args, **kwargs):
-#         profiles = Profile.objects.filter(user__groups__name__contains='supervisor')
-#         return Response([p.user.username for p in profiles.all()], status=status.HTTP_200_OK)
-#
-#
+class PublicProfileView(generics.RetrieveAPIView):
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = PublicProfileSerializer
+
+    def get_object(self):
+        # get url parameter
+        username = self.kwargs.get('username', None)
+
+        # get profile
+        try:
+            profile = Profile.objects.get(user__username=username)
+        except Profile.DoesNotExist:
+            profile = None
+
+        return profile
+
+
 class CSRFView(views.APIView):
     permission_classes = (permissions.AllowAny,)
 

@@ -3,13 +3,34 @@ from django.db import models
 from django.contrib.auth.models import User, PermissionsMixin
 from django.utils.timezone import make_aware
 
-from experiments.models import Request, RequestStatus
-from datetime import datetime
+
+class Team(models.Model):
+    gitea_id = models.IntegerField(unique=True)
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=1000)
+    organization = models.ForeignKey('Organization', on_delete=models.CASCADE, related_name='teams')
+
+    def __str__(self):
+        return self.name
+
+
+class Organization(models.Model):
+    gitea_id = models.IntegerField(unique=True)
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=1000)
+    avatar = models.URLField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
 
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     avatar = models.URLField(blank=True, null=True)
+    teams = models.ManyToManyField('Team', related_name='members', blank=True)
+
+    def get_organizations(self):
+        return Organization.objects.filter(teams__members=self).distinct()
 
 
 

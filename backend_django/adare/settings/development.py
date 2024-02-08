@@ -4,13 +4,7 @@ MODE = "development"
 
 DEBUG = True
 
-# DATABASE CONFIGURATION
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'test.db.sqlite3',
-    }
-}
+SECRET_KEY = 'django-insecure-=1wppni6d7yah@h7f&ieyno$&=_5plu6-u2l=d8^fui67967+#'
 
 # CORS CONFIGURATION
 CORS_ALLOWED_ORIGINS = [
@@ -38,7 +32,7 @@ LOGGING = {
     "loggers": {
         "django": {
             "handlers": ["console"],
-            "level": "NOTSET",
+            "level": "INFO",
         },
     }
 }
@@ -53,17 +47,3 @@ STATICFILES_DIRS = [
     BASE_DIR / 'adare/static_files',
 ]
 
-# social auth credentials (for development only)
-FRONTEND_URL = 'http://localhost:9000'
-
-SOCIALACCOUNT_PROVIDERS = {
-    'gitea': {
-        'GITEA_URL': 'https://adare.seclab-bonn.de/git/',
-        'VERIFIED_EMAIL': False,
-        'APP': {
-            'client_id': '3b02bfda-9629-44bd-9d62-747a57da883f',
-            'secret': 'gto_zdvsyee5hvbzpwwwascnxeedpo5ytbvuftriokde73ey3hu2fdyq',
-            'key': ''
-        },
-    }
-}

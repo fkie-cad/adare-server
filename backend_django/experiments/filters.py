@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from experiments.models import Scenario, Experiment, TestFunction, Request, Tag, RequestStatus, Label
+from experiments.models import Scenario, Experiment, TestFunction, Request, Tag, Label
 from django.db.models import Q, Count
 from datetime import datetime
 
@@ -153,8 +153,8 @@ class RequestFilter(filters.FilterSet):
     username = filters.CharFilter(method='user_filter')
 
     # used for filtering by predefined entries
-    status_mc = filters.ModelMultipleChoiceFilter(field_name='status__name', to_field_name='name',
-                                                  queryset=RequestStatus.objects.all())
+    # status_mc = filters.ModelMultipleChoiceFilter(field_name='status__name', to_field_name='name',
+    #                                               queryset=RequestStatus.objects.all())
     category_mc = filters.MultipleChoiceFilter(method='category_filter',
                                                choices=[('experiment', 'experiment'), ('scenario', 'scenario')])
     labels_mc = filters.ModelMultipleChoiceFilter(field_name='labels__name', to_field_name='name',
@@ -182,7 +182,6 @@ class RequestFilter(filters.FilterSet):
         fields = [
             'uuid',
             'description',
-            'last_changed',
         ]
 
 

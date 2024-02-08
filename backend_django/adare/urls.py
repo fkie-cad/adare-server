@@ -31,10 +31,6 @@ from allauth.socialaccount.providers.gitea import views as gitea_views
 
 MODE = config('MODE', default='production')
 
-def gitea_callback(request):
-    params = urllib.parse.urlencode(request.GET)
-    return redirect(f'{settings.FRONTEND_URL}?{params}')
-
 
 urlpatterns = [
     # admin page
@@ -44,22 +40,15 @@ urlpatterns = [
     path('api/csrf/', users_views.CSRFView.as_view()),
 
     # ### authentication urls ###
-    path('auth/gitea/', users_views.GiteaLoginView.as_view()),
-    path('auth/gitea/', gitea_callback, name='gitea_callback'),
-    path('auth/gitea/url/', gitea_views.oauth2_login),
+    path('api/auth/gitea/', users_views.GiteaLoginView.as_view(), name='socialaccount_signup'),
+    path('api/auth/gitea/callback/', users_views.GiteaRedirectView.as_view()),
 
 
     # ### user profile urls ###
     # get the profile of the logged-in user
-    path('api/user/profile/', users_views.ProfileViewLoggedIn.as_view()),
-    # # get a list of all supervisors (only usernames)
-    # path('api/user/supervisors/names/', users_views.SupervisorListViewNames.as_view()),
-    # # get the avatar of the logged-in user
-    # path('api/user/profile/avatar/', users_views.ProfileAvatarViewLoggedIn.as_view()),
-    # # get the profile of a user by username
-    # path('api/user/<str:username>/profile/', users_views.ProfileView.as_view()),
-    # # get the avatar of a user by username
-    # path('api/user/<str:username>/profile/avatar/', users_views.ProfileAvatarView.as_view()),
+    path('api/user/profile/', users_views.ProfileView.as_view()),
+    # get the profile of a user by username
+    path('api/user/<str:username>/profile/', users_views.PublicProfileView.as_view()),
 
     # ### scenario urls ###
     # get all scenarios (paginated, filtered, sorted)

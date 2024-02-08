@@ -1,0 +1,8 @@
+- model: experiments.giteastatus
+  pk: 1
+  fields:
+    name: open
+- model: experiments.giteastatus
+  pk: 2
+  fields:
+    name: closed

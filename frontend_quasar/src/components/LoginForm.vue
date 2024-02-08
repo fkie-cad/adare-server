@@ -61,13 +61,20 @@ export default {
     storeToRefs(LoginStore)
 
     const login = async () => {
-      // send request to oauth backend to get the redirect url
+      // create state for preventing csrf attacks (https://auth0.com/docs/protocols/state-parameters)
+      const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+
+      // send request to django backend to get the redirect url
       axios.defaults.withCredentials = true
-      const resp = await axios.get(API_URLS.GITEA_OAUTH_API + `?redirect_uri=${API_URLS.GITEA_REDIRECT_URI}`)
-      console.log(resp.data)
+      console.log(API_URLS.GITEA_OAUTH_URL_API + `?redirect_uri=${API_URLS.GITEA_REDIRECT_URI}&state=${state}`)
+      const resp = await axios.get(API_URLS.GITEA_OAUTH_URL_API + `?redirect_uri=${API_URLS.GITEA_REDIRECT_URI}&state=${state}`)
       if (resp.status === 200) {
+        // save the state in the local storage
+        localStorage.setItem('state', state)
+
         // open the redirect url in a new tab
-        window.open(resp.data.authorization_url, '_blank')
+        console.log(resp.data.url)
+        window.open(resp.data.url, '_blank')
 
       } else {
         setErrorMessage('Something went wrong. Please try again later.')

@@ -381,19 +381,11 @@ class ScenarioSerializer(serializers.ModelSerializer):
         return obj.publisher.username
 
 
-class RequestStatusSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RequestStatus
-        fields = [
-            'name',
-        ]
-
 
 class RequestListSerializer(serializers.ModelSerializer):
     requestor = serializers.SerializerMethodField('get_requestor', read_only=True)
     supervisor = serializers.SerializerMethodField('get_supervisor', read_only=True)
     supervisor_assigned_by = serializers.SerializerMethodField('get_supervisor_assigned_by', read_only=True)
-    status = RequestStatusSerializer(read_only=True)
     labels = LabelSerializer(read_only=True, many=True)
 
     def get_requestor(self, obj):
@@ -423,7 +415,6 @@ class RequestListSerializer(serializers.ModelSerializer):
             'request_creation_date',
             'supervisor',
             'supervisor_assigned_by',
-            'status',
             'labels',
         ]
 
