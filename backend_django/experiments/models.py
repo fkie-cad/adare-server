@@ -1,6 +1,8 @@
 from django.db import models
-from django.contrib.auth.models import User
 import uuid
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from users.models import GiteaUser
 
 
 class Tag(models.Model):
@@ -34,7 +36,7 @@ class TestParameter(models.Model):
         return str(self.name)
 
 
-class TestParameterEntries(models.Model):
+class TestParameterEntry(models.Model):
     parameter = models.ForeignKey(TestParameter, on_delete=models.CASCADE)
     value = models.CharField(max_length=2000)
 
@@ -42,10 +44,39 @@ class TestParameterEntries(models.Model):
         return str(self.parameter)
 
 
-class TestFunction(models.Model):
+class Requirement(models.Model):
+    package = models.CharField(max_length=100, unique=True)
+    version = models.CharField(max_length=100, blank=True)
+    relation = models.CharField(max_length=100, blank=True)
+
+
+class TestfunctionSet(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=1000, blank=True)
+    requirements = models.ManyToManyField(Requirement)
+    sha256hash = models.CharField(max_length=64, unique=True)
+    sha256testfunctionset = models.CharField(max_length=64)
+    sha256requirements = models.CharField(max_length=64)
+
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published')
+    accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_accepted', blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    published = models.BooleanField(default=False)
+
+
+class TestFunction(models.Model):
+    # test name e.g. is_file
+    name = models.CharField(max_length=100)
+    # test type (class name) e.g. IsFile
+    type = models.CharField(max_length=100)
+    description = models.CharField(max_length=1000, blank=True)
     possible_parameters = models.ManyToManyField(TestParameter)
+    testfunction_set = models.ForeignKey(TestfunctionSet, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'testfunction_set'], name='unique_testfunction')
+        ]
 
     def __str__(self):
         return str(self.name)
@@ -64,7 +95,7 @@ class AbstractTest(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
     testfunction = models.ForeignKey(TestFunction, on_delete=models.CASCADE)
-    parameters = models.ManyToManyField(TestParameterEntries)
+    parameters = models.ManyToManyField(TestParameterEntry)
     tool = models.ForeignKey(Tool, on_delete=models.PROTECT, null=True, blank=True)
 
     def __str__(self):
@@ -97,17 +128,23 @@ class Experiment(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
 
-    action_file = models.FileField(upload_to='action_files/')
-    testset_file = models.FileField(upload_to='testset_files/')
+    action_file = models.URLField(max_length=2000)
+    testset_file = models.URLField(max_length=2000)
+    os_file = models.URLField(max_length=2000)
 
     os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)
-    publisher = models.ForeignKey(User, on_delete=models.PROTECT, blank=True, null=True)
-    publish_date = models.DateTimeField(null=True, blank=True)
-    published = models.BooleanField(default=False)
     abstract_tests = models.ManyToManyField(AbstractTest)
     tags = models.ManyToManyField(Tag)
 
     sha256hash = models.CharField(max_length=64, unique=True)
+    sha256action = models.CharField(max_length=64, unique=True)
+    sha256testset = models.CharField(max_length=64, unique=True)
+    sha256os = models.CharField(max_length=64, unique=True)
+
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_published')
+    accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_accepted', blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    published = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.name}'
@@ -115,8 +152,8 @@ class Experiment(models.Model):
 
 class ExperimentRun(models.Model):
     uuid = models.UUIDField(primary_key=True)
-    publisher = models.ForeignKey(User, on_delete=models.PROTECT)
-    publish_date = models.DateTimeField()
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT)
+    published_at = models.DateTimeField()
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='experiment_runs')
     timestamp_start = models.DateTimeField()
     timestamp_end = models.DateTimeField()
@@ -132,12 +169,14 @@ class ExperimentRun(models.Model):
 class Scenario(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100, unique=True)
-    publisher = models.ForeignKey(User, on_delete=models.PROTECT)
-    publish_date = models.DateTimeField()
-    published = models.BooleanField(default=False)
     experiments = models.ManyToManyField(Experiment, related_name='scenarios', blank=True)
     description = models.CharField(max_length=1000, blank=True)
     tags = models.ManyToManyField(Tag, blank=True)
+
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='scenarios_published')
+    accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='scenarios_accepted', blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    published = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.name}'
@@ -150,35 +189,40 @@ class Label(models.Model):
         return str(self.name)
 
 
-class GiteaStatus(models.Model):
-    name = models.CharField(max_length=20, unique=True)
-
-    def __str__(self):
-        return str(self.name)
-
-
 class Request(models.Model):
     title = models.CharField(max_length=1000)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     description = models.CharField(max_length=3000, blank=True)
 
-    gitea_url = models.URLField(max_length=2000, blank=True)
-    gitea_status = models.ForeignKey(GiteaStatus, on_delete=models.PROTECT, blank=True, null=True)
+    creation_date = models.DateTimeField()
+    last_change_date = models.DateTimeField()
 
-    objective = models.CharField(max_length=100, null=False, blank=False)
+    gitea_pr_url = models.URLField(max_length=2000, blank=True)
+    gitea_pr_number = models.IntegerField(blank=True, unique=True)
+    gitea_pr_status = models.CharField(max_length=20, blank=True)
+
     action = models.CharField(max_length=100, null=False, blank=False)
 
-    scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, blank=True, null=True)
-    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, blank=True, null=True)
+    # generic foreign key to the object the request is about (e.g. Experiment, Scenario)
+    objective = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    object = GenericForeignKey('objective', 'object_id')
 
-    requestor = models.ForeignKey(User, on_delete=models.PROTECT, related_name='requests')
-    request_creation_date = models.DateTimeField()
-    supervisor = models.ForeignKey(User, related_name='requests_assigned', blank=True, null=True, on_delete=models.PROTECT)
-    supervisor_assigned_by = models.ForeignKey(User, related_name='requests_assigned_by', blank=True, null=True, on_delete=models.PROTECT)
+    requester = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='requests')
 
-    assigned = models.BooleanField(default=False)
+    reviewers = models.ManyToManyField(GiteaUser, related_name='requests_reviewing', blank=True)
+    assignees = models.ManyToManyField(GiteaUser, related_name='requests_assigned', blank=True)
 
     labels = models.ManyToManyField(Label, blank=True)
 
+    @property
+    def assigned(self):
+        return self.assignees.exists()
+
     def __str__(self):
-        return f'{self.title} - {self.gitea_status.name}'
+        return f'{self.title} - {self.gitea_pr_status}'
+
+
+class RequestCreationMessage(models.Model):
+    gitea_pr_number = models.IntegerField(primary_key=True)
+    error_message = models.CharField(max_length=2000, blank=True)

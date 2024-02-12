@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 import urllib
@@ -12,10 +13,11 @@ from rest_framework.response import Response
 from allauth.socialaccount.providers.gitea.views import GiteaOAuth2Adapter
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-from dj_rest_auth.registration.views import SocialLoginView
+from dj_rest_auth.registration.views import SocialLoginView, SocialConnectView
 import urllib.parse
 from users.serializers import ProfileSerializer, PublicProfileSerializer
 import users.tasks as tasks
+from users.models import GiteaUser
 
 
 import logging
@@ -38,6 +40,15 @@ class GiteaLoginView(SocialLoginView):
         response_data = self.token
 
         response_data['user'] = self.user.username
+
+        # update gitea user
+        tasks.update_gitea_user.delay(
+            django_user_id=self.user.id,
+            gitea_user_id=user_extra_data.get('id'),
+            username=self.user.username,
+            email=self.user.email,
+            avatar=user_extra_data.get('avatar_url'),
+        )
 
         # update teams but do not block the response
         tasks.update_teams.delay(self.request.user.username, )

@@ -3,6 +3,7 @@ from django.conf import settings
 from users.models import Team, Organization
 from celery import shared_task
 import requests
+from users.models import GiteaUser
 
 
 import logging
@@ -89,3 +90,17 @@ def update_teams(username: str):
         log.error(f'could not get teams from gitea: {resp.status_code}')
         raise TaskFailure(f'could not get teams from gitea: {resp.status_code} {teams_api_url} {token}')
 
+
+@shared_task()
+def update_gitea_user(django_user_id: int, gitea_user_id: int, username: str, email: str, avatar: str):
+    user = User.objects.get(id=django_user_id)
+    # get or create gitea user
+    gitea_user = GiteaUser.objects.filter(gitea_id=gitea_user_id).first()
+    if not gitea_user:
+        gitea_user = GiteaUser(gitea_id=gitea_user_id, username=username, email=email)
+    else:
+        gitea_user.email = email
+        gitea_user.username = username
+    gitea_user.avatar = avatar
+    gitea_user.user = user
+    gitea_user.save()

@@ -1,8 +1,7 @@
 from rest_framework import serializers
-from pathlib import Path
 
 from experiments.models import *
-from helperfunctions.hash import hash_file_sha256, combine_hashes
+
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -105,11 +104,11 @@ class TestParameterSerializer(serializers.ModelSerializer):
         }
 
 
-class TestParameterEntriesSerializer(serializers.ModelSerializer):
+class TestParameterEntrySerializer(serializers.ModelSerializer):
     parameter = TestParameterSerializer()
 
     class Meta:
-        model = TestParameterEntries
+        model = TestParameterEntry
         fields = [
             'parameter',
             'value',
@@ -125,7 +124,7 @@ class TestParameterEntriesSerializer(serializers.ModelSerializer):
             parameter = parameter_serializer.save()
         validated_data['parameter'] = parameter
 
-        parameter_entry = TestParameterEntries.objects.create(**validated_data)
+        parameter_entry = TestParameterEntry.objects.create(**validated_data)
         return parameter_entry
 
 
@@ -165,7 +164,7 @@ class TestFunctionSerializer(serializers.ModelSerializer):
 
 class AbstractTestSerializer(serializers.ModelSerializer):
     testfunction = TestFunctionSerializer()
-    parameters = TestParameterEntriesSerializer(many=True)
+    parameters = TestParameterEntrySerializer(many=True)
     tool = ToolSerializer(required=False, allow_null=True)
 
     class Meta:
@@ -197,10 +196,10 @@ class AbstractTestSerializer(serializers.ModelSerializer):
         test_parameter_entrys = []
         for parameter_entry in parameters_data:
             try:
-                test_parameter_entry = TestParameterEntries.objects.get(
+                test_parameter_entry = TestParameterEntry.objects.get(
                     parameter__name=parameter_entry['parameter']['name'], value=parameter_entry['value'])
-            except TestParameterEntries.DoesNotExist:
-                test_parameter_entry_serializer = TestParameterEntriesSerializer(data=parameter_entry)
+            except TestParameterEntry.DoesNotExist:
+                test_parameter_entry_serializer = TestParameterEntrySerializer(data=parameter_entry)
                 test_parameter_entry_serializer.is_valid()
                 test_parameter_entry = test_parameter_entry_serializer.save()
             test_parameter_entrys.append(test_parameter_entry)

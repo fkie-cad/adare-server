@@ -33,6 +33,17 @@ class Profile(models.Model):
         return Organization.objects.filter(teams__members=self).distinct()
 
 
+class GiteaUser(models.Model):
+    gitea_id = models.IntegerField(unique=True)
+    username = models.CharField(max_length=100, unique=True)
+    email = models.EmailField(unique=True)
+    avatar = models.URLField(blank=True, null=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='gitea_user', blank=True, null=True)
+
+    def __str__(self):
+        return self.username
+
+
 
 
 # class AchievementCategory(models.Model):

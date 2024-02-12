@@ -20,3 +20,4 @@ redis
 flower
 attrs
 tqdm
+cattrs
