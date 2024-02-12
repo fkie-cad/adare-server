@@ -39,6 +39,10 @@ class PullRequestPluginInterface(ABC):
         pass
 
     @abstractmethod
+    def get_object_by_hash(self):
+        pass
+
+    @abstractmethod
     def update_object(self, published_by: GiteaUser):
         pass
 
@@ -79,6 +83,10 @@ class PullRequestPlugin(PullRequestPluginInterface):
 
     @abstractmethod
     def get_object(self):
+        pass
+
+    @abstractmethod
+    def get_object_by_hash(self):
         pass
 
     @abstractmethod
@@ -155,6 +163,11 @@ class TestfunctionsetPlugin(PullRequestPlugin):
 
     def get_object(self):
         return TestfunctionSet.objects.filter(name=self.object_name).first()
+
+    def get_object_by_hash(self):
+        if not self.sha256:
+            raise TaskFailure('hash not set')
+        return TestfunctionSet.objects.filter(sha256hash=self.sha256).first()
 
     def check_file_validity(self):
         valid = check_if_requirements_file_is_valid(self.tfreq_file)

@@ -137,9 +137,9 @@ class Experiment(models.Model):
     tags = models.ManyToManyField(Tag)
 
     sha256hash = models.CharField(max_length=64, unique=True)
-    sha256action = models.CharField(max_length=64, unique=True)
-    sha256testset = models.CharField(max_length=64, unique=True)
-    sha256os = models.CharField(max_length=64, unique=True)
+    sha256action = models.CharField(max_length=64)
+    sha256testset = models.CharField(max_length=64)
+    sha256os = models.CharField(max_length=64)
 
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_published')
     accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_accepted', blank=True, null=True)

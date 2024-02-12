@@ -215,6 +215,11 @@ class PROpenedCreate(PullRequest):
         if object_instance:
             raise TaskFailure(f'{self.object_name} already exists')
 
+        # check if object with same content/hash already exists
+        existing_object = self.pullrequest_plugin.get_object_by_hash()
+        if existing_object:
+            raise TaskFailure(f'{self.object_name} with same content already exists')
+
     def action(self):
         object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
         self.request = self._create_pull_request(object_instance)
