@@ -51,6 +51,7 @@ class Requirement(models.Model):
 
 
 class TestfunctionSet(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=1000, blank=True)
     requirements = models.ManyToManyField(Requirement)
@@ -124,7 +125,7 @@ class OsInfo(models.Model):
 
 
 class Experiment(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
 
@@ -151,7 +152,7 @@ class Experiment(models.Model):
 
 
 class ExperimentRun(models.Model):
-    uuid = models.UUIDField(primary_key=True)
+    uuid = models.UUIDField(unique=True)
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT)
     published_at = models.DateTimeField()
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='experiment_runs')
@@ -167,7 +168,7 @@ class ExperimentRun(models.Model):
 
 
 class Scenario(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     name = models.CharField(max_length=100, unique=True)
     experiments = models.ManyToManyField(Experiment, related_name='scenarios', blank=True)
     description = models.CharField(max_length=1000, blank=True)
@@ -183,7 +184,10 @@ class Scenario(models.Model):
 
 
 class Label(models.Model):
+    gitea_label_id = models.IntegerField(unique=True)
     name = models.CharField(max_length=20, unique=True)
+    color = models.CharField(max_length=6)
+    description = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -191,7 +195,7 @@ class Label(models.Model):
 
 class Request(models.Model):
     title = models.CharField(max_length=1000)
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     description = models.CharField(max_length=3000, blank=True)
 
     creation_date = models.DateTimeField()
@@ -207,6 +211,11 @@ class Request(models.Model):
     objective = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     object = GenericForeignKey('objective', 'object_id')
+
+    # for action 'modify' we additionally need to store the old object
+    old_objective = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name='old_objective', null=True, blank=True)
+    old_object_id = models.PositiveIntegerField(null=True, blank=True)
+    old_object = GenericForeignKey('old_objective', 'old_object_id')
 
     requester = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='requests')
 

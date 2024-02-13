@@ -52,62 +52,41 @@ urlpatterns = [
 
     # ### scenario urls ###
     # get all scenarios (paginated, filtered, sorted)
-    # path('api/scenario/', experiment_frontend_views.ScenarioListView.as_view()),
-    # #
-    # path('api/scenario/filteroptions/', experiment_frontend_views.ScenarioFilterOptionsView.as_view()),
-    # # create a new scenario (only for supervisors) - ONLY FOR TESTING SINCE SCENARIOS ARE CREATED VIA REQUESTS
-    # path('api/scenario/create/', experiment_frontend_views.ScenarioCreateView.as_view()),
+    path('api/scenario/', experiment_frontend_views.ScenarioListView.as_view()),
+    path('api/scenario/filteroptions/', experiment_frontend_views.ScenarioFilterOptionsView.as_view()),
 
     # ### experiment urls ###
     # get all experiments (paginated, filtered, sorted)
-    # path('api/experiment/', experiment_frontend_views.ExperimentListView.as_view()),
+    path('api/experiment/', experiment_frontend_views.ExperimentListView.as_view()),
     # # get a single experiment by uuid
-    # path('api/experiment/experiment_<str:uuid>/', experiment_frontend_views.ExperimentRetrieveView.as_view()),
+    path('api/experiment/experiment_<str:uuid>/', experiment_frontend_views.ExperimentRetrieveView.as_view()),
     # # get all experiments for a given scenario (by scenario uuid)
-    # path('api/experiment/scenario_<str:uuid>/', experiment_frontend_views.ExperimentByScenarioListView.as_view()),
+    path('api/experiment/scenario_<str:uuid>/', experiment_frontend_views.ExperimentByScenarioListView.as_view()),
     # #
-    # path('api/experiment/filteroptions/', experiment_frontend_views.ExperimentFilterOptionsView.as_view()),
-    # # create a new experiment (only for supervisors) - ONLY FOR TESTING SINCE EXPERIMENTS ARE CREATED VIA REQUESTS
-    # path('api/experiment/create/', experiment_frontend_views.ExperimentCreateView.as_view()),
+    path('api/experiment/filteroptions/', experiment_frontend_views.ExperimentFilterOptionsView.as_view()),
     # # check if an experiment is published to the webapp if yes, return the experiment information
-    # path('api/experiment/check/', experiment_frontend_views.ExperimentCheckView.as_view()),
-    # path('api/experiment/checkmuliple/', experiment_frontend_views.ExperimentCheckMultipleView.as_view()),
+    path('api/experiment/check/', experiment_frontend_views.ExperimentCheckView.as_view()),
+    path('api/experiment/checkmuliple/', experiment_frontend_views.ExperimentCheckMultipleView.as_view()),
     #
     # # ### experiment run urls ###
     # # get all experiment runs (paginated, filtered, sorted)
-    # path('api/experimentrun/', experiment_frontend_views.ExperimentRunListView.as_view()),
+    path('api/experimentrun/', experiment_frontend_views.ExperimentRunListView.as_view()),
     # # get a single experiment run by uuid
-    # path('api/experimentrun/experimentrun_<str:uuid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
+    path('api/experimentrun/experimentrun_<str:uuid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
     # #
-    # path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
+    path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
     # # check if an experiment run is published to the webapp
-    # path('api/experimentrun/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
+    path('api/experimentrun/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
 
 
 
     # ### request urls ###
     # get all requests (paginated, filtered, sorted)
-    # path('api/request/', experiment_frontend_views.RequestListView.as_view()),
+    path('api/request/', experiment_frontend_views.RequestListView.as_view()),
     # # get a single request by uuid
-    # path('api/request/request_<str:uuid>/', experiment_frontend_views.RequestRetrieveView.as_view()),
+    path('api/request/request_<str:uuid>/', experiment_frontend_views.RequestRetrieveView.as_view()),
     # #
-    # path('api/request/filteroptions/', experiment_frontend_views.RequestFilterOptionsView.as_view()),
-    # # create a new request for an experiment
-    # path('api/request/experiment/create/', experiment_frontend_views.RequestsExperimentCreateView.as_view()),
-    # # create a new request for a scenario
-    # path('api/request/scenario/create/', experiment_frontend_views.RequestsScenarioCreateView.as_view()),
-    # # request to assign an experiment to a scenario
-    # path('api/request/assign/create/', experiment_frontend_views.RequestAssignCreateView.as_view()),
-    # # accept a request (only for supervisors)
-    # path('api/request/<str:uuid>/accept/', experiment_frontend_views.RequestAcceptView.as_view()),
-    # # reject a request (only for supervisors)
-    # path('api/request/<str:uuid>/reject/', experiment_frontend_views.RequestRejectView.as_view()),
-    # # cancel a request (only for requestor)
-    # path('api/request/<str:uuid>/cancel/', experiment_frontend_views.RequestCancelView.as_view()),
-    # # assign a request to a supervisor (only for supervisors)
-    # path('api/request/<str:uuid>/assign/<str:username>/', experiment_frontend_views.RequestAssignView.as_view()),
-    # # check request status
-    # path('api/request/check/', experiment_frontend_views.RequestCheckView.as_view()),
+    path('api/request/filteroptions/', experiment_frontend_views.RequestFilterOptionsView.as_view()),
 
     # ### protected file access urls ###
     # path('api/file/avatar/<str:username>/thumbnail/<str:size>/', files_views.AvatarThumbnailFileView.as_view()),
@@ -117,7 +96,7 @@ urlpatterns = [
     # path('api/file/achievements/<str:achievement_name>/', files_views.AchievementIconView.as_view()),
 
     # ### statistics urls ###
-    # path('api/statistics/', experiment_frontend_views.StatisticView.as_view()),
+    path('api/statistics/', experiment_frontend_views.StatisticView.as_view()),
 
     # ### gitea webhook url ###
     # !!!! NEVER EXPOSE THIS URL TO THE PUBLIC INTERNET !!!!

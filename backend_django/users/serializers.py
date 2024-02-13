@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from users.models import Profile, Organization, Team
+from users.models import Profile, Organization, Team, GiteaUser
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -73,3 +73,12 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             'teams',
         ]
 
+
+class GiteaUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GiteaUser
+        fields = [
+            'username',
+            'email',
+            'avatar',
+        ]

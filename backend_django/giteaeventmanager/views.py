@@ -24,13 +24,6 @@ def handle_gitea_webhook(json_data):
             log.error(f'repo owner is not the expected {settings.GITEA_EXPERIMENTS_REPO_OWNER}')
             raise TaskFailure('repo owner is not the expected {settings.GITEA_EXPERIMENTS_REPO_OWNER}')
 
-        if "secret" not in json_data:
-            log.error(f'got webhook without secret')
-            raise TaskFailure('got webhook without secret')
-        if json_data["secret"] != settings.GITEA_WEBHOOK_SECRET:
-            log.error(f'got webhook with wrong secret')
-            raise TaskFailure('got webhook with wrong secret')
-
         pull_request_action(json_data)
 
     except TaskFailure as e:
@@ -54,7 +47,8 @@ class GiteaWebhookView(views.APIView):
             return Response(status=http_status_codes.HTTP_400_BAD_REQUEST)
 
         # handle webhook
-        handle_gitea_webhook.delay(json_data)
+        if 'pull_request' in json_data.keys():
+            handle_gitea_webhook.delay(json_data)
 
         # return a response
         return Response(status=http_status_codes.HTTP_200_OK)
@@ -80,7 +74,7 @@ class RequestCheckView(generics.RetrieveAPIView):
 
         # get request
         try:
-            request = Request.objects.get(gitea_pr_id=gitea_pr_id)
+            request = Request.objects.get(gitea_pr_number=gitea_pr_id)
         except Request.DoesNotExist:
             # get error message
             try:

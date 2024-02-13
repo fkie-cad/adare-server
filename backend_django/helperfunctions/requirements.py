@@ -39,6 +39,9 @@ def parse_requirements_from_file(file: Path) -> list:
 
 
 def check_if_requirements_file_is_valid(file: Path) -> bool:
+    # check if empty
+    if not file.stat().st_size:
+        return True
     with open(file, "r") as f:
         for line in f.readlines():
             if line.startswith("#"):

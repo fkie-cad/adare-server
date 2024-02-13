@@ -10,4 +10,8 @@ python manage.py makemigrations experiments
 python manage.py makemigrations files
 
 python manage.py migrate
+
+# Load initial data
+python manage.py loaddata status
+
 python manage.py runserver 0.0.0.0:8000

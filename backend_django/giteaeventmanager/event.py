@@ -1,7 +1,4 @@
-from django.conf import settings
 import re
-import requests
-from giteaeventmanager.auth import GiteaAuthHandle
 from giteaeventmanager.action.factory import PullRequestHandlerFactory
 from giteaeventmanager.exception import TaskFailure
 

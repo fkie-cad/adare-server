@@ -8,13 +8,16 @@ from helperfunctions.download import download
 from django.conf import settings
 from giteaeventmanager.auth import GiteaAuthHandle
 from datetime import datetime
-from experiments.models import Requirement as RequirementModel, TestfunctionSet, Request, TestFunction, TestParameter
+from experiments.models import Requirement as RequirementModel, TestfunctionSet, TestFunction, TestParameter, \
+    Experiment, OsInfo, Tool, AbstractTest, TestParameterEntry
 from giteaeventmanager.exception import TaskFailure
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
+from testsetfile.fileformat import FTestsetFile, FTest, FToolTest
+from testsetfile.parser import parse_testsetfile
+from helperfunctions.yaml import yaml_to_dict
 
 from helperfunctions.hash import hash_file_sha256, combine_hashes
-
 
 import logging
 log = logging.getLogger(__name__)
@@ -44,6 +47,10 @@ class PullRequestPluginInterface(ABC):
 
     @abstractmethod
     def update_object(self, published_by: GiteaUser):
+        pass
+
+    @abstractmethod
+    def delete_object(self):
         pass
 
     @abstractmethod
@@ -92,6 +99,11 @@ class PullRequestPlugin(PullRequestPluginInterface):
     @abstractmethod
     def update_object(self, published_by: GiteaUser):
         pass
+
+    def delete_object(self):
+        obj = self.get_object()
+        if obj:
+            obj.delete()
 
     @abstractmethod
     def check_file_validity(self):
@@ -159,7 +171,8 @@ class TestfunctionsetPlugin(PullRequestPlugin):
     def hash(self):
         self._set_file_sha256('tfset_file', 'tfset_sha256')
         self._set_file_sha256('tfreq_file', 'tfreq_sha256')
-        self.sha256 = combine_hashes([self.tfset_sha256, self.tfreq_sha256])
+        if self.tfset_sha256 and self.tfreq_sha256:
+            self.sha256 = combine_hashes([self.tfset_sha256, self.tfreq_sha256])
 
     def get_object(self):
         return TestfunctionSet.objects.filter(name=self.object_name).first()
@@ -182,11 +195,13 @@ class TestfunctionsetPlugin(PullRequestPlugin):
                 version=req.version,
                 relation=req.relation
             )
-            requirement_objects.append(RequirementModel.objects.get(package=req.package, version=req.version, relation=req.relation))
+            requirement_objects.append(
+                RequirementModel.objects.get(package=req.package, version=req.version, relation=req.relation))
 
         return requirement_objects
 
-    def __db_create_testfunctionset(self, requirement_objects: list[RequirementModel], published_by: GiteaUser) -> TestfunctionSet:
+    def __db_create_testfunctionset(self, requirement_objects: list[RequirementModel],
+                                    published_by: GiteaUser) -> TestfunctionSet:
         tfset = TestfunctionSet(
             name=self.object_name,
             description="",
@@ -234,8 +249,8 @@ class TestfunctionsetPlugin(PullRequestPlugin):
                             log.info(
                                 f'test description of test function class {t_func_class.name} changed to {test_description}')
                     else:
-                        testfunction_obj = TestFunction(type=test_name,
-                                                        name=t_func_class.name,
+                        testfunction_obj = TestFunction(type=t_func_class.name,
+                                                        name=test_name,
                                                         description=test_description,
                                                         testfunction_set=tfset)
                         testfunction_obj.save()
@@ -264,3 +279,206 @@ class TestfunctionsetPlugin(PullRequestPlugin):
         self.__db_update_testfunctions(tfset)
 
         return tfset
+
+
+class ExperimentPlugin(PullRequestPlugin):
+    action_file: Path = None
+    actionfile_remote_url: str = None
+    action_sha256: str = None
+
+    testset_file: Path = None
+    testset_file_remote_url: str = None
+    testset_sha256: str = None
+
+    os_info_file: Path = None
+    os_info_file_remote_url: str = None
+    os_info_sha256: str = None
+
+    def __init__(self, objective: str, object_name: str, last_commit: str):
+        super().__init__(objective, object_name, last_commit)
+
+    def download(self) -> (list[Path], list[Path]):
+        token = GiteaAuthHandle.get_token()
+
+        downloaded_files = []
+        missing_files = []
+
+        action_path = f'experiments/{self.object_name}/action.py'
+        actionfile_remote_url = f'{settings.GITEA_REPO_API}raw/{action_path}'
+        action_file = self._get_tmp_dir() / 'action.py'
+        success = download(f'{actionfile_remote_url}?ref={self.last_commit}', action_file, quiet=True,
+                           response_codes_error=[404], token=token)
+        if success:
+            self.action_file = action_file
+            self.actionfile_remote_url = actionfile_remote_url
+            downloaded_files.append(action_file)
+        else:
+            missing_files.append(action_file)
+
+        testset_path = f'experiments/{self.object_name}/testset.yml'
+        testset_file_remote_url = f'{settings.GITEA_REPO_API}raw/{testset_path}'
+        testset_file = self._get_tmp_dir() / 'testset.yml'
+        success = download(f'{testset_file_remote_url}?ref={self.last_commit}', testset_file, quiet=True,
+                           response_codes_error=[404], token=token)
+        if success:
+            self.testset_file = testset_file
+            self.testset_file_remote_url = testset_file_remote_url
+            downloaded_files.append(testset_file)
+        else:
+            missing_files.append(testset_file)
+
+        os_info_path = f'experiments/{self.object_name}/os.yml'
+        os_info_file_remote_url = f'{settings.GITEA_REPO_API}raw/{os_info_path}'
+        os_info_file = self._get_tmp_dir() / 'os.yml'
+        success = download(f'{os_info_file_remote_url}?ref={self.last_commit}', os_info_file, quiet=True,
+                           response_codes_error=[404], token=token)
+        if success:
+            self.os_info_file = os_info_file
+            self.os_info_file_remote_url = os_info_file_remote_url
+            downloaded_files.append(os_info_file)
+        else:
+            missing_files.append(os_info_file)
+
+        return downloaded_files, missing_files
+
+    def hash(self):
+        self._set_file_sha256('action_file', 'action_sha256')
+        self._set_file_sha256('testset_file', 'testset_sha256')
+        self._set_file_sha256('os_info_file', 'os_info_sha256')
+        if self.action_sha256 and self.testset_sha256 and self.os_info_sha256:
+            self.sha256 = combine_hashes([self.action_sha256, self.testset_sha256, self.os_info_sha256])
+
+    def get_object(self):
+        return Experiment.objects.filter(name=self.object_name).first()
+
+    def get_object_by_hash(self):
+        return Experiment.objects.filter(sha256hash=self.sha256).first()
+
+    def __db_get_abstract_test(self, test: FTest, tool: Tool = None) -> AbstractTest or None:
+        testfunction = TestFunction.objects.filter(name=test.type).first()
+        if not testfunction:
+            raise TaskFailure(f'test function {test.type} does not exist')
+
+        parameter_entries = []
+        for p_key, p_val in test.params.items():
+            parameter = TestParameter.objects.filter(name=p_key).first()
+            # check if TestParameterEntry already exists
+            test_parameter_entry_q = TestParameterEntry.objects.filter(parameter=parameter, value=str(p_val))
+            test_parameter_entry_obj = test_parameter_entry_q.first()
+            if not test_parameter_entry_obj:
+                # create an TestParameterEntry object for the parameter
+                test_parameter_entry_obj = TestParameterEntry(parameter=parameter, value=str(p_val))
+                test_parameter_entry_obj.save()
+            parameter_entries.append(test_parameter_entry_obj)
+
+        # check if abstract test already exists (todo: make this more efficient by using filter instead of filtering in python)
+        abstract_test_obj = None
+        if tool:
+            abstract_test_q = AbstractTest.objects.filter(name=test.name, description=test.description,
+                                                          testfunction=testfunction, tool=tool)
+        else:
+            abstract_test_q = AbstractTest.objects.filter(name=test.name, description=test.description,
+                                                          testfunction=testfunction)
+        # check if all parameter entries are in the abstract test and vice versa by their ids
+        parameter_entry_ids_data = [p.id for p in parameter_entries]
+        for abstract_test in abstract_test_q.all():
+            # check if all parameter entries are in the abstract test
+            parameter_entry_ids_abstract_test = [p.id for p in abstract_test.parameters]
+            if set(parameter_entry_ids_data) == set(parameter_entry_ids_abstract_test):
+                abstract_test_obj = abstract_test
+
+        # if abstract test does not exist, create it
+        if not abstract_test_obj:
+            abstract_test_obj = AbstractTest(name=test.name, description=test.description, testfunction=testfunction,
+                                             tool=tool)
+
+            # add parameter entries to abstract test
+            for parameter_entry in parameter_entries:
+                # add parameter entry to abstract test
+                abstract_test_obj.parameters.add(parameter_entry)
+
+            abstract_test_obj.save()
+
+        return abstract_test_obj
+
+    def __db_get_tool(self, name: str, command: str):
+        """
+            Get/Creates the tool from the tool data.
+        """
+        tool = Tool.objects.filter(name=name, command=command).first()
+        if not tool:
+            tool = Tool(name=name, command=command)
+            tool.save()
+        return tool
+
+    def __db_create_abstracttests_from_testsetfile(self, testset_file_path: Path):
+        testset: FTestsetFile = parse_testsetfile(testset_file_path)
+
+        abstract_tests = []
+        for test in testset.tests:
+            if isinstance(test, FTest):
+                abstract_test = self.__db_get_abstract_test(test)
+                abstract_tests.append(abstract_test)
+            elif isinstance(test, FToolTest):
+                tool = self.__db_get_tool(test.tool, test.command)
+                for inner_test in test.tests:
+                    abstract_test = self.__db_get_abstract_test(inner_test, tool=tool)
+                    abstract_tests.append(abstract_test)
+            else:
+                raise TaskFailure(f'unknown test type {type(test)}')
+
+        return abstract_tests
+
+    @transaction.atomic
+    def __db_create_experiment(self, os_info_file: Path, testset_file: Path, experiment_name: str,
+                               experiment_description: str,
+                               user: GiteaUser, experiment_sha256: str, action_file_remote_url: str,
+                               testset_file_remote_url: str,
+                               os_file_remote_url: str,
+                               action_sha256: str, testset_sha256: str, os_info_sha256: str):
+        os_info_data = yaml_to_dict(os_info_file)
+        # try to serialize the os information
+        try:
+            os_info, created = OsInfo.objects.get_or_create(**os_info_data)
+            if created:
+                log.info(f'created new os information {os_info}')
+        except (TypeError, ValueError) as e:
+            log.error(f'could not serialize os information file {os_info_file}')
+            raise TaskFailure(f'could not serialize os information file {os_info_file}')
+
+        # deserialize the testset file
+        abstract_tests = self.__db_create_abstracttests_from_testsetfile(testset_file)
+        log.info('retrieved abstract tests from testset file')
+
+        # create experiment object
+        experiment = Experiment(
+            name=experiment_name,
+            description=experiment_description,
+            action_file=action_file_remote_url,
+            testset_file=testset_file_remote_url,
+            os_file=os_file_remote_url,
+
+            os_info=os_info,
+            published_by=user,
+
+            sha256hash=experiment_sha256,
+            sha256action=action_sha256,
+            sha256testset=testset_sha256,
+            sha256os=os_info_sha256
+        )
+        experiment.save()
+        experiment.abstract_tests.set(abstract_tests)
+        log.info(f'created new experiment {experiment}')
+
+        return experiment
+
+    def update_object(self, published_by: GiteaUser):
+        experiment = self.__db_create_experiment(self.os_info_file, self.testset_file, self.object_name, "",
+                                                 published_by, self.sha256, self.actionfile_remote_url,
+                                                 self.testset_file_remote_url, self.os_info_file_remote_url,
+                                                 self.action_sha256, self.testset_sha256, self.os_info_sha256)
+        return experiment
+
+    def check_file_validity(self):
+        pass
+
