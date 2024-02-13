@@ -181,11 +181,23 @@
             class="tw-flex tw-items-center"
           >
             <ProfileImage
-              :username=col.value
+              :username=col.value.username
               size="md"
               :tooltip=true
               :linktoprofile=true
+              :avatar_url=col.value.avatar
               v-if=col.value
+            />
+          </div>
+          <div
+            v-else-if="col.type=='gitea_link'"
+            class="tw-flex tw-items-center"
+          >
+            <q-icon
+              name="link"
+              size="32px"
+              color="secondary"
+              @click="OpenInNewTab(col.value)"
             />
           </div>
           <div v-else-if="col.type=='status_icon'">
@@ -221,8 +233,11 @@
             </q-badge>
           </div>
           <div v-else-if="col.type=='labels'" class="flex tw-flex-wrap tw-max-w-sm">
-            <q-badge v-for="item in col.value" :key="item" color="primary" class="q-ma-xs">
-              {{ item }}
+            <q-badge v-for="item in col.value" :key="item" class="q-ma-xs" :style="{color: item.color}">
+              {{ item.name }}
+              <q-tooltip v-if="item.description">
+                <div>{{ item.description }}</div>
+              </q-tooltip>
             </q-badge>
           </div>
           <div v-else-if="col.type=='testfunction'">
@@ -256,28 +271,34 @@ import { useLoginStore } from 'src/stores/login';
 const COLUMNS = [
   { name: 'details', align: 'left', label: 'details', field: 'details', hideable: false, type: 'details', hide_filter: true},
   { name: 'title', align: 'left', label: 'title', field: 'title', hideable: false},
-  { name: 'status', align: 'left', label: 'status', field: 'status', hideable: true, type: 'status_icon', hide_filter: true},
-  { name: 'category_type', align: 'left', label: 'category', field: 'category_type', hideable: true, type: 'category', hide_filter: true,},
+  { name: 'action', align: 'left', label: 'action', field: 'action', hideable: true},
+  { name: 'objective_name', align: 'left', label: 'objective', field: 'objective_name', hideable: true},
+
   { name: 'uuid', align: 'left', label: 'uuid', field: 'uuid', hideable: true},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true},
-  { name: 'last_changed', align: 'left', label: 'last changed', field: 'last_changed', hideable: true},
-  { name: 'requestor', align: 'left', label: 'requestor', field: 'requestor', hideable: true, type: 'user_icon'},
-  { name: 'request_creation_date', align: 'left', label: 'creation data', field: 'request_creation_date', hideable: true},
-  { name: 'supervisor', align: 'left', label: 'supervisor', field: 'supervisor', hideable: true, type: 'user_icon'},
-  { name: 'supervisor_assigned_by', align: 'left', label: 'assigned by', field: 'supervisor_assigned_by', hideable: true, type: 'user_icon'},
+  { name: 'last_change_date', align: 'left', label: 'last changed', field: 'last_change_date', hideable: true},
+  { name: 'creation_date', align: 'left', label: 'creation date', field: 'creation_date', hideable: true},
   { name: 'labels', align: 'left', label: 'labels', field: 'labels', type:'labels', hideable: true},
+  { name: 'gitea_pr_url', align: 'left', label: 'pull request link', field: 'gitea_pr_url', type:'gitea_link', hideable: true},
+  { name: 'requester', align: 'left', label: 'requester', field: 'requester', hideable: true, type: 'user_icon'},
+
+  // { name: 'status', align: 'left', label: 'status', field: 'status', hideable: true, type: 'status_icon', hide_filter: true},
+  // { name: 'category_type', align: 'left', label: 'category', field: 'category_type', hideable: true, type: 'category', hide_filter: true,},
+  // { name: 'last_changed', align: 'left', label: 'last changed', field: 'last_changed', hideable: true},
+  // { name: 'requestor', align: 'left', label: 'requestor', field: 'requestor', hideable: true, type: 'user_icon'},
+  // { name: 'request_creation_date', align: 'left', label: 'creation data', field: 'request_creation_date', hideable: true},
+  // { name: 'supervisor', align: 'left', label: 'supervisor', field: 'supervisor', hideable: true, type: 'user_icon'},
+  // { name: 'supervisor_assigned_by', align: 'left', label: 'assigned by', field: 'supervisor_assigned_by', hideable: true, type: 'user_icon'},
 ]
 
 
 // visible columns of table (when loading table for the first time)
 const VISIBLE_COLUMNS =  [
   'details',
-  'status',
-  'category_type',
-  'description',
-  'last_changed',
-  'requestor',
-  'supervisor',
+  'action',
+  'objective_name',
+  'requester',
+  'gitea_pr_url',
 ]
 
 // predefined filters of table
@@ -433,6 +454,7 @@ export default {
         url += '&ordering=' + (pagination.value.descending ? '-' : '') + pagination.value.sortBy
       }
       let response = await axios.get(url)
+      console.log(response.data)
       pagination.value.rowsNumber = response.data.count
       rows.value = response.data.results
       loading.value = false
@@ -709,6 +731,10 @@ export default {
       router.push({'path': '/requests/' + request_uuid})
     }
 
+    function OpenInNewTab(url: string){
+      window.open(url, '_blank')
+    }
+
     return {
       title: 'Request Table',
       rows,
@@ -739,6 +765,7 @@ export default {
       ChangeSearchFilter,
       NavigateToDetails,
       ToggleUserFilter,
+      OpenInNewTab,
     }
   }
 }

@@ -115,13 +115,30 @@ class Test(models.Model):
 class OsInfo(models.Model):
     os = models.CharField(max_length=50)
     distribution = models.CharField(max_length=50)
-    version = models.CharField(max_length=50, blank=True)
-    language = models.CharField(max_length=50, blank=True)
-    architecture = models.CharField(max_length=50, blank=True)
+    version = models.CharField(max_length=50, blank=True, null=True)
+    language = models.CharField(max_length=50, blank=True, null=True)
+    architecture = models.CharField(max_length=50, blank=True, null=True)
     details = models.CharField(max_length=200, blank=True, null=True)
 
     def __str__(self):
         return f'{self.os} - {self.distribution} {self.version} ({self.language, self.architecture})'
+
+
+class Environment(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    vagrantbox = models.URLField(max_length=2000)
+    description = models.CharField(max_length=1000, blank=True, null=True)
+    os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)
+
+    sha256hash = models.CharField(max_length=64, unique=True)
+
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='environments_published')
+    accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='environments_accepted', blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    published = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'{self.name}'
 
 
 class Experiment(models.Model):
@@ -131,16 +148,15 @@ class Experiment(models.Model):
 
     action_file = models.URLField(max_length=2000)
     testset_file = models.URLField(max_length=2000)
-    os_file = models.URLField(max_length=2000)
+    metadata_file = models.URLField(max_length=2000)
 
-    os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)
+    environments = models.ManyToManyField(Environment)
     abstract_tests = models.ManyToManyField(AbstractTest)
     tags = models.ManyToManyField(Tag)
 
     sha256hash = models.CharField(max_length=64, unique=True)
     sha256action = models.CharField(max_length=64)
     sha256testset = models.CharField(max_length=64)
-    sha256os = models.CharField(max_length=64)
 
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_published')
     accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_accepted', blank=True, null=True)
@@ -156,6 +172,7 @@ class ExperimentRun(models.Model):
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT)
     published_at = models.DateTimeField()
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='experiment_runs')
+    environment = models.ForeignKey(Environment, on_delete=models.PROTECT)
     timestamp_start = models.DateTimeField()
     timestamp_end = models.DateTimeField()
     tests = models.ManyToManyField(Test)
@@ -208,11 +225,13 @@ class Request(models.Model):
     action = models.CharField(max_length=100, null=False, blank=False)
 
     # generic foreign key to the object the request is about (e.g. Experiment, Scenario)
+    objective_name = models.CharField(max_length=100)
     objective = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     object = GenericForeignKey('objective', 'object_id')
 
     # for action 'modify' we additionally need to store the old object
+    old_objective_name = models.CharField(max_length=100, null=True, blank=True)
     old_objective = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name='old_objective', null=True, blank=True)
     old_object_id = models.PositiveIntegerField(null=True, blank=True)
     old_object = GenericForeignKey('old_objective', 'old_object_id')

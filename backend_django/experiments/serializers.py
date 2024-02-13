@@ -18,6 +18,8 @@ class LabelSerializer(serializers.ModelSerializer):
         model = Label
         fields = [
             'name',
+            'color',
+            'description',
         ]
 
 
@@ -45,6 +47,19 @@ class OsInfoSerializer(serializers.ModelSerializer):
             'architecture': {'required': False},
             'details': {'required': False},
         }
+
+
+class EnvironmentSerializer(serializers.ModelSerializer):
+    os_info = OsInfoSerializer()
+
+    class Meta:
+        model = Environment
+        fields = [
+            'name',
+            'vagrantbox',
+            'description',
+            'os_info',
+        ]
 
 
 class ToolSerializer(serializers.ModelSerializer):
@@ -234,7 +249,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
     run_counts = serializers.SerializerMethodField('get_run_counts', read_only=True)
     abstract_tests = AbstractTestSerializer(read_only=True, many=True)
     tags = serializers.SerializerMethodField('get_tags', read_only=True)
-    os_info = OsInfoSerializer(read_only=True)
+    environments = EnvironmentSerializer(read_only=True, many=True)
     published_by = GiteaUserSerializer(read_only=True)
     published_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     accepted_by = GiteaUserSerializer(read_only=True)
@@ -248,16 +263,15 @@ class ExperimentSerializer(serializers.ModelSerializer):
 
             'action_file',
             'testset_file',
-            'os_file',
+            'metadata_file',
 
-            'os_info',
+            'environments',
             'abstract_tests',
             'tags',
 
             'sha256hash',
             'sha256action',
             'sha256testset',
-            'sha256os',
 
             'published',
             'published_by',
@@ -354,6 +368,8 @@ class GenericRequestObjectSerializer(serializers.Field):
             return ScenarioSerializer(value).data
         elif isinstance(value, TestfunctionSet):
             return TestFunctionSetSerializer(value).data
+        elif isinstance(value, Environment):
+            return EnvironmentSerializer(value).data
         else:
             raise Exception('Unexpected type of request object')
 
@@ -384,6 +400,7 @@ class RequestSerializer(serializers.ModelSerializer):
             'gitea_pr_status',
             'action',
             'object',
+            'objective_name',
 
             'requester',
             'reviewers',

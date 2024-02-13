@@ -1,6 +1,6 @@
 from giteaeventmanager.action.base import *
 from giteaeventmanager.exception import TaskFailure
-from giteaeventmanager.action.plugin import TestfunctionsetPlugin, ExperimentPlugin
+from giteaeventmanager.action.plugin import TestfunctionsetPlugin, ExperimentPlugin, EnvironmentPlugin
 
 
 class PullRequestHandlerFactory:
@@ -14,6 +14,12 @@ class PullRequestHandlerFactory:
             )
         elif objective == "experiment":
             plugin = ExperimentPlugin(
+                objective=objective,
+                object_name=object_name,
+                last_commit=json_data["pull_request"]["head"]["sha"],
+            )
+        elif objective == "environment":
+            plugin = EnvironmentPlugin(
                 objective=objective,
                 object_name=object_name,
                 last_commit=json_data["pull_request"]["head"]["sha"],

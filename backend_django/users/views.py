@@ -15,7 +15,7 @@ from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView, SocialConnectView
 import urllib.parse
-from users.serializers import ProfileSerializer, PublicProfileSerializer
+from users.serializers import ProfileSerializer, PublicProfileSerializer, GiteaUserSerializer
 import users.tasks as tasks
 from users.models import GiteaUser
 
@@ -97,16 +97,10 @@ class PublicProfileView(generics.RetrieveAPIView):
     serializer_class = PublicProfileSerializer
 
     def get_object(self):
-        # get url parameter
-        username = self.kwargs.get('username', None)
-
-        # get profile
         try:
-            profile = Profile.objects.get(user__username=username)
+            return Profile.objects.get(user__username=self.kwargs['username'])
         except Profile.DoesNotExist:
-            profile = None
-
-        return profile
+            return Response({'error': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class CSRFView(views.APIView):

@@ -3,7 +3,7 @@
       <optional-router-link :to="'/user/'+username" :disabled="!linktoprofile">
         <UserAvatar
           :size="size"
-          :img="UserStore.GetUserAvatarThumbnail(username, size)"
+          :img="UserStore.GetUserAvatarThumbnail(username)"
           :username="username"
         >
           <q-tooltip v-if="tooltip">
@@ -46,6 +46,10 @@ export default {
     linktoprofile: {
       type: Boolean,
       default: false
+    },
+    avatar_url: {
+      type: String,
+      default: ''
     }
   },
 

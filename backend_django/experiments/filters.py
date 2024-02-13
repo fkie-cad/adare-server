@@ -33,7 +33,6 @@ class ScenarioFilter(filters.FilterSet):
 class ExperimentFilter(filters.FilterSet):
     uuid_contains = filters.CharFilter(field_name='uuid', lookup_expr='contains')
     name_contains = filters.CharFilter(field_name='name', lookup_expr='contains')
-    os_info_contains = filters.CharFilter(field_name='os_info', method='os_info_filter')
     description_contains = filters.CharFilter(field_name='description', lookup_expr='contains')
     publisher_name_contains = filters.CharFilter(field_name='published_by', lookup_expr='username__contains')
     publish_date_contains = filters.CharFilter(field_name='published_at', lookup_expr='contains')

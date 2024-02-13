@@ -4,11 +4,11 @@ from giteaeventmanager.exception import GiteaAuthException
 
 DEFAULT_SCOPES = [
     "read:repository",
-    "read:user"
+    "read:user",
 ]
 
-class GiteaAuth:
 
+class GiteaAuth:
     user: str = settings.GITEA_API_USER
     password: str = settings.GITEA_API_PASSWORD
     token_name: str = 'django_adare'
@@ -17,7 +17,8 @@ class GiteaAuth:
 
     token = None
     token_scopes = [
-        "read:repository"
+        "read:repository",
+        "read:user",
     ]
 
     def __init__(self):

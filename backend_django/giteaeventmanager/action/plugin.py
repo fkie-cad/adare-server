@@ -9,7 +9,7 @@ from django.conf import settings
 from giteaeventmanager.auth import GiteaAuthHandle
 from datetime import datetime
 from experiments.models import Requirement as RequirementModel, TestfunctionSet, TestFunction, TestParameter, \
-    Experiment, OsInfo, Tool, AbstractTest, TestParameterEntry
+    Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo
 from giteaeventmanager.exception import TaskFailure
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
@@ -290,9 +290,8 @@ class ExperimentPlugin(PullRequestPlugin):
     testset_file_remote_url: str = None
     testset_sha256: str = None
 
-    os_info_file: Path = None
-    os_info_file_remote_url: str = None
-    os_info_sha256: str = None
+    metadata_file: Path = None
+    metadata_file_remote_url: str = None
 
     def __init__(self, objective: str, object_name: str, last_commit: str):
         super().__init__(objective, object_name, last_commit)
@@ -327,26 +326,25 @@ class ExperimentPlugin(PullRequestPlugin):
         else:
             missing_files.append(testset_file)
 
-        os_info_path = f'experiments/{self.object_name}/os.yml'
-        os_info_file_remote_url = f'{settings.GITEA_REPO_API}raw/{os_info_path}'
-        os_info_file = self._get_tmp_dir() / 'os.yml'
-        success = download(f'{os_info_file_remote_url}?ref={self.last_commit}', os_info_file, quiet=True,
+        metadata_path = f'experiments/{self.object_name}/metadata.yml'
+        metadata_file_remote_url = f'{settings.GITEA_REPO_API}raw/{metadata_path}'
+        metadata_file = self._get_tmp_dir() / 'os.yml'
+        success = download(f'{metadata_file_remote_url}?ref={self.last_commit}', metadata_file, quiet=True,
                            response_codes_error=[404], token=token)
         if success:
-            self.os_info_file = os_info_file
-            self.os_info_file_remote_url = os_info_file_remote_url
-            downloaded_files.append(os_info_file)
+            self.metadata_file = metadata_file
+            self.metadata_file_remote_url = metadata_file_remote_url
+            downloaded_files.append(metadata_file)
         else:
-            missing_files.append(os_info_file)
+            missing_files.append(metadata_file)
 
         return downloaded_files, missing_files
 
     def hash(self):
         self._set_file_sha256('action_file', 'action_sha256')
         self._set_file_sha256('testset_file', 'testset_sha256')
-        self._set_file_sha256('os_info_file', 'os_info_sha256')
-        if self.action_sha256 and self.testset_sha256 and self.os_info_sha256:
-            self.sha256 = combine_hashes([self.action_sha256, self.testset_sha256, self.os_info_sha256])
+        if self.action_sha256 and self.testset_sha256:
+            self.sha256 = combine_hashes([self.action_sha256, self.testset_sha256])
 
     def get_object(self):
         return Experiment.objects.filter(name=self.object_name).first()
@@ -430,21 +428,21 @@ class ExperimentPlugin(PullRequestPlugin):
         return abstract_tests
 
     @transaction.atomic
-    def __db_create_experiment(self, os_info_file: Path, testset_file: Path, experiment_name: str,
+    def __db_create_experiment(self, metadata_file: Path, testset_file: Path, experiment_name: str,
                                experiment_description: str,
                                user: GiteaUser, experiment_sha256: str, action_file_remote_url: str,
                                testset_file_remote_url: str,
-                               os_file_remote_url: str,
-                               action_sha256: str, testset_sha256: str, os_info_sha256: str):
-        os_info_data = yaml_to_dict(os_info_file)
-        # try to serialize the os information
-        try:
-            os_info, created = OsInfo.objects.get_or_create(**os_info_data)
-            if created:
-                log.info(f'created new os information {os_info}')
-        except (TypeError, ValueError) as e:
-            log.error(f'could not serialize os information file {os_info_file}')
-            raise TaskFailure(f'could not serialize os information file {os_info_file}')
+                               metadata_remote_url: str,
+                               action_sha256: str, testset_sha256: str):
+
+        # deserialize the metadata file
+        metadata = yaml_to_dict(metadata_file)
+        environments = []
+        for env in metadata['environments']:
+            env_instance = Environment.objects.filter(name=env).first()
+            if not env_instance:
+                raise TaskFailure(f'environment {env["name"]} does not exist')
+            environments.append(env_instance)
 
         # deserialize the testset file
         abstract_tests = self.__db_create_abstracttests_from_testsetfile(testset_file)
@@ -456,29 +454,99 @@ class ExperimentPlugin(PullRequestPlugin):
             description=experiment_description,
             action_file=action_file_remote_url,
             testset_file=testset_file_remote_url,
-            os_file=os_file_remote_url,
+            metadata_file=metadata_remote_url,
 
-            os_info=os_info,
             published_by=user,
 
             sha256hash=experiment_sha256,
             sha256action=action_sha256,
             sha256testset=testset_sha256,
-            sha256os=os_info_sha256
         )
         experiment.save()
+        experiment.environments.set(environments)
         experiment.abstract_tests.set(abstract_tests)
         log.info(f'created new experiment {experiment}')
 
         return experiment
 
     def update_object(self, published_by: GiteaUser):
-        experiment = self.__db_create_experiment(self.os_info_file, self.testset_file, self.object_name, "",
+        experiment = self.__db_create_experiment(self.metadata_file, self.testset_file, self.object_name, "",
                                                  published_by, self.sha256, self.actionfile_remote_url,
-                                                 self.testset_file_remote_url, self.os_info_file_remote_url,
-                                                 self.action_sha256, self.testset_sha256, self.os_info_sha256)
+                                                 self.testset_file_remote_url, self.metadata_file_remote_url,
+                                                 self.action_sha256, self.testset_sha256)
         return experiment
 
     def check_file_validity(self):
         pass
+
+
+class EnvironmentPlugin(PullRequestPlugin):
+    environment_file: Path = None
+    environment_file_remote_url: str = None
+
+    def download(self) -> (list[Path], list[Path]):
+        token = GiteaAuthHandle.get_token()
+
+        downloaded_files = []
+        missing_files = []
+
+        environment_path = f'environments/{self.object_name}.yml'
+        environment_file_remote_url = f'{settings.GITEA_REPO_API}raw/{environment_path}'
+        environment_file = self._get_tmp_dir() / f'{self.object_name}.yml'
+        success = download(f'{environment_file_remote_url}?ref={self.last_commit}', environment_file, quiet=True,
+                           response_codes_error=[404], token=token)
+        if success:
+            self.environment_file = environment_file
+            self.environment_file_remote_url = environment_file_remote_url
+            downloaded_files.append(environment_file)
+        else:
+            missing_files.append(environment_file)
+
+        return downloaded_files, missing_files
+
+    def hash(self):
+        self._set_file_sha256('environment_file', 'sha256')
+
+    def get_object(self):
+        return Environment.objects.filter(name=self.object_name).first()
+
+    def get_object_by_hash(self):
+        return Environment.objects.filter(sha256hash=self.sha256).first()
+
+    @transaction.atomic
+    def __db_create_environment(self, published_by: GiteaUser):
+        # deserialize the environment file
+        environment_data = yaml_to_dict(self.environment_file)
+
+        # create os_info object
+        os_info, created = OsInfo.objects.get_or_create(
+            os=environment_data['os']['os'],
+            distribution=environment_data['os']['distribution'],
+            version=environment_data['os']['version'],
+            language=environment_data['os']['language'] if 'language' in environment_data['os'] else None,
+            architecture=environment_data['os']['architecture'] if 'architecture' in environment_data['os'] else None,
+            details=environment_data['os']['details'] if 'details' in environment_data['os'] else None,
+        )
+
+        # create environment object
+        environment = Environment(
+            name=self.object_name,
+            vagrantbox=environment_data['vagrantbox'],
+            description=environment_data['description'] if 'description' in environment_data else None,
+            os_info=os_info,
+            sha256hash=self.sha256,
+            published_by=published_by,
+        )
+        environment.save()
+        return environment
+
+    def update_object(self, published_by: GiteaUser):
+        environment = self.__db_create_environment(published_by)
+        return environment
+
+    def check_file_validity(self):
+        # todo: implement check if file is valid (use code as in adare)
+        environment_data = yaml_to_dict(self.environment_file)
+        if environment_data['name'] != self.object_name:
+            raise TaskFailure(f'environment file name {environment_data["name"]} does not match object name {self.object_name}')
 

@@ -54,6 +54,8 @@ class PullRequest(AbstractPullRequest):
 
         self.data = json_data
 
+        self.request = Request.objects.filter(gitea_pr_number=self.data["number"]).first()
+
     @abstractmethod
     def check(self):
         pass
@@ -136,6 +138,8 @@ class PullRequest(AbstractPullRequest):
             gitea_pr_status=self.data["pull_request"]["state"],
             gitea_pr_number=self.data["number"],
             object=object_instance,
+            action=self.action_type,
+            objective_name=self.objective,
             creation_date=creation_date,
             last_change_date=last_change_date,
             requester=requester
@@ -153,6 +157,8 @@ class PullRequest(AbstractPullRequest):
         old_object = self.pullrequest_plugin.get_object()
         self.request.old_object = old_object
         self.request.object = None
+        self.request.old_objective_name = self.request.objective_name
+        self.request.objective_name = None
         return self._create_pull_request(object_instance)
 
     def _download_and_hash(self, raise_error_on_missing_files: bool = True):
@@ -179,12 +185,8 @@ class PRClosed(PullRequest):
         super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
 
     def check(self) -> (bool, str):
-        # get request by gitea pr number
-        gitea_pr_number = self.data["number"]
-        try:
-            self.request = Request.objects.get(gitea_pr_number=gitea_pr_number)
-        except Request.DoesNotExist:
-            raise TaskFailure(f'request for gitea pr number {gitea_pr_number} does not exist')
+        if not self._request_exists():
+            raise TaskFailure(f'request for gitea pr number {self.data["number"]} does not exist')
 
     @transaction.atomic
     def __db_merge_pr(self):
@@ -235,58 +237,58 @@ class PROpenedCreate(PullRequest):
 
 class PROpenedModify(PullRequest):
 
-        def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                    object_name: str):
-            super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
+    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
+                object_name: str):
+        super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
 
-        def check(self):
-            if self._request_exists():
-                raise TaskFailure(f'request for gitea pr number {self.data["number"]} already exists')
+    def check(self):
+        if self._request_exists():
+            raise TaskFailure(f'request for gitea pr number {self.data["number"]} already exists')
 
-            self._download_and_hash()
+        self._download_and_hash()
 
-            # check if (new) object does already exist
-            object_instance = self.pullrequest_plugin.get_object()
-            if object_instance:
-                raise TaskFailure(f'{self.object_name} does not exist')
+        # check if (new) object does already exist
+        object_instance = self.pullrequest_plugin.get_object()
+        if object_instance:
+            raise TaskFailure(f'{self.object_name} does not exist')
 
-            # check if object with same content/hash already exists
-            existing_object = self.pullrequest_plugin.get_object_by_hash()
-            if existing_object:
-                raise TaskFailure(f'{self.object_name} with same content already exists - no change happened')
+        # check if object with same content/hash already exists
+        existing_object = self.pullrequest_plugin.get_object_by_hash()
+        if existing_object:
+            raise TaskFailure(f'{self.object_name} with same content already exists - no change happened')
 
-        @transaction.atomic
-        def action(self):
-            object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
-            self.request = self._create_pull_request_modify(object_instance)
-            self.cleanup()
+    @transaction.atomic
+    def action(self):
+        object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
+        self.request = self._create_pull_request_modify(object_instance)
+        self.cleanup()
 
 
 class PROpenedDelete(PullRequest):
 
-        def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                    object_name: str):
-            super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
+    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
+                object_name: str):
+        super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
 
-        def check(self):
-            if self._request_exists():
-                raise TaskFailure(f'request for gitea pr number {self.data["number"]} already exists')
+    def check(self):
+        if self._request_exists():
+            raise TaskFailure(f'request for gitea pr number {self.data["number"]} already exists')
 
-            object_instance = self.pullrequest_plugin.get_object()
-            if not object_instance:
-                raise TaskFailure(f'{self.object_name} does not exist')
+        object_instance = self.pullrequest_plugin.get_object()
+        if not object_instance:
+            raise TaskFailure(f'{self.object_name} does not exist')
 
-            downloaded_files, missing_files = self._download_and_hash(raise_error_on_missing_files=False)
-            if downloaded_files:
-                # if files are downloaded it means the request is erroneous
-                self.cleanup()
-                raise TaskFailure(f'delete request should delete all related files, but files are present: {[file.as_posix() for file in downloaded_files]}')
+        downloaded_files, missing_files = self._download_and_hash(raise_error_on_missing_files=False)
+        if downloaded_files:
+            # if files are downloaded it means the request is erroneous
+            self.cleanup()
+            raise TaskFailure(f'delete request should delete all related files, but files are present: {[file.as_posix() for file in downloaded_files]}')
 
-        @transaction.atomic
-        def action(self):
-            # create request
-            object_instance = self.pullrequest_plugin.get_object()
-            self.request = self._create_pull_request(object_instance)
+    @transaction.atomic
+    def action(self):
+        # create request
+        object_instance = self.pullrequest_plugin.get_object()
+        self.request = self._create_pull_request(object_instance)
 
 
 class PRClosedModify(PullRequest):
@@ -300,8 +302,8 @@ class PRClosedModify(PullRequest):
 
     @transaction.atomic
     def action(self):
-        # cascade relation will delete the request object automatically
         self.request.old_object.delete()
+        self.request.delete()
 
 
 class PRClosedDelete(PullRequest):
@@ -315,8 +317,8 @@ class PRClosedDelete(PullRequest):
 
     @transaction.atomic
     def action(self):
-        # cascade relation will delete the request object automatically
         self.request.object.delete()
+        self.request.delete()
 
 
 class PRSynchronizedCreate(PullRequest):
@@ -466,7 +468,6 @@ class PREditedDelete(PROpenedDelete):
         # create request
         object_instance = self.pullrequest_plugin.get_object()
         self.request = self._create_pull_request(object_instance)
-
 
 
 class PRAssigned(PullRequest):

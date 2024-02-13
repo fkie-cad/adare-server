@@ -63,15 +63,23 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
 
 class PublicProfileSerializer(serializers.ModelSerializer):
-    user = PublicUserSerializer(required=True)
-    teams = TeamSerializer(required=True, many=True)
+    user = UserSerializer(required=True)
+    teams = serializers.SerializerMethodField()
+    avatar = serializers.URLField(required=True)
 
     class Meta:
         model = Profile
         fields = [
             'user',
             'teams',
+            'avatar',
         ]
+
+    def get_teams(self, obj):
+        # Filter the teams where teams.organization.name == adare
+        filtered_teams = obj.teams.filter(organization__name__iexact="adare")
+        # Serialize the filtered teams
+        return TeamSerializer(filtered_teams, many=True).data
 
 
 class GiteaUserSerializer(serializers.ModelSerializer):

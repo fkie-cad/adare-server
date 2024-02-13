@@ -46,9 +46,9 @@
             achievements
           </div>
         </div>
-        <div class="row justify-evenly">
-          <AchievementIcon  :image="achiev.iconfile" :description="achiev.description" :count="achiev.count" v-for="achiev in LoggedInUserStore.GetUserAchievements.values()" v-bind:key="achiev.id" />
-        </div>
+<!--        <div class="row justify-evenly">-->
+<!--          <AchievementIcon  :image="achiev.iconfile" :description="achiev.description" :count="achiev.count" v-for="achiev in LoggedInUserStore.GetUserAchievements.values()" v-bind:key="achiev.id" />-->
+<!--        </div>-->
       </q-card-section>
     </q-card>
 </template>
@@ -65,7 +65,6 @@ import AchievementIcon from 'components/global/AchievmentIcon.vue';
 export default {
   name: 'ProfileCardSelf',
   components: {
-    AchievementIcon,
     ProfileImageSelf
   },
 
