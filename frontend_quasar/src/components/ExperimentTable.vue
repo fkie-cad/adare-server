@@ -245,10 +245,11 @@
             class="tw-flex tw-items-center"
           >
             <ProfileImage
-              :username=col.value
+              :username=col.value.username
               size="md"
               :tooltip=true
               :linktoprofile=true
+              :avatar="col.value.avatar"
               v-if=col.value
             />
           </div>
@@ -274,6 +275,16 @@
               class="q-px-sm q-mx-sm"
             >
               <q-tooltip>download</q-tooltip>
+            </q-btn>
+          </div>
+          <div v-else-if="col.type=='external_link'">
+            <q-btn
+              color="primary"
+              icon="get_app"
+              @click="OpenInNewTab(col.value)"
+              class="q-px-sm q-mx-sm"
+            >
+              <q-tooltip>go to gitea</q-tooltip>
             </q-btn>
           </div>
           <div v-else-if="col.type=='os_info'">
@@ -308,14 +319,6 @@ import API from 'src/api';
 import {exportFile} from 'quasar';
 import OsIcon from 'components/global/OsIcon.vue';
 
-function GetActionFileName(row: any) {
-  return 'actions_'+row.uuid+'.py'
-}
-
-function GetTestsetFileName(row: any) {
-  return 'testset_'+row.uuid+'.yml'
-}
-
 // columns of table
 const COLUMNS = [
   { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, non_api_field: true, type: 'link', link_field: 'uuid', link_url: '/experimentdetails/', link_icon: 'o_add_circle', hide_filter: true},
@@ -323,16 +326,17 @@ const COLUMNS = [
   { name: 'os_info', label: 'os', field: 'os_info', align: 'left', sortable: true, hideable: true, type: 'os_info'},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true},
   { name: 'uuid', align: 'left', label: 'uuid', field: 'uuid', hideable: true},
-  { name: 'publisher_name', align: 'left', label: 'publisher', field: 'publisher_name', hideable: true, type: 'user_icon'},
-  { name: 'publish_date', align: 'left', label: 'publish date', field: 'publish_date', hideable: true},
+  { name: 'published_by', align: 'left', label: 'publisher', field: 'published_by', hideable: true, type: 'user_icon'},
+  { name: 'published_at', align: 'left', label: 'publish date', field: 'published_at', hideable: true},
   { name: 'tags', align: 'left', label: 'tags', field: 'tags', hideable: true, type: 'tags'},
   { name: 'run_counts', align: 'left', label: 'run counts', field: 'run_counts', hideable: true, type:'run_counts', hide_filter: true},
-  { name: 'action_file', align: 'left', label: 'action file', field: 'action_file', hideable: true, type:'download', filename_function: GetActionFileName, hide_filter: true},
-  { name: 'testset_file', align: 'left', label: 'testset file', field: 'testset_file', hideable: true, type:'download', filename_function: GetTestsetFileName, hide_filter: true},
+  { name: 'action_file', align: 'left', label: 'action file', field: 'action_file', hideable: true, type:'external_link',},
+  { name: 'testset_file', align: 'left', label: 'testset file', field: 'testset_file', hideable: true, type:'external_link',},
+  { name: 'metadata_file', align: 'left', label: 'metadata file', field: 'metadata_file', hideable: true, type:'external_link',},
 ]
 
 // visible columns of table (when loading table for the first time)
-const VISIBLE_COLUMNS = ['details', 'name', 'os', 'description', 'publisher_name', 'tags', 'run_counts', 'action_file', 'testset_file']
+const VISIBLE_COLUMNS = ['details', 'name', 'os', 'description', 'published_by', 'tags', 'run_counts', 'action_file', 'testset_file', 'metadata_file']
 
 // predefined selection filters of table
 const SELECT_FILTERS = ref([
@@ -421,6 +425,10 @@ export default {
           'value': unchangable_column_filters.value[column]
         })
       }
+    }
+
+    function OpenInNewTab(url: string){
+      window.open(url, '_blank')
     }
 
 
@@ -807,7 +815,8 @@ export default {
       ChangeColumnFilter,
       ClearFilters,
       ChangeSearchFilter,
-      DownloadFile
+      DownloadFile,
+      OpenInNewTab
     }
   }
 }

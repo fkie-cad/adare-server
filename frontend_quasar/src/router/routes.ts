@@ -6,33 +6,33 @@ const routes: RouteRecordRaw[] = [
     redirect: '/login',
   },
 
-  {
-    path: '/scenario',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/ScenarioPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        }
-      },
-    ],
-  },
-  {
-    path: '/scenariodetails/:uuid',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/ScenarioExperimentPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        },
-        props: true,
-      },
-    ],
-  },
+  // {
+  //   path: '/scenario',
+  //   component: () => import('layouts/MainLayout.vue'),
+  //   children: [
+  //     {
+  //       path: '',
+  //       components: {
+  //         main: () => import('pages/ScenarioPage.vue'),
+  //         header: () => import('components/HeaderDefault.vue'),
+  //       }
+  //     },
+  //   ],
+  // },
+  // {
+  //   path: '/scenariodetails/:uuid',
+  //   component: () => import('layouts/MainLayout.vue'),
+  //   children: [
+  //     {
+  //       path: '',
+  //       components: {
+  //         main: () => import('pages/ScenarioExperimentPage.vue'),
+  //         header: () => import('components/HeaderDefault.vue'),
+  //       },
+  //       props: true,
+  //     },
+  //   ],
+  // },
   {
     path: '/logfile/:experimentrunuuid',
     component: () => import('layouts/MainLayout.vue'),
@@ -44,6 +44,32 @@ const routes: RouteRecordRaw[] = [
           header: () => import('components/HeaderDefault.vue'),
         },
         props: true,
+      },
+    ],
+  },
+  {
+    path: '/environment',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/EnvironmentListPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
+      },
+    ],
+  },
+  {
+    path: '/testfunctionset',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/TestfunctionsetListPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
       },
     ],
   },

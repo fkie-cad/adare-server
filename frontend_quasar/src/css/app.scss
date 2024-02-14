@@ -1,2 +1,13 @@
 // app global css in SCSS form
 
+.custom-hover-icon {
+  transition: border 0.2s ease-in-out;
+  border: 2px solid transparent; /* Prevents layout shift */
+  border-radius: 50%;
+  box-sizing: border-box; /* Includes padding and border in the element's total width and height */
+}
+
+.custom-hover-icon:hover {
+  border-color: lightblue;
+}
+

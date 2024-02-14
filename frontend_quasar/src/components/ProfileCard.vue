@@ -7,9 +7,11 @@
       >
         <ProfileImage
           offset_classes="tw-top-8"
-          :editable="true"
+          editable
           :username="username"
+          :avatar="avatar"
           size="lg"
+          :tooltip="false"
         />
       </q-card-section>
       <q-card-section>
@@ -36,8 +38,8 @@
             roles
           </div>
           <div class="column">
-            <span v-for="role in UserStore.GetUserGroups(username)" v-bind:key="role.id" class="tw-rounded q-pa-xs" :class="role_color_mapping[role]">
-              {{ role }}
+            <span v-for="role in UserStore.GetUserTeams(username)" v-bind:key="role.id" class="tw-rounded q-pa-xs q-ma-xs tw-text-center tw-font-bold tw-border-2" :class="getColorForRole(role.name)">
+              {{ role.name }}
             </span>
           </div>
         </div>
@@ -81,20 +83,32 @@ export default {
     const LoggedInUserStore = useLoggedInUserStore()
     storeToRefs(LoggedInUserStore)
 
-    let role_color_mapping = ref({
-      'admin': 'bg-red-5',
-      'supervisor': 'bg-amber-5',
+    let role_color_mapping = ref<{ [key: string]: string }>({
+      'Owners': 'bg-black text-white tw-border-gray-700',
+      'Supervisor': 'bg-pink-9 text-white tw-border-pink-600',
     })
+
+    function getColorForRole(role: string){
+      if (role_color_mapping.value[role]){
+        return role_color_mapping.value[role]
+      }else{
+        return 'bg-amber-5 text-black tw-border-amber-400'
+      }
+    }
+
+    const avatar = ref('')
 
     onMounted(async () => {
       await UserStore.UpdateProfileInformation(props.username)
+      avatar.value = UserStore.GetUserAvatarThumbnail(props.username)
     })
 
 
     return {
       LoginStore,
       UserStore,
-      role_color_mapping,
+      getColorForRole,
+      avatar,
     }
 
   }

@@ -19,7 +19,7 @@ export const useUserStore = defineStore('user', {
     initializeUserDict(username: string){
       this.userDict[username] = {
         email: '',
-        groups: [],
+        teams: [],
         avatar: '',
         achievements: [],
       }
@@ -36,16 +36,12 @@ export const useUserStore = defineStore('user', {
         // for (let i = 0; i < this.userDict[username].achievements.length; i++) {
         //   this.userDict[username].achievements[i].iconfile = API_URLS.FILE_API + 'achievements/' + this.userDict[username].achievements[i].iconfile
         // }
-        this.userDict[username].groups = response.data.groups
+        this.userDict[username].teams = response.data.teams
         this.userDict[username].avatar = response.data.avatar
       })
-      console.log(this.userDict[username])
     },
-    GetUserGroups(username: string) {
-      if (!(username in this.userDict)) {
-        this.initializeUserDict(username)
-      }
-      return this.userDict[username].groups
+    GetUserTeams(username: string) {
+      return this.userDict[username].teams
     },
     // GetUserAchievements(username: string) {
     //   if (!(username in this.userDict)) {

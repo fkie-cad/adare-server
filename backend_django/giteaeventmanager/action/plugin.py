@@ -328,7 +328,7 @@ class ExperimentPlugin(PullRequestPlugin):
 
         metadata_path = f'experiments/{self.object_name}/metadata.yml'
         metadata_file_remote_url = f'{settings.GITEA_REPO_API}raw/{metadata_path}'
-        metadata_file = self._get_tmp_dir() / 'os.yml'
+        metadata_file = self._get_tmp_dir() / 'metadata.yml'
         success = download(f'{metadata_file_remote_url}?ref={self.last_commit}', metadata_file, quiet=True,
                            response_codes_error=[404], token=token)
         if success:

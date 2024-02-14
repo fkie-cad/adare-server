@@ -7,9 +7,9 @@ interface Achievement {
 
 interface UserInfo {
   [username: string]: {
-    avatar: any;
+    avatar: string;
     email: string;
-    groups: [];
+    teams: [];
     achievements: Achievement[];
   };
 }

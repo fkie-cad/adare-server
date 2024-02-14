@@ -16,13 +16,19 @@
           class="q-pr-md"
         >
           <q-route-tab
-            name="scenario"
-            icon="hive"
-            label="Scenarios"
-            to="/scenario"
+            name="environment"
+            icon="terrain"
+            label="Environments"
+            to="/environment"
           />
           <q-route-tab
-            name="experiments"
+            name="testfunctionset"
+            icon="quiz"
+            label="Testfunctionsets"
+            to="/testfunctionset"
+          />
+          <q-route-tab
+            name=""
             icon="science"
             label="Experiments"
             to="/experiment"

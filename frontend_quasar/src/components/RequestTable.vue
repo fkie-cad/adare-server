@@ -185,7 +185,7 @@
               size="md"
               :tooltip=true
               :linktoprofile=true
-              :avatar_url=col.value.avatar
+              :avatar=col.value.avatar
               v-if=col.value
             />
           </div>
@@ -225,6 +225,7 @@
               size="2.5em"
               color="secondary"
               @click="NavigateToDetails(props.row.uuid)"
+              class="custom-hover-icon"
             />
           </div>
           <div v-else-if="col.type=='tags'" class="flex tw-flex-wrap tw-max-w-sm">
@@ -272,7 +273,7 @@ const COLUMNS = [
   { name: 'details', align: 'left', label: 'details', field: 'details', hideable: false, type: 'details', hide_filter: true},
   { name: 'title', align: 'left', label: 'title', field: 'title', hideable: false},
   { name: 'action', align: 'left', label: 'action', field: 'action', hideable: true},
-  { name: 'objective_name', align: 'left', label: 'objective', field: 'objective_name', hideable: true},
+  { name: 'objective_name', align: 'left', label: 'objective', field: 'objective_name', hideable: true, type: 'category'},
 
   { name: 'uuid', align: 'left', label: 'uuid', field: 'uuid', hideable: true},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true},
@@ -281,14 +282,6 @@ const COLUMNS = [
   { name: 'labels', align: 'left', label: 'labels', field: 'labels', type:'labels', hideable: true},
   { name: 'gitea_pr_url', align: 'left', label: 'pull request link', field: 'gitea_pr_url', type:'gitea_link', hideable: true},
   { name: 'requester', align: 'left', label: 'requester', field: 'requester', hideable: true, type: 'user_icon'},
-
-  // { name: 'status', align: 'left', label: 'status', field: 'status', hideable: true, type: 'status_icon', hide_filter: true},
-  // { name: 'category_type', align: 'left', label: 'category', field: 'category_type', hideable: true, type: 'category', hide_filter: true,},
-  // { name: 'last_changed', align: 'left', label: 'last changed', field: 'last_changed', hideable: true},
-  // { name: 'requestor', align: 'left', label: 'requestor', field: 'requestor', hideable: true, type: 'user_icon'},
-  // { name: 'request_creation_date', align: 'left', label: 'creation data', field: 'request_creation_date', hideable: true},
-  // { name: 'supervisor', align: 'left', label: 'supervisor', field: 'supervisor', hideable: true, type: 'user_icon'},
-  // { name: 'supervisor_assigned_by', align: 'left', label: 'assigned by', field: 'supervisor_assigned_by', hideable: true, type: 'user_icon'},
 ]
 
 

@@ -32,12 +32,13 @@
                     <div class="tw-w-fit tw-h-fit q-py-md">
                       <div class="row bg-teal-1 tw-border-solid tw-rounded tw-border-2 tw-border-slate-400 q-pa-sm">
                         <div class="q-px-md tw-self-center">
-                          {{ experiment_data.publisher_name }}
+                          {{ experiment_data.published_by.username }}
                         </div>
                         <ProfileImage
-                          :username="experiment_data.publisher_name"
-                          tooltip="true"
-                          linktoprofile="true"
+                          :username="experiment_data.published_by.username"
+                          tooltip
+                          linktoprofile
+                          :avatar="experiment_data.published_by.avatar"
                         />
                       </div>
                     </div>
@@ -46,7 +47,7 @@
               </tr>
               <tr>
                 <td class="tw-text-left">publish date</td>
-                <td class="tw-text-right">{{ experiment_data.publish_date }}</td>
+                <td class="tw-text-right">{{ experiment_data.published_at }}</td>
               </tr>
               <tr>
                 <td class="tw-text-left">description</td>
@@ -76,40 +77,40 @@
           </q-card>
         </div>
         <div class="col-4  q-pa-md tw-justify-end">
-          <div class="row">
-            <q-card class="tw-w-full">
-              <q-card-section class="tw-text-center tw-text-2xl bg-primary text-white q-pa-sm">
-                Os Information
-              </q-card-section>
-              <q-separator/>
-              <q-markup-table
-                dense
-              >
-                <tbody>
-                <tr>
-                  <td class="tw-text-left">Os</td>
-                  <td class="tw-text-right">{{ experiment_data.os_info.os }}</td>
-                </tr>
-                <tr>
-                  <td class="tw-text-left">Version</td>
-                  <td class="tw-text-right">{{ experiment_data.os_info.version }}</td>
-                </tr>
-                <tr>
-                  <td class="tw-text-left">Distribution</td>
-                  <td class="tw-text-right">{{ experiment_data.os_info.distribution }}</td>
-                </tr>
-                <tr>
-                  <td class="tw-text-left">Architecture</td>
-                  <td class="tw-text-right">{{ experiment_data.os_info.architecture }}</td>
-                </tr>
-                <tr>
-                  <td class="tw-text-left">Language</td>
-                  <td class="tw-text-right">{{ experiment_data.os_info.language }}</td>
-                </tr>
-                </tbody>
-              </q-markup-table>
-            </q-card>
-          </div>
+<!--          <div class="row">-->
+<!--            <q-card class="tw-w-full">-->
+<!--              <q-card-section class="tw-text-center tw-text-2xl bg-primary text-white q-pa-sm">-->
+<!--                Os Information-->
+<!--              </q-card-section>-->
+<!--              <q-separator/>-->
+<!--              <q-markup-table-->
+<!--                dense-->
+<!--              >-->
+<!--                <tbody>-->
+<!--                <tr>-->
+<!--                  <td class="tw-text-left">Os</td>-->
+<!--                  <td class="tw-text-right">{{ experiment_data.os_info.os }}</td>-->
+<!--                </tr>-->
+<!--                <tr>-->
+<!--                  <td class="tw-text-left">Version</td>-->
+<!--                  <td class="tw-text-right">{{ experiment_data.os_info.version }}</td>-->
+<!--                </tr>-->
+<!--                <tr>-->
+<!--                  <td class="tw-text-left">Distribution</td>-->
+<!--                  <td class="tw-text-right">{{ experiment_data.os_info.distribution }}</td>-->
+<!--                </tr>-->
+<!--                <tr>-->
+<!--                  <td class="tw-text-left">Architecture</td>-->
+<!--                  <td class="tw-text-right">{{ experiment_data.os_info.architecture }}</td>-->
+<!--                </tr>-->
+<!--                <tr>-->
+<!--                  <td class="tw-text-left">Language</td>-->
+<!--                  <td class="tw-text-right">{{ experiment_data.os_info.language }}</td>-->
+<!--                </tr>-->
+<!--                </tbody>-->
+<!--              </q-markup-table>-->
+<!--            </q-card>-->
+<!--          </div>-->
           <div class="row q-mt-xl">
             <q-card class="tw-w-full">
               <q-card-section class="tw-text-center tw-text-2xl bg-primary text-white q-pa-sm">

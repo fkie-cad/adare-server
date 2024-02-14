@@ -67,6 +67,12 @@ interface Label {
   name: string;
 }
 
+interface ExternalUser {
+  username: string;
+  email: string;
+  avatar: string;
+}
+
 
 interface Experiment {
     uuid: string;
@@ -82,7 +88,7 @@ interface Experiment {
     abstract_tests: AbstractTest[];
     experiment_runs: ExperimentRun[];
 
-    publisher_name: string;
+    published_by: ExternalUser;
     publish_date: string;
 
     tags: string[];

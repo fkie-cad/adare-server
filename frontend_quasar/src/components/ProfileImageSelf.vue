@@ -4,7 +4,6 @@
         :size="size"
         :img="LoggedInUserStore.avatar"
         :username="LoggedInUserStore.username"
-        :tooltip=false
       />
     </div>
 </template>

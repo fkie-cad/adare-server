@@ -1,6 +1,7 @@
 const request_obj_icon_mapping = {
   'experiment': 'o_science',
-  'scenario': 'o_hive',
+  'environment': 'o_terrain',
+  'testfunctionset': 'o_quiz',
 }
 
 const status_color_mapping = {
