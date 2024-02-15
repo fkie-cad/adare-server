@@ -1,17 +1,17 @@
 <template>
   <div>
-    <ExperimentTable :scenario="scenario"/>
+    <ExperimentTable2 :scenario="scenario"/>
   </div>
 </template>
 
 
 <script lang="ts">
-import ExperimentTable from 'components/ExperimentTable.vue';
+import ExperimentTable2 from 'components/ExperimentTable2.vue';
 
 
 export default {
   name: 'ExperimentList',
-  components: {ExperimentTable,},
+  components: {ExperimentTable2,},
 
   props: {
     scenario: {

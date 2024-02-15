@@ -37,7 +37,6 @@ class ExperimentFilter(filters.FilterSet):
     publisher_name_contains = filters.CharFilter(field_name='published_by', lookup_expr='username__contains')
     publish_date_contains = filters.CharFilter(field_name='published_at', lookup_expr='contains')
     tags_contains = filters.CharFilter(field_name='tags', lookup_expr='name__contains')
-    scenario_eq = filters.CharFilter(field_name='scenarios__uuid', lookup_expr='exact')
     min_runcount_pos = filters.NumberFilter(method='runcount_pos_filter')
     min_runcount_neg = filters.NumberFilter(method='runcount_neg_filter')
     min_runcount = filters.NumberFilter(method='runcount_filter')
