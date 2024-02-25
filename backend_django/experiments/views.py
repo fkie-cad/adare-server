@@ -27,7 +27,7 @@ class ExperimentRunListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ExperimentRunFilter
-    search_fields = ['uuid', 'experiment__name', 'publisher__username', 'publish_date', 'status__name']
+    search_fields = ['uuid', 'experiment__name', 'published_by__username', 'published_at']
     pagination_class = LimitOffsetPagination
 
 
@@ -45,7 +45,7 @@ class ExperimentListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ExperimentFilter
-    search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date']
+    search_fields = ['name', 'uuid', 'tags__name', 'description', 'published_by__username', 'published_at']
     pagination_class = LimitOffsetPagination
 
 
@@ -108,6 +108,9 @@ class ExperimentFilterOptionsView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         # get all tags of all experiments in queryset
         tags = self.filter_queryset(self.get_queryset()).values_list('tags__name', flat=True).distinct()
+        # check if tags is a list only containing None
+        if len(tags) == 1 and tags[0] is None:
+            tags = []
 
         # get max number of successfull experiment runs through all experiments in queryset
         max_success = self.filter_queryset(self.get_queryset()).annotate(

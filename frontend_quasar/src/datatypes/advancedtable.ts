@@ -38,5 +38,5 @@ function FilterToQueryString(filter: Filter): string {
 }
 
 
-export type { Filter, ColumnFilter, hideableColumnEntry, ColumnEntry };
+export type { Filter, FilterEntry, ColumnFilter, hideableColumnEntry, ColumnEntry };
 export { FilterToQueryString };
