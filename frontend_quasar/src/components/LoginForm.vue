@@ -66,7 +66,6 @@ export default {
 
       // send request to django backend to get the redirect url
       axios.defaults.withCredentials = true
-      console.log(API_URLS.GITEA_OAUTH_URL_API + `?redirect_uri=${API_URLS.GITEA_REDIRECT_URI}&state=${state}`)
       const resp = await axios.get(API_URLS.GITEA_OAUTH_URL_API + `?redirect_uri=${API_URLS.GITEA_REDIRECT_URI}&state=${state}`)
       if (resp.status === 200) {
         // save the state in the local storage

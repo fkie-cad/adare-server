@@ -43,7 +43,6 @@ urlpatterns = [
     path('api/auth/gitea/', users_views.GiteaLoginView.as_view(), name='socialaccount_signup'),
     path('api/auth/gitea/callback/', users_views.GiteaRedirectView.as_view()),
 
-
     # ### user profile urls ###
     # get the profile of the logged-in user
     path('api/user/profile/', users_views.ProfileView.as_view()),
