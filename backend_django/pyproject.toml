@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "backend-django"
+version = "0.1.0"
+description = ""
+authors = ["miqsoft <mksaxhandball@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+giteapy = {git = "https://github.com/dblueai/giteapy.git"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -51,8 +51,8 @@ urlpatterns = [
 
     # ### scenario urls ###
     # get all scenarios (paginated, filtered, sorted)
-    path('api/scenario/', experiment_frontend_views.ScenarioListView.as_view()),
-    path('api/scenario/filteroptions/', experiment_frontend_views.ScenarioFilterOptionsView.as_view()),
+    # path('api/scenario/', experiment_frontend_views.ScenarioListView.as_view()),
+    # path('api/scenario/filteroptions/', experiment_frontend_views.ScenarioFilterOptionsView.as_view()),
 
     # ### experiment urls ###
     # get all experiments (paginated, filtered, sorted)
@@ -60,7 +60,7 @@ urlpatterns = [
     # # get a single experiment by uuid
     path('api/experiment/experiment_<str:uuid>/', experiment_frontend_views.ExperimentRetrieveView.as_view()),
     # # get all experiments for a given scenario (by scenario uuid)
-    path('api/experiment/scenario_<str:uuid>/', experiment_frontend_views.ExperimentByScenarioListView.as_view()),
+    # path('api/experiment/scenario_<str:uuid>/', experiment_frontend_views.ExperimentByScenarioListView.as_view()),
     # #
     path('api/experiment/filteroptions/', experiment_frontend_views.ExperimentFilterOptionsView.as_view()),
     # # check if an experiment is published to the webapp if yes, return the experiment information
@@ -73,10 +73,11 @@ urlpatterns = [
     # # get a single experiment run by uuid
     path('api/experimentrun/experimentrun_<str:uuid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
     # #
-    path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
+    # path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
     # # check if an experiment run is published to the webapp
     path('api/experimentrun/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
 
+    path('api/environment/', experiment_frontend_views.EnvironmentView.as_view()),
 
 
     # ### request urls ###

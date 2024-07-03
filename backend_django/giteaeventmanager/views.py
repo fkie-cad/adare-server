@@ -7,10 +7,12 @@ from django.conf import settings
 from celery import shared_task
 from giteaeventmanager.event import pull_request_action
 from experiments.models import RequestCreationMessage, Request
-from giteaeventmanager.exception import TaskFailure
+from giteaeventmanager.exception import TaskFailure, NotUsedException
 
 import logging
 log = logging.getLogger(__name__)
+# set log level to also show debug messages
+log.setLevel(logging.DEBUG)
 
 
 @shared_task
@@ -35,6 +37,8 @@ def handle_gitea_webhook(json_data):
         )
         # todo: maybe don't raise the exception here to let the task seem successful
         raise e
+    except NotUsedException as e:
+        return str(e)
 
 
 class GiteaWebhookView(views.APIView):

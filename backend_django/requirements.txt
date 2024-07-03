@@ -12,12 +12,13 @@ django-redis
 django-csp
 PyYAML
 dj-rest-auth
-django-allauth
+# since https://github.com/iMerica/dj-rest-auth/issues/639
+django-allauth==0.61.1
 requests
-urllib3
 celery
 redis
 flower
 attrs
 tqdm
 cattrs
+python-ulid

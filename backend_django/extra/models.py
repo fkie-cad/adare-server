@@ -14,11 +14,10 @@ from allauth.account.utils import (
     setup_user_email,
 )
 from allauth.core import context
-from allauth.socialaccount import signals
 
-from ..utils import get_request_param
-from . import app_settings, providers
-from .adapter import get_adapter
+from allauth.utils import get_request_param
+from allauth.socialaccount import app_settings, providers, signals
+from allauth.socialaccount.adapter import get_adapter
 
 
 class SocialAppManager(models.Manager):
@@ -257,7 +256,7 @@ class SocialLogin(object):
         self.account.user = user
         self.account.save()
         if app_settings.STORE_TOKENS and self.token:
-            # check if app does exist in database if not set self.token.app to None
+            #!ADDED! check if app does exist in database if not set self.token.app to None
             try:
                 SocialApp.objects.get(id=self.token.app.id)
             except SocialApp.DoesNotExist:

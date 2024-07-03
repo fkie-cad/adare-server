@@ -13,6 +13,8 @@ import requests
 
 import logging
 log = logging.getLogger(__name__)
+# set log level to also show debug messages
+log.setLevel(logging.DEBUG)
 
 
 class AbstractPullRequest(ABC):
@@ -73,8 +75,7 @@ class PullRequest(AbstractPullRequest):
         # however we need the real email to create the user -> we therefore retrieve the email by accessing giteas users api
         token = GiteaAuthHandle.get_token()
         api_url = f'{settings.GITEA_API}users/{username}'
-        headers = {'Authorization':
-                     f'token {token}'}
+        headers = {'Authorization': f'token {token}'}
         response = requests.get(api_url, headers=headers)
         if response.status_code != 200:
             raise TaskFailure(f'could not retrieve user data for {username} ({response.status_code}): {response.text}')

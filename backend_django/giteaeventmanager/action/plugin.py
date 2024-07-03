@@ -9,7 +9,7 @@ from django.conf import settings
 from giteaeventmanager.auth import GiteaAuthHandle
 from datetime import datetime
 from experiments.models import Requirement as RequirementModel, TestfunctionSet, TestFunction, TestParameter, \
-    Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo
+    Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo, Tag, PostSetupInstallation
 from giteaeventmanager.exception import TaskFailure
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
@@ -21,6 +21,8 @@ from helperfunctions.hash import hash_file_sha256, combine_hashes
 
 import logging
 log = logging.getLogger(__name__)
+# set log level to also show debug messages
+log.setLevel(logging.DEBUG)
 
 
 class PullRequestPluginInterface(ABC):
@@ -448,6 +450,13 @@ class ExperimentPlugin(PullRequestPlugin):
         abstract_tests = self.__db_create_abstracttests_from_testsetfile(testset_file)
         log.info('retrieved abstract tests from testset file')
 
+        # create tags
+        tag_objects = []
+        if tags := metadata.get('tags'):
+            for tag in tags:
+                obj, created = Tag.objects.get_or_create(name=tag)
+                tag_objects.append(obj)
+
         # create experiment object
         experiment = Experiment(
             name=experiment_name,
@@ -455,6 +464,8 @@ class ExperimentPlugin(PullRequestPlugin):
             action_file=action_file_remote_url,
             testset_file=testset_file_remote_url,
             metadata_file=metadata_remote_url,
+            bibtex_file=None,
+            markdown_file=None,
 
             published_by=user,
 
@@ -465,6 +476,7 @@ class ExperimentPlugin(PullRequestPlugin):
         experiment.save()
         experiment.environments.set(environments)
         experiment.abstract_tests.set(abstract_tests)
+        experiment.tags.set(tag_objects)
         log.info(f'created new experiment {experiment}')
 
         return experiment
@@ -528,6 +540,23 @@ class EnvironmentPlugin(PullRequestPlugin):
             details=environment_data['os']['details'] if 'details' in environment_data['os'] else None,
         )
 
+        # create tags
+        tag_objects = []
+        if tags := environment_data.get('tags'):
+            for tag in tags:
+                obj, created = Tag.objects.get_or_create(name=tag)
+                tag_objects.append(obj)
+
+        # create postsetupinstallation objects
+        post_setup_installation_objects = []
+        if installations := environment_data.get('postsetupinstallations'):
+            for installation in installations:
+                post_setup_installation_objects.append(PostSetupInstallation.objects.get_or_create(
+                    name=installation['name'],
+                    command=installation['command'],
+                    description=installation['description'] if 'description' in installation else None,
+                ))
+
         # create environment object
         environment = Environment(
             name=self.object_name,
@@ -538,6 +567,8 @@ class EnvironmentPlugin(PullRequestPlugin):
             published_by=published_by,
         )
         environment.save()
+        environment.tags.set(tag_objects)
+        environment.post_setup_installations.set(post_setup_installation_objects)
         return environment
 
     def update_object(self, published_by: GiteaUser):
@@ -549,4 +580,3 @@ class EnvironmentPlugin(PullRequestPlugin):
         environment_data = yaml_to_dict(self.environment_file)
         if environment_data['name'] != self.object_name:
             raise TaskFailure(f'environment file name {environment_data["name"]} does not match object name {self.object_name}')
-

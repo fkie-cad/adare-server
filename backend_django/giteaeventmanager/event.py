@@ -1,6 +1,6 @@
 import re
 from giteaeventmanager.action.factory import PullRequestHandlerFactory
-from giteaeventmanager.exception import TaskFailure
+from giteaeventmanager.exception import TaskFailure, NotUsedException
 
 import logging
 log = logging.getLogger(__name__)

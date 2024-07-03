@@ -6,3 +6,7 @@ class TaskFailure(Exception):
 
 class GiteaAuthException(TaskFailure):
     pass
+
+
+class NotUsedException(Exception):
+    pass

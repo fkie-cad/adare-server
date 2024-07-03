@@ -1,6 +1,6 @@
 <template>
   <q-card
-      class="col-3"
+      class="col-auto"
     >
       <q-card-section
         class="column justify-center items-center bg-teal-2 tw-h-32"
@@ -35,7 +35,7 @@
         <q-separator />
         <div class="row justify-between  q-pa-sm">
           <div class="column text-h6 tw-text-gray-600 q-pr-xl">
-            roles
+            teams
           </div>
           <div class="column">
             <span v-for="role in UserStore.GetUserTeams(username)" v-bind:key="role.id" class="tw-rounded q-pa-xs q-ma-xs tw-text-center tw-font-bold tw-border-2" :class="getColorForRole(role.name)">

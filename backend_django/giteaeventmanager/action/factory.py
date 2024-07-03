@@ -1,31 +1,25 @@
 from giteaeventmanager.action.base import *
-from giteaeventmanager.exception import TaskFailure
+from giteaeventmanager.exception import TaskFailure, NotUsedException
 from giteaeventmanager.action.plugin import TestfunctionsetPlugin, ExperimentPlugin, EnvironmentPlugin
 
 
 class PullRequestHandlerFactory:
     @staticmethod
     def get_action(pull_request_action: str, json_data: dict, objective: str, action: str, object_name: str) -> PullRequest:
-        if objective == "testfunctionset":
-            plugin = TestfunctionsetPlugin(
-                objective=objective,
-                object_name=object_name,
-                last_commit=json_data["pull_request"]["head"]["sha"],
-            )
+        if objective == "testfunction":
+            plugin_class = TestfunctionsetPlugin
         elif objective == "experiment":
-            plugin = ExperimentPlugin(
-                objective=objective,
-                object_name=object_name,
-                last_commit=json_data["pull_request"]["head"]["sha"],
-            )
+            plugin_class = ExperimentPlugin
         elif objective == "environment":
-            plugin = EnvironmentPlugin(
-                objective=objective,
-                object_name=object_name,
-                last_commit=json_data["pull_request"]["head"]["sha"],
-            )
+            plugin_class = EnvironmentPlugin
         else:
             raise TaskFailure(f'unknown objective "{objective}"')
+
+        plugin = plugin_class(
+            objective=objective,
+            object_name=object_name,
+            last_commit=json_data["pull_request"]["head"]["sha"],
+        )
 
         if pull_request_action == "label_updated":
             return PRLabelUpdated(
@@ -86,7 +80,7 @@ class PullRequestHandlerFactory:
                     object_name,
                 )
             else:
-                raise TaskFailure(f'unknown pull request action "{pull_request_action}"')
+                raise NotUsedException(f'unknown pull request action "{pull_request_action}"')
         elif action == "modify":
             if pull_request_action == "opened":
                 return PROpenedModify(
@@ -140,7 +134,7 @@ class PullRequestHandlerFactory:
                     object_name,
                 )
             else:
-                raise TaskFailure(f'unknown pull request action "{pull_request_action}"')
+                raise NotUsedException(f'unknown pull request action "{pull_request_action}"')
         else:
             raise TaskFailure(f'unknown action "{action}"')
 

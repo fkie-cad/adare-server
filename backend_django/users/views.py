@@ -1,26 +1,20 @@
-from django.contrib.auth.models import User
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 import urllib
-import requests
-
 from rest_framework import generics
 from rest_framework import permissions
 from users.models import Profile
 from django.conf import settings
-from allauth.socialaccount.providers.gitea.views import GiteaOAuth2Adapter
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from allauth.socialaccount.providers.gitea.views import GiteaOAuth2Adapter
 from dj_rest_auth.registration.views import SocialLoginView
 import urllib.parse
 from users.serializers import ProfileSerializer, PublicProfileSerializer
 import users.tasks as tasks
 from rest_framework import views, status
 from rest_framework.response import Response
-from allauth.socialaccount.models import SocialApp
-from allauth.socialaccount.providers.oauth2.client import OAuth2Error
-from rest_framework.authentication import TokenAuthentication
-from rest_framework.authtoken.models import Token
+
 
 import logging
 

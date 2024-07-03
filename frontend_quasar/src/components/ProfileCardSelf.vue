@@ -7,7 +7,7 @@
       >
         <ProfileImageSelf
           editable
-          offset_classes="tw-top-12"
+          offset_classes="tw-top-8"
           size="lg"
         />
       </q-card-section>
@@ -21,7 +21,7 @@
           </div>
         </div>
         <q-separator />
-        <div class="row justify-between  q-pa-sm">
+        <div class="row justify-between q-pa-sm">
           <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             email
           </div>
@@ -30,7 +30,7 @@
           </div>
         </div>
         <q-separator />
-        <div class="row justify-between  q-pa-sm">
+        <div class="row justify-between q-pa-sm">
           <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             teams
           </div>
