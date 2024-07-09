@@ -3,7 +3,7 @@ from rest_framework import serializers
 from experiments.models import *
 from django.contrib.auth.models import User
 from users.serializers import GiteaUserSerializer
-from helperfunctions.gitea import convert_gitea_internal_api_url_to_viewable_url
+from helperfunctions.gitea import convert_gitea_internal_api_url_to_viewable_url, convert_gitea_internal_api_url_to_external
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -42,7 +42,6 @@ class PostSetupInstallationSerializer(serializers.ModelSerializer):
         ]
 
 
-
 class OsInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = OsInfo
@@ -76,6 +75,7 @@ class EnvironmentSerializer(serializers.ModelSerializer):
             'vagrantbox',
             'description',
             'os_info',
+            'tags',
             'file',
             'sha256hash',
             'post_setup_installations',
@@ -88,7 +88,7 @@ class EnvironmentSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if ret['file']:
-            ret['file'] = convert_gitea_internal_api_url_to_viewable_url(ret['file'])
+            ret['file'] = convert_gitea_internal_api_url_to_external(ret['file'])
         return ret
 
 
@@ -189,6 +189,8 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
         fields = [
             'name',
             'description',
+            'file',
+            'requirements_file',
             'requirements',
             'sha256hash',
             'sha256testfunctionset',
@@ -198,6 +200,14 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
             'published_at',
             'published',
         ]
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if ret['file']:
+            ret['file'] = convert_gitea_internal_api_url_to_external(ret['file'])
+        if 'requirements_file' in ret.keys() and ret['requirements_file'] != '':
+            ret['requirements_file'] = convert_gitea_internal_api_url_to_external(ret['requirements_file'])
+        return ret
 
 
 class AbstractTestSerializer(serializers.ModelSerializer):
@@ -314,21 +324,21 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'abstract_tests': {'read_only': True},
         }
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret['action_file']:
-            ret['action_file'] = convert_gitea_internal_api_url_to_viewable_url(ret['action_file'])
-        if ret['testset_file']:
-            ret['testset_file'] = convert_gitea_internal_api_url_to_viewable_url(ret['testset_file'])
-        if ret['metadata_file']:
-            ret['metadata_file'] = convert_gitea_internal_api_url_to_viewable_url(ret['metadata_file'])
-        return ret
-
     def get_tags(self, obj):
         tag_list = []
         for tag in obj.tags.all():
             tag_list.append(tag.name)
         return tag_list
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if ret['action_file']:
+            ret['action_file'] = convert_gitea_internal_api_url_to_external(ret['action_file'])
+        if ret['testset_file']:
+            ret['testset_file'] = convert_gitea_internal_api_url_to_external(ret['testset_file'])
+        if ret['metadata_file']:
+            ret['metadata_file'] = convert_gitea_internal_api_url_to_external(ret['metadata_file'])
+        return ret
 
     def get_run_counts(self, obj):
         # status = Status.objects.get(name='success')
@@ -339,6 +349,15 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'successful': 0,
             'failed': 0,
         }
+
+
+class ExperimentViewableFilesSerializer(ExperimentSerializer):
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret['action_file'] = convert_gitea_internal_api_url_to_viewable_url(instance.action_file)
+        ret['testset_file'] = convert_gitea_internal_api_url_to_viewable_url(instance.testset_file)
+        ret['metadata_file'] = convert_gitea_internal_api_url_to_viewable_url(instance.metadata_file)
+        return ret
 
 
 class CommandEventSerializer(serializers.ModelSerializer):

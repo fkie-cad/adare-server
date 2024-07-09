@@ -15,7 +15,6 @@ class TokenStrategy:
         request._force_auth_user = user
         val = LoginView.as_view()(request)
         # needed since https://github.com/sunscrapers/djoser/blob/master/djoser/social/serializers.py normally expect an JWT token
-        # todo: maybe create pull request for djoser to support knox tokens
         return {
             'access': val.data['token'],
         }

@@ -28,7 +28,7 @@ class ExperimentRunListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     #filterset_class = ExperimentRunFilter
-    search_fields = ['uuid', 'experiment__name', 'published_by__username', 'published_at']
+    search_fields = ['ulid', 'experiment__name', 'published_by__username', 'published_at']
     pagination_class = LimitOffsetPagination
 
 
@@ -37,25 +37,46 @@ class ExperimentRunRetrieveView(generics.RetrieveAPIView):
     queryset = ExperimentRun.objects.all()
     permission_classes = [AllowAny]
     # only for retrieve
-    lookup_field = 'uuid'
+    lookup_field = 'ulid'
 
 
 class ExperimentListView(generics.ListAPIView):
-    serializer_class = ExperimentSerializer
+    serializer_class = ExperimentViewableFilesSerializer
     queryset = Experiment.objects.filter(published=True).all()
     permission_classes = [AllowAny]
     #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     #filterset_class = ExperimentFilter
-    search_fields = ['name', 'uuid', 'tags__name', 'description', 'published_by__username', 'published_at']
+    search_fields = ['name', 'ulid', 'tags__name', 'description', 'published_by__username', 'published_at']
     pagination_class = LimitOffsetPagination
 
 
-class ExperimentRetrieveView(generics.RetrieveAPIView):
-    serializer_class = ExperimentSerializer
-    queryset = Experiment.objects.all()
+class ExperimentView(generics.RetrieveAPIView):
+    serializer_class = ExperimentViewableFilesSerializer
+    queryset = Experiment.objects.filter(published=True).all()
     permission_classes = [AllowAny]
     # only for retrieve
-    lookup_field = 'uuid'
+    lookup_field = 'ulid'
+
+
+class ExperimentDownloadView(generics.RetrieveAPIView):
+    serializer_class = ExperimentSerializer
+    permission_classes = [AllowAny]
+    queryset = Experiment.objects.filter(published=True).all()
+    lookup_field = 'ulid'
+
+
+class TestfunctionDownloadView(generics.RetrieveAPIView):
+    serializer_class = TestFunctionSetSerializer
+    permission_classes = [AllowAny]
+    queryset = TestfunctionSet.objects.filter(published=True).all()
+    lookup_field = 'name'
+
+
+class EnvironmentDownloadView(generics.RetrieveAPIView):
+    serializer_class = EnvironmentSerializer
+    permission_classes = [AllowAny]
+    queryset = Environment.objects.filter(published=True).all()
+    lookup_field = 'name'
 
 
 # class ExperimentByScenarioListView(generics.ListAPIView):
@@ -64,11 +85,11 @@ class ExperimentRetrieveView(generics.RetrieveAPIView):
 #     filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
 #     filterset_class = ExperimentFilter
 #     # only for retrieve
-#     lookup_field = 'uuid'
+#     lookup_field = 'ulid'
 #
 #     def get_queryset(self):
-#         scenario_uuid = self.kwargs['uuid']
-#         return Scenario.objects.get(uuid=scenario_uuid).experiments.filter(published=True).all()
+#         scenario_ulid = self.kwargs['ulid']
+#         return Scenario.objects.get(ulid=scenario_ulid).experiments.filter(published=True).all()
 #
 #
 # class ScenarioListView(generics.ListAPIView):
@@ -77,7 +98,7 @@ class ExperimentRetrieveView(generics.RetrieveAPIView):
 #     queryset = Scenario.objects.filter(published=True).all()
 #     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
 #     filterset_class = ScenarioFilter
-#     search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date',
+#     search_fields = ['name', 'ulid', 'tags__name', 'description', 'publisher__username', 'publish_date',
 #                      'experiments__name']
 #     pagination_class = LimitOffsetPagination
 
@@ -87,7 +108,7 @@ class ExperimentRetrieveView(generics.RetrieveAPIView):
 #     queryset = Scenario.objects.filter(published=True).all()
 #     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
 #     filterset_class = ScenarioFilter
-#     search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date',
+#     search_fields = ['name', 'ulid', 'tags__name', 'description', 'publisher__username', 'publish_date',
 #                      'experiments__name']
 #
 #     def get(self, request, *args, **kwargs):
@@ -104,7 +125,7 @@ class ExperimentFilterOptionsView(generics.RetrieveAPIView):
     queryset = Experiment.objects.filter(published=True).all()
     #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     #filterset_class = ExperimentFilter
-    search_fields = ['name', 'uuid', 'tags__name', 'description', 'publisher__username', 'publish_date']
+    search_fields = ['name', 'ulid', 'tags__name', 'description', 'publisher__username', 'publish_date']
 
     def get(self, request, *args, **kwargs):
         # get all tags of all experiments in queryset
@@ -141,7 +162,7 @@ class RequestFilterOptionsView(generics.RetrieveAPIView):
     queryset = Request.objects.all()
     #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     #filterset_class = RequestFilter
-    search_fields = ['title', 'uuid', 'description', 'status__name', 'requestor__username', 'supervisor__username',
+    search_fields = ['title', 'ulid', 'description', 'status__name', 'requestor__username', 'supervisor__username',
                      'last_changed', 'labels__name']
 
     def get(self, request, *args, **kwargs):
@@ -164,7 +185,7 @@ class RequestListView(generics.ListAPIView):
     serializer_class = RequestSerializer
     queryset = Request.objects.all()
     #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['title', 'uuid', 'description', 'status__name', 'requestor__username', 'supervisor__username', 'last_changed', 'labels__name']
+    search_fields = ['title', 'ulid', 'description', 'status__name', 'requestor__username', 'supervisor__username', 'last_changed', 'labels__name']
     #filterset_class = RequestFilter
     pagination_class = LimitOffsetPagination
 
@@ -173,7 +194,7 @@ class RequestRetrieveView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     serializer_class = RequestSerializer
     queryset = Request.objects.all()
-    lookup_field = 'uuid'
+    lookup_field = 'ulid'
 
 
 class StatisticView(generics.RetrieveAPIView):
@@ -203,19 +224,19 @@ class ExperimentCheckView(generics.RetrieveAPIView):
         try:
             experiment = Experiment.objects.get(sha256hash=experiment_sha256hash)
         except Experiment.DoesNotExist:
-            resp_data = {'published': None, 'publish_date': None, 'uuid': None, 'request_uuid': None}
+            resp_data = {'published': None, 'publish_date': None, 'ulid': None, 'request_ulid': None}
             return Response(resp_data,
                             status=http_status_codes.HTTP_200_OK)
         # check if experiment is published
         if experiment.published:
-            resp_data = {'published': True, 'publish_date': experiment.publish_date, 'uuid': experiment.uuid, 'request_uuid': None}
+            resp_data = {'published': True, 'publish_date': experiment.publish_date, 'ulid': experiment.ulid, 'request_ulid': None}
             return Response(resp_data, status=http_status_codes.HTTP_200_OK)
         # check if request for experiment exists
         try:
             request = Request.objects.get(experiment=experiment)
-            resp_data = {'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': request.uuid}
+            resp_data = {'published': False, 'publish_date': None, 'ulid': experiment.ulid, 'request_ulid': request.ulid}
         except Request.DoesNotExist:
-            resp_data = {'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': None}
+            resp_data = {'published': False, 'publish_date': None, 'ulid': experiment.ulid, 'request_ulid': None}
 
         return Response(resp_data, status=http_status_codes.HTTP_200_OK)
 
@@ -236,21 +257,21 @@ class ExperimentCheckMultipleView(generics.RetrieveAPIView):
             experiment_sha256hashes = experiment_sha256hashes.split(',')
             experiments = Experiment.objects.filter(sha256hash__in=experiment_sha256hashes)
         except Experiment.DoesNotExist:
-            resp_data = {'published': None, 'publish_date': None, 'uuid': None, 'request_uuid': None}
+            resp_data = {'published': None, 'publish_date': None, 'ulid': None, 'request_ulid': None}
             return Response(resp_data,
                             status=http_status_codes.HTTP_200_OK)
         # check if experiment is published
         resp_data = []
         for experiment in experiments:
             if experiment.published:
-                resp_data.append({'published': True, 'publish_date': experiment.publish_date, 'uuid': experiment.uuid, 'request_uuid': None})
+                resp_data.append({'published': True, 'publish_date': experiment.publish_date, 'ulid': experiment.ulid, 'request_ulid': None})
             else:
                 # check if request for experiment exists
                 try:
                     request = Request.objects.get(experiment=experiment)
-                    resp_data.append({'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': request.uuid})
+                    resp_data.append({'published': False, 'publish_date': None, 'ulid': experiment.ulid, 'request_ulid': request.ulid})
                 except Request.DoesNotExist:
-                    resp_data.append({'published': False, 'publish_date': None, 'uuid': experiment.uuid, 'request_uuid': None})
+                    resp_data.append({'published': False, 'publish_date': None, 'ulid': experiment.ulid, 'request_ulid': None})
 
         return Response(resp_data, status=http_status_codes.HTTP_200_OK)
 
@@ -260,19 +281,19 @@ class RequestCheckView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         """
-        checks if request with given uuid exists
+        checks if request with given ulid exists
         """
         resp_data = {
             'exists': False,
             'status': None,
         }
 
-        request_uuid = request.query_params.get('uuid')
-        if not request_uuid:
-            return Response('No request uuid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
-        # check if request with given uuid exists
+        request_ulid = request.query_params.get('ulid')
+        if not request_ulid:
+            return Response('No request ulid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # check if request with given ulid exists
         try:
-            request = Request.objects.get(uuid=request_uuid)
+            request = Request.objects.get(ulid=request_ulid)
         except Request.DoesNotExist:
             return Response(resp_data, status=http_status_codes.HTTP_200_OK)
         resp_data.update({
@@ -287,18 +308,18 @@ class ExperimentRunCheckView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         """
-            checks if experiment run with given uuid exists
+            checks if experiment run with given ulid exists
         """
         resp_data = {
             'exists': False,
         }
 
-        experimentrun_uuid = request.query_params.get('uuid')
-        if not experimentrun_uuid:
-            return Response('No experiment run uuid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
-        # check if experiment run with given uuid exists
+        experimentrun_ulid = request.query_params.get('ulid')
+        if not experimentrun_ulid:
+            return Response('No experiment run ulid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # check if experiment run with given ulid exists
         try:
-            experimentrun = ExperimentRun.objects.get(uuid=experimentrun_uuid)
+            experimentrun = ExperimentRun.objects.get(ulid=experimentrun_ulid)
         except ExperimentRun.DoesNotExist:
             return Response(resp_data, status=http_status_codes.HTTP_200_OK)
         resp_data.update({
@@ -312,7 +333,7 @@ class EnvironmentView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         """
-        downloads metadata of environment with given uuid
+        downloads metadata of environment with given ulid
         """
         environment_ulid = request.query_params.get('ulid')
         if not environment_ulid:
@@ -347,8 +368,8 @@ class EnvironmentView(generics.RetrieveAPIView):
 #         data = request.data
 #
 #         exp_sha256hash = data['sha256hash']
-#         experimentrun_uuid = data['uuid']
-#         # experiment_uuid = data.pop('experiment_uuid')
+#         experimentrun_ulid = data['ulid']
+#         # experiment_ulid = data.pop('experiment_ulid')
 #         status = data.pop('status')
 #
 #         # get experiment for experiment run
@@ -357,17 +378,17 @@ class EnvironmentView(generics.RetrieveAPIView):
 #         except Experiment.DoesNotExist:
 #             return Response(f'Experiment with hash {exp_sha256hash} does not exist',
 #                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#         data['experiment'] = experiment.uuid
+#         data['experiment'] = experiment.ulid
 #
 #         # check if experiment is published
 #         if not experiment.published:
-#             return Response(f'Experiment with uuid {experiment.uuid} is not published',
+#             return Response(f'Experiment with ulid {experiment.ulid} is not published',
 #                             status=http_status_codes.HTTP_400_BAD_REQUEST)
 #
 #         # check if experiment run already exists
 #         try:
-#             ExperimentRun.objects.get(uuid=experimentrun_uuid)
-#             return Response(f'Experiment run for experiment {experiment.uuid} already exists',
+#             ExperimentRun.objects.get(ulid=experimentrun_ulid)
+#             return Response(f'Experiment run for experiment {experiment.ulid} already exists',
 #                             status=http_status_codes.HTTP_400_BAD_REQUEST)
 #         except ExperimentRun.DoesNotExist:
 #             pass
@@ -384,7 +405,7 @@ class EnvironmentView(generics.RetrieveAPIView):
 #         test_object_list = []
 #         for test in tests:
 #             try:
-#                 test_object = Test.objects.get(uuid=test['uuid'])
+#                 test_object = Test.objects.get(ulid=test['ulid'])
 #             except Test.DoesNotExist:
 #                 test_serializer = TestSerializer(data=test)
 #                 test_serializer.is_valid(raise_exception=True)
@@ -392,13 +413,13 @@ class EnvironmentView(generics.RetrieveAPIView):
 #             test_object_list.append(test_object)
 #
 #         # check if all tests of the experiment are included in the experiment run and vice versa
-#         uuid_tests = [test.abstracttest.uuid for test in test_object_list]
-#         uuid_abstract_tests = [abstract_test.uuid for abstract_test in experiment.abstract_tests.all()]
-#         if not set(uuid_abstract_tests).issubset(set(uuid_tests)):
-#             return Response(f'Not all tests of experiment {experiment.uuid} are included in the experiment run',
+#         ulid_tests = [test.abstracttest.ulid for test in test_object_list]
+#         ulid_abstract_tests = [abstract_test.ulid for abstract_test in experiment.abstract_tests.all()]
+#         if not set(ulid_abstract_tests).issubset(set(ulid_tests)):
+#             return Response(f'Not all tests of experiment {experiment.ulid} are included in the experiment run',
 #                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#         if not set(uuid_tests).issubset(set(uuid_abstract_tests)):
-#             return Response(f'Not all tests of experiment run {experimentrun_uuid} are included in the experiment',
+#         if not set(ulid_tests).issubset(set(ulid_abstract_tests)):
+#             return Response(f'Not all tests of experiment run {experimentrun_ulid} are included in the experiment',
 #                             status=http_status_codes.HTTP_400_BAD_REQUEST)
 #
 #         data['publisher'] = request.user.id

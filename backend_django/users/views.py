@@ -14,6 +14,7 @@ from users.serializers import ProfileSerializer, PublicProfileSerializer
 import users.tasks as tasks
 from rest_framework import views, status
 from rest_framework.response import Response
+from knox.models import AuthToken
 
 
 import logging
@@ -34,9 +35,14 @@ class GiteaLoginView(SocialLoginView):
         profile.avatar = user_extra_data.get('avatar_url')
         profile.save()
 
-        response_data = self.token
+        #response_data = self.token
+        token_instance, token = AuthToken.objects.create(self.request.user)
 
-        response_data['user'] = self.user.username
+        response_data = {
+            'user': self.user.username,
+            'token': token,
+            'expiry': token_instance.expiry,
+        }
 
         # update gitea user
         tasks.update_gitea_user.delay(

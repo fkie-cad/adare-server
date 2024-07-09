@@ -14,17 +14,17 @@ import DataTableTags from 'components/datatable/DataTableTags.vue';
 
 const title = 'Experiments';
 
-function link_to_experiment(uuid: string | undefined) {
-  if (!uuid) {
+function link_to_experiment(ulid: string | undefined) {
+  if (!ulid) {
     return '';
   }
-  return '/experimentdetails/' + uuid;
+  return '/experimentdetails/' + ulid;
 }
 
 const typeVarsDetails: TypeVarsDetails = {
   icon: 'o_add_circle',
   formatter: link_to_experiment,
-  field: 'uuid',
+  field: 'ulid',
 }
 
 const typeVarsLink = {
@@ -37,7 +37,7 @@ const columns: CustomQTableColumn[] = [
   { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, visible: true, type: DataTableDetails, typeVarsDetails: typeVarsDetails},
   { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true, visible: true},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true, visible: true},
-  { name: 'uuid', align: 'left', label: 'uuid', field: 'uuid', hideable: true, visible: true},
+  { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true, visible: true},
   { name: 'published_by', align: 'left', label: 'publisher', field: 'published_by', hideable: false, visible: true, type: DataTableUserIcon},
   { name: 'published_at', align: 'left', label: 'publish date', field: 'published_at', hideable: true, visible: true},
   { name: 'tags', align: 'left', label: 'tags', field: 'tags', hideable: true, visible: true, type: DataTableTags},

@@ -182,12 +182,9 @@ if __name__ == '__main__':
     #close_all_prs()
     #delete_all_branches_except_main()
 
+    #create_pr_environment(OWNER, REPO, 'env2', Path('/home/miq/Documents/adare/examples2/environments/tenv2.yml'), 'tenv2')
     #create_pr_testfunction_create(OWNER, REPO, 'tfx1', Path('/home/miq/Documents/adare/examples/testfunctions/standard'), 'standard')
-    #merge_pr(OWNER, REPO, 72)
-    #time.sleep(1)
     #create_pr_environment(OWNER, REPO, 'envx1', Path('/home/miq/Documents/adare/examples/environments/testenv.yml'), 'testenv')
-    #time.sleep(1)
-    #merge_pr(OWNER, REPO, 73)
-    #time.sleep(1)
     #create_pr_experiment(OWNER, REPO, 'exp2', Path('/home/miq/Documents/adare/examples/experiments/deletefile'), 'deletefile')
-    merge_pr(OWNER, REPO, 74)
+
+    #merge_pr(OWNER, REPO, 83)

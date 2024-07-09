@@ -58,9 +58,10 @@ urlpatterns = [
     # get all experiments (paginated, filtered, sorted)
     path('api/experiment/', experiment_frontend_views.ExperimentListView.as_view()),
     # # get a single experiment by uuid
-    path('api/experiment/experiment_<str:uuid>/', experiment_frontend_views.ExperimentRetrieveView.as_view()),
-    # # get all experiments for a given scenario (by scenario uuid)
-    # path('api/experiment/scenario_<str:uuid>/', experiment_frontend_views.ExperimentByScenarioListView.as_view()),
+    path('api/experiment/experiment_<str:ulid>/', experiment_frontend_views.ExperimentView.as_view()),
+    # #
+    path('api/download/experiment_<str:ulid>/', experiment_frontend_views.ExperimentDownloadView.as_view()),
+
     # #
     path('api/experiment/filteroptions/', experiment_frontend_views.ExperimentFilterOptionsView.as_view()),
     # # check if an experiment is published to the webapp if yes, return the experiment information
@@ -78,6 +79,9 @@ urlpatterns = [
     path('api/experimentrun/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
 
     path('api/environment/', experiment_frontend_views.EnvironmentView.as_view()),
+    path('api/download/environment_<str:name>/', experiment_frontend_views.EnvironmentDownloadView.as_view()),
+
+    path('api/download/testfunction_<str:name>/', experiment_frontend_views.TestfunctionDownloadView.as_view()),
 
 
     # ### request urls ###

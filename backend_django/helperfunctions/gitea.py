@@ -33,4 +33,15 @@ def convert_gitea_internal_api_url_to_viewable_url(url: str):
     return url
 
 
+def convert_gitea_internal_api_url_to_external(url: str):
+    # url format: $GITEA_INTERNAL_URL/api/v1/repos/miq/adareTEST/raw/experiments/deletefile/action.py?ref=main
+    # convert to: $GITEA_URL/api/v1/repos/miq/adareTEST/raw/experiments/deletefile/action.py?ref=main
 
+    gitea_url = settings.GITEA_URL
+    gitea_internal_url = settings.GITEA_INTERNAL_URL
+
+    # remove the internal URL
+    url = url.replace(gitea_internal_url, "")
+    # add the Gitea URL
+    url = f"{gitea_url}{url}"
+    return url

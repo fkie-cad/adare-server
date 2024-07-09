@@ -321,10 +321,10 @@ import OsIcon from 'components/global/OsIcon.vue';
 
 // columns of table
 const COLUMNS = [
-  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, non_api_field: true, type: 'link', link_field: 'uuid', link_url: '/experimentdetails/', link_icon: 'o_add_circle', hide_filter: true},
+  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, non_api_field: true, type: 'link', link_field: 'ulid', link_url: '/experimentdetails/', link_icon: 'o_add_circle', hide_filter: true},
   { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true},
-  { name: 'uuid', align: 'left', label: 'uuid', field: 'uuid', hideable: true},
+  { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true},
   { name: 'published_by', align: 'left', label: 'publisher', field: 'published_by', hideable: true, type: 'user_icon'},
   { name: 'published_at', align: 'left', label: 'publish date', field: 'published_at', hideable: true},
   { name: 'tags', align: 'left', label: 'tags', field: 'tags', hideable: true, type: 'tags'},

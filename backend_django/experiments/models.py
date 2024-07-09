@@ -146,6 +146,7 @@ class TestfunctionSet(models.Model):
     description = models.CharField(max_length=1000, blank=True)
     requirements = models.ManyToManyField(Requirement)
     file = models.URLField(max_length=2000)
+    requirements_file = models.URLField(max_length=2000)
     sha256hash = models.CharField(max_length=64, unique=True)
     sha256testfunctionset = models.CharField(max_length=64)
     sha256requirements = models.CharField(max_length=64)

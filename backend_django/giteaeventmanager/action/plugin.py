@@ -208,6 +208,8 @@ class TestfunctionsetPlugin(PullRequestPlugin):
             name=self.object_name,
             description="",
             sha256hash=self.sha256,
+            file=self.tfset_remote_url,
+            requirements_file=self.tfreq_remote_url,
             sha256testfunctionset=self.tfset_sha256,
             sha256requirements=self.tfreq_sha256,
             published_by=published_by,
@@ -561,6 +563,7 @@ class EnvironmentPlugin(PullRequestPlugin):
         environment = Environment(
             name=self.object_name,
             vagrantbox=environment_data['vagrantbox'],
+            file=self.environment_file_remote_url,
             description=environment_data['description'] if 'description' in environment_data else None,
             os_info=os_info,
             sha256hash=self.sha256,
