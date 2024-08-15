@@ -68,21 +68,30 @@ urlpatterns = [
     path('api/experiment/check/', experiment_frontend_views.ExperimentCheckView.as_view()),
     path('api/experiment/checkmuliple/', experiment_frontend_views.ExperimentCheckMultipleView.as_view()),
     #
-    # # ### experiment run urls ###
+    # # ### run urls ###
     # # get all experiment runs (paginated, filtered, sorted)
-    path('api/experimentrun/', experiment_frontend_views.ExperimentRunListView.as_view()),
+    path('api/run/', experiment_frontend_views.ExperimentRunListView.as_view()),
     # # get a single experiment run by uuid
-    path('api/experimentrun/experimentrun_<str:uuid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
+    path('api/run/run_<str:uuid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
     # #
     # path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
     # # check if an experiment run is published to the webapp
-    path('api/experimentrun/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
+    path('api/run/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
+    path('api/run/delete/run_<str:ulid>/', experiment_frontend_views.ExperimentRunDeleteView.as_view()),
+    path('api/run/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
 
-    path('api/environment/', experiment_frontend_views.EnvironmentView.as_view()),
+
+    path('api/environment/', experiment_frontend_views.EnvironmentListView.as_view()),
     path('api/download/environment_<str:name>/', experiment_frontend_views.EnvironmentDownloadView.as_view()),
 
     path('api/download/testfunction_<str:name>/', experiment_frontend_views.TestfunctionDownloadView.as_view()),
 
+    path('api/hash/experiment_<str:sha256hash>/', experiment_frontend_views.ExperimentHashToMetadataView.as_view()),
+    path('api/hash/environment_<str:sha256hash>/', experiment_frontend_views.EnvironmentHashToMetadataView.as_view()),
+    path('api/hash/testfunction_<str:sha256hash>/', experiment_frontend_views.TestfunctionHashToMetadataView.as_view()),
+
+    # ### testfunction urls ###
+    path('api/testfunction/', experiment_frontend_views.TestFunctionListView.as_view()),
 
     # ### request urls ###
     # get all requests (paginated, filtered, sorted)

@@ -11,8 +11,11 @@ import django_filters.rest_framework
 from django.utils.timezone import make_aware
 from experiments.parsers import MultiPartJSONParser
 from django.db.models import Count, Max, Q
+from experiments.models import Event
 from django.contrib.auth.models import User
 from helperfunctions.gitea import convert_gitea_internal_api_url_to_viewable_url
+import json
+from django.db import transaction
 
 from datetime import datetime
 from permissions import HasGroupPermission
@@ -58,6 +61,14 @@ class ExperimentView(generics.RetrieveAPIView):
     lookup_field = 'ulid'
 
 
+class TestFunctionListView(generics.ListAPIView):
+    serializer_class = TestFunctionSetSerializer
+    queryset = TestfunctionSet.objects.filter(published=True).all()
+    permission_classes = [AllowAny]
+    search_fields = ['name', 'ulid', 'tags__name', 'description', 'published_by__username', 'published_at']
+    pagination_class = LimitOffsetPagination
+
+
 class ExperimentDownloadView(generics.RetrieveAPIView):
     serializer_class = ExperimentSerializer
     permission_classes = [AllowAny]
@@ -77,6 +88,29 @@ class EnvironmentDownloadView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     queryset = Environment.objects.filter(published=True).all()
     lookup_field = 'name'
+
+
+class ExperimentHashToMetadataView(generics.RetrieveAPIView):
+    serializer_class = ExperimentMetadataSerializer
+    permission_classes = [AllowAny]
+    queryset = Experiment.objects.all()
+    lookup_field = 'sha256hash'
+
+
+class EnvironmentHashToMetadataView(generics.RetrieveAPIView):
+    serializer_class = EnvironmentMetadataSerializer
+    permission_classes = [AllowAny]
+    queryset = Environment.objects.all()
+    lookup_field = 'sha256hash'
+
+
+class TestfunctionHashToMetadataView(generics.RetrieveAPIView):
+    serializer_class = TestFunctionSetMetadataSerializer
+    permission_classes = [AllowAny]
+    queryset = TestfunctionSet.objects.all()
+    lookup_field = 'sha256hash'
+
+
 
 
 # class ExperimentByScenarioListView(generics.ListAPIView):
@@ -357,76 +391,132 @@ class EnvironmentView(generics.RetrieveAPIView):
         return Response(serializer.data, status=http_status_codes.HTTP_200_OK)
 
 
-# class ExperimentRunPublishView(generics.CreateAPIView):
-#     serializer_class = ExperimentRunCreateSerializer
-#     queryset = ExperimentRun.objects.all()
-#     permission_classes = [IsAuthenticated]
-#     parser_classes = [MultiPartJSONParser]
-#
-#     def create(self, request, *args, **kwargs):
-#         logfile = request.FILES.get('log_file')
-#         data = request.data
-#
-#         exp_sha256hash = data['sha256hash']
-#         experimentrun_ulid = data['ulid']
-#         # experiment_ulid = data.pop('experiment_ulid')
-#         status = data.pop('status')
-#
-#         # get experiment for experiment run
-#         try:
-#             experiment = Experiment.objects.get(sha256hash=exp_sha256hash)
-#         except Experiment.DoesNotExist:
-#             return Response(f'Experiment with hash {exp_sha256hash} does not exist',
-#                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#         data['experiment'] = experiment.ulid
-#
-#         # check if experiment is published
-#         if not experiment.published:
-#             return Response(f'Experiment with ulid {experiment.ulid} is not published',
-#                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#
-#         # check if experiment run already exists
-#         try:
-#             ExperimentRun.objects.get(ulid=experimentrun_ulid)
-#             return Response(f'Experiment run for experiment {experiment.ulid} already exists',
-#                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#         except ExperimentRun.DoesNotExist:
-#             pass
-#
-#         # create or get Status
-#         try:
-#             status_object = Status.objects.get(name=status['name'])
-#         except Status.DoesNotExist:
-#             return Response(f'Status with name {status} does not exist',
-#                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#         data['status'] = status_object.id
-#
-#         tests = data.pop('tests')
-#         test_object_list = []
-#         for test in tests:
-#             try:
-#                 test_object = Test.objects.get(ulid=test['ulid'])
-#             except Test.DoesNotExist:
-#                 test_serializer = TestSerializer(data=test)
-#                 test_serializer.is_valid(raise_exception=True)
-#                 test_object = test_serializer.save()
-#             test_object_list.append(test_object)
-#
-#         # check if all tests of the experiment are included in the experiment run and vice versa
-#         ulid_tests = [test.abstracttest.ulid for test in test_object_list]
-#         ulid_abstract_tests = [abstract_test.ulid for abstract_test in experiment.abstract_tests.all()]
-#         if not set(ulid_abstract_tests).issubset(set(ulid_tests)):
-#             return Response(f'Not all tests of experiment {experiment.ulid} are included in the experiment run',
-#                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#         if not set(ulid_tests).issubset(set(ulid_abstract_tests)):
-#             return Response(f'Not all tests of experiment run {experimentrun_ulid} are included in the experiment',
-#                             status=http_status_codes.HTTP_400_BAD_REQUEST)
-#
-#         data['publisher'] = request.user.id
-#         data['publish_date'] = make_aware(datetime.now())
-#         data['logfile'] = logfile
-#         serializer = self.get_serializer(data=data)
-#         serializer.is_valid(raise_exception=True)
-#         experiment_run = serializer.save()
-#         experiment_run.tests.set(test_object_list)
-#         return Response(serializer.data, status=http_status_codes.HTTP_201_CREATED)
+class EnvironmentListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = EnvironmentSerializer
+    queryset = Environment.objects.filter(published=True).all()
+
+
+def get_event_by_ulid(ulid: str):
+    # Get all subclasses of Event
+    event_subclasses = Event.__subclasses__()
+
+    # List to store all events
+    all_events = []
+
+    # Query each subclass and combine the results
+    for subclass in event_subclasses:
+        events = subclass.objects.filter(ulid=ulid)
+        all_events.extend(events)
+
+    if len(all_events) == 1:
+        return all_events[0]
+    return None
+
+class ExperimentRunDeleteView(generics.DestroyAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ExperimentRunSerializer
+    queryset = ExperimentRun.objects.all()
+    lookup_field = 'ulid'
+
+
+class ExperimentRunPublishView(generics.CreateAPIView):
+    serializer_class = ExperimentRunCreateSerializer
+    queryset = ExperimentRun.objects.all()
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartJSONParser]
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        files = request.FILES
+        data = request.data
+
+        exp_ulid = data['experiment_ulid']
+        env_ulid = data['environment_ulid']
+        run_ulid = data['ulid']
+
+        # check if experiment run already exists
+        try:
+            run = ExperimentRun.objects.get(ulid=run_ulid)
+            return Response(f'Experiment run {run_ulid} already exists',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        except ExperimentRun.DoesNotExist:
+            pass
+
+
+        # get experiment for experiment run
+        try:
+            experiment = Experiment.objects.get(ulid=exp_ulid)
+        except Experiment.DoesNotExist:
+            return Response(f'Experiment with ulid {exp_ulid} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        data['experiment'] = experiment.ulid
+
+        # check if experiment is published
+        if not experiment.published:
+            return Response(f'Experiment with ulid {experiment.ulid} is not published',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+
+        try:
+            environment = Environment.objects.get(ulid=data['environment_ulid'])
+        except Environment.DoesNotExist:
+            return Response(f'Environment with ulid {env_ulid} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        data['environment'] = environment.ulid
+
+        # create or get Status
+        try:
+            status_object = Status.objects.get(id=data['status'])
+        except Status.DoesNotExist:
+            return Response(f'Status with id {data["status"]} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        data['status'] = status_object.id
+
+        try:
+            result_status_object = Status.objects.get(id=data['result_status'])
+        except Status.DoesNotExist:
+            return Response(f'Status with id {data["result_status"]} does not exist',
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        data['result_status'] = result_status_object.id
+
+        # check if all tests of the experiment are included in the experiment run and vice versa
+        # ulid_tests = [test.abstracttest.ulid for test in event_object_list]
+        # ulid_abstract_tests = [abstract_test.ulid for abstract_test in experiment.abstract_tests.all()]
+        # if not set(ulid_abstract_tests).issubset(set(ulid_tests)):
+        #     return Response(f'Not all tests of experiment {experiment.ulid} are included in the experiment run',
+        #                     status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # if not set(ulid_tests).issubset(set(ulid_abstract_tests)):
+        #     return Response(f'Not all tests of experiment run {run_ulid} are included in the experiment',
+        #                     status=http_status_codes.HTTP_400_BAD_REQUEST)
+
+        data['published_by'] = request.user.gitea_user.id
+        data['published_at'] = make_aware(datetime.now())
+        if vagrantvm_log := files.get('adarevm_log'):
+            data['adarevm_logfile'] = vagrantvm_log
+        if installations_log := files.get('installations_log'):
+            data['installations_logfile'] = installations_log
+        if packagedump_log := files.get('packagedump_log'):
+            data['packagedump_logfile'] = packagedump_log
+        if networkdrives_log := files.get('networkdrives_log'):
+            data['networkdrives_logfile'] = networkdrives_log
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        experiment_run = serializer.save()
+        event_object_list = []
+        for event in data['events']:
+            event_object = get_event_by_ulid(event['ulid'])
+            if event_object:
+                return Response(f'Event with ulid {event["ulid"]} already exists', status=http_status_codes.HTTP_400_BAD_REQUEST)
+            event_serializer = get_event_serializer(event['category'])(data=event)
+            if not event_serializer.is_valid():
+                return Response(event_serializer.errors, status=http_status_codes.HTTP_400_BAD_REQUEST)
+            event_serializer.validated_data['run'] = experiment_run.ulid
+            event_serializer.validated_data['status'] = event['status']
+            if 'result' in event.keys():
+                event_serializer.validated_data['result'] = event['result']
+            if 'abstract_test_ulid' in event.keys():
+                event_serializer.validated_data['abstracttest'] = event['abstract_test_ulid']
+            event_object = event_serializer.save()
+            event_object_list.append(event_object.ulid)
+        data['events'] = event_object_list
+        return Response(serializer.data, status=http_status_codes.HTTP_201_CREATED)

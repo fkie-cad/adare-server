@@ -1,16 +1,44 @@
 - model: experiments.status
   pk: 1
   fields:
-    name: warning
+    name: none
 - model: experiments.status
   pk: 2
   fields:
-    name: failed
+    name: success
 - model: experiments.status
   pk: 3
   fields:
-    name: success
+    name: failed
 - model: experiments.status
   pk: 4
   fields:
-    name: not reached
+    name: warning
+- model: experiments.status
+  pk: 5
+  fields:
+    name: error
+- model: experiments.status
+  pk: 6
+  fields:
+    name: running
+- model: experiments.status
+  pk: 7
+  fields:
+    name: pending
+- model: experiments.status
+  pk: 8
+  fields:
+    name: interrupted
+- model: experiments.status
+  pk: 9
+  fields:
+    name: finished
+- model: experiments.status
+  pk: 10
+  fields:
+    name: breakpoint_hit
+- model: experiments.status
+  pk: 11
+  fields:
+    name: breakpoint_resolved

@@ -25,7 +25,7 @@ class Status(models.Model):
 
 class Result(models.Model):
     status = models.ForeignKey(Status, on_delete=models.PROTECT)
-    details = models.CharField(max_length=2000, blank=True)
+    details = models.CharField(max_length=5000, blank=True)
 
     def __str__(self):
         return str(self.status)
@@ -74,7 +74,7 @@ class CommandEvent(Event):
 class TestEvent(Event):
     run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='test_events')
     abstracttest = models.ForeignKey('AbstractTest', on_delete=models.CASCADE)
-    result = models.ForeignKey(Result, on_delete=models.PROTECT)
+    result = models.ForeignKey(Result, on_delete=models.PROTECT, blank=True, null=True)
 
 
 class ErrorEvent(Event):
@@ -93,7 +93,7 @@ class GuiFindEvent(Event):
 class GuiClickEvent(Event):
     run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='gui_click_events')
     clicktype = models.CharField(max_length=100)
-    modifiers = models.CharField(max_length=100)
+    modifiers = models.CharField(max_length=200, blank=True)
     target = models.CharField(max_length=1000)
 
 
@@ -105,33 +105,6 @@ class GuiKeypressEvent(Event):
 class GuiIdleEvent(Event):
     run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='gui_idle_events')
     seconds = models.IntegerField()
-
-
-# class Stage(models.Model):
-#     id = models.IntegerField(primary_key=True, auto_created=True)
-#     name = models.CharField(max_length=100, unique=True)
-#     msg = models.CharField(max_length=1000, blank=True)
-#     description = models.CharField(max_length=10000, blank=True)
-#     optional = models.BooleanField(default=False)
-#     parent = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
-#
-#     @property
-#     def level(self):
-#         if self.parent:
-#             return self.parent.level + 1
-#         return 0
-#
-#
-# class StageInRun(models.Model):
-#     id = models.IntegerField(primary_key=True, auto_created=True)
-#     stage = models.ForeignKey(Stage, on_delete=models.CASCADE)
-#
-#     run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE)
-#     start_time = models.DateTimeField()
-#     end_time = models.DateTimeField()
-#     status = models.ForeignKey(Status, on_delete=models.PROTECT)
-#     sub_msg = models.CharField(max_length=1000, blank=True)
-#     result_status = models.ForeignKey(Status, on_delete=models.PROTECT, related_name='result_status', blank=True, null=True)
 
 
 class Requirement(models.Model):
@@ -225,6 +198,7 @@ class PostSetupInstallation(models.Model):
 
 
 class Environment(models.Model):
+    ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     name = models.CharField(max_length=100, unique=True)
     vagrantbox = models.URLField(max_length=2000)
     description = models.CharField(max_length=1000, blank=True, null=True)
@@ -282,9 +256,13 @@ class ExperimentRun(models.Model):
     environment = models.ForeignKey(Environment, on_delete=models.PROTECT)
     timestamp_start = models.DateTimeField()
     timestamp_end = models.DateTimeField()
-    status = models.ForeignKey(Status, on_delete=models.PROTECT)
+    status = models.ForeignKey(Status, on_delete=models.PROTECT, related_name='status')
+    result_status = models.ForeignKey(Status, on_delete=models.PROTECT, related_name='result_status')
 
-    logfile = models.FileField(upload_to='logfiles/')
+    adarevm_logfile = models.FileField(upload_to='logfiles/')
+    installations_logfile = models.FileField(upload_to='logfiles/')
+    packagedump_logfile = models.FileField(upload_to='logfiles/')
+    networkdrives_logfile = models.FileField(upload_to='logfiles/', blank=True, null=True)
 
     def __str__(self):
         return f'{self.ulid}'

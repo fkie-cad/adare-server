@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-
+import requests
 from users.models import GiteaUser
 from django.db import transaction
 
@@ -20,6 +20,7 @@ from helperfunctions.yaml import yaml_to_dict
 from helperfunctions.hash import hash_file_sha256, combine_hashes
 
 import logging
+
 log = logging.getLogger(__name__)
 # set log level to also show debug messages
 log.setLevel(logging.DEBUG)
@@ -532,6 +533,15 @@ class EnvironmentPlugin(PullRequestPlugin):
         # deserialize the environment file
         environment_data = yaml_to_dict(self.environment_file)
 
+        # check if vagrant box exists in vagrant cloud
+        if '/' not in environment_data['vagrantbox']:
+            raise TaskFailure(f'vagrant box {environment_data["vagrantbox"]} has not the format owner/box')
+        owner, box = environment_data['vagrantbox'].split('/')
+        url = f'https://vagrantcloud.com/api/v2/box/{owner}/{box}'
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise TaskFailure(f'vagrant box {environment_data["vagrantbox"]} does not exist in vagrant cloud')
+
         # create os_info object
         os_info, created = OsInfo.objects.get_or_create(
             os=environment_data['os']['os'],
@@ -582,4 +592,5 @@ class EnvironmentPlugin(PullRequestPlugin):
         # todo: implement check if file is valid (use code as in adare)
         environment_data = yaml_to_dict(self.environment_file)
         if environment_data['name'] != self.object_name:
-            raise TaskFailure(f'environment file name {environment_data["name"]} does not match object name {self.object_name}')
+            raise TaskFailure(
+                f'environment file name {environment_data["name"]} does not match object name {self.object_name}')
