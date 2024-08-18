@@ -46,7 +46,7 @@ class ExperimentRunRetrieveView(generics.RetrieveAPIView):
 class ExperimentListView(generics.ListAPIView):
     serializer_class = ExperimentViewableFilesSerializer
     queryset = Experiment.objects.filter(published=True).all()
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     #filterset_class = ExperimentFilter
     search_fields = ['name', 'ulid', 'tags__name', 'description', 'published_by__username', 'published_at']
@@ -235,12 +235,15 @@ class StatisticView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
 
     def get(self, request, *args, **kwargs):
-        response_data = {'experiment_count': Experiment.objects.count(),
-                         #'scenario_count': Scenario.objects.count(),
-                         'experiment_run_count': ExperimentRun.objects.count(),
-                         'request_count': Request.objects.count(),
-                         'user_count': User.objects.count()
-                         }
+        response_data = {
+            'experiment_count': Experiment.objects.count(),
+            'experiment_run_count': ExperimentRun.objects.count(),
+            'environment_count': Environment.objects.count(),
+            'testfunctionset_count': TestfunctionSet.objects.count(),
+            'testfunction_count': TestFunction.objects.count(),
+            'request_count': Request.objects.count(),
+            'user_count': User.objects.count()
+        }
         return Response(response_data, status=http_status_codes.HTTP_200_OK)
 
 
@@ -392,9 +395,21 @@ class EnvironmentView(generics.RetrieveAPIView):
 
 
 class EnvironmentListView(generics.ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = EnvironmentSerializer
     queryset = Environment.objects.filter(published=True).all()
+    pagination_class = LimitOffsetPagination
+    search_fields = ['name', 'ulid', 'tags__name', 'description', 'box', 'os_info__distribution', 'os_info__version', 'os_info__arch', 'publisher__username', 'publish_date']
+
+
+class EnvironmentFilterOptionsView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+    queryset = Environment.objects.filter(published=True).all()
+    search_fields = ['name', 'ulid', 'tags__name', 'description', 'publisher__username', 'publish_date']
+
+    def get(self, request, *args, **kwargs):
+        return Response({}, status=http_status_codes.HTTP_200_OK)
+
 
 
 def get_event_by_ulid(ulid: str):
@@ -479,16 +494,6 @@ class ExperimentRunPublishView(generics.CreateAPIView):
                             status=http_status_codes.HTTP_400_BAD_REQUEST)
         data['result_status'] = result_status_object.id
 
-        # check if all tests of the experiment are included in the experiment run and vice versa
-        # ulid_tests = [test.abstracttest.ulid for test in event_object_list]
-        # ulid_abstract_tests = [abstract_test.ulid for abstract_test in experiment.abstract_tests.all()]
-        # if not set(ulid_abstract_tests).issubset(set(ulid_tests)):
-        #     return Response(f'Not all tests of experiment {experiment.ulid} are included in the experiment run',
-        #                     status=http_status_codes.HTTP_400_BAD_REQUEST)
-        # if not set(ulid_tests).issubset(set(ulid_abstract_tests)):
-        #     return Response(f'Not all tests of experiment run {run_ulid} are included in the experiment',
-        #                     status=http_status_codes.HTTP_400_BAD_REQUEST)
-
         data['published_by'] = request.user.gitea_user.id
         data['published_at'] = make_aware(datetime.now())
         if vagrantvm_log := files.get('adarevm_log'):
@@ -519,4 +524,10 @@ class ExperimentRunPublishView(generics.CreateAPIView):
             event_object = event_serializer.save()
             event_object_list.append(event_object.ulid)
         data['events'] = event_object_list
+
+        # todo: calculate result_status based on events and compare with given result_status if they do not match return error (and delete experiment run)
+        non_empty_test_events = [event for event in data['events'] if event['category'] == 'test_event' and event['result']]
+
+
+
         return Response(serializer.data, status=http_status_codes.HTTP_201_CREATED)

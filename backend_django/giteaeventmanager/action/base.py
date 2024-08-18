@@ -194,6 +194,8 @@ class PRClosed(PullRequest):
         self.request.object.published = True
         self.request.object.published_at = self._transform_gitea_date(self.data["pull_request"]["merged_at"])
         self.request.object.published_by = self._get_user(self.data["pull_request"]["merged_by"])
+        self.request.object.created_by = self._get_user(self.data["pull_request"]["user"])
+        self.request.object.created_at = self._transform_gitea_date(self.data["pull_request"]["created_at"])
         self.request.object.save()
 
     @transaction.atomic

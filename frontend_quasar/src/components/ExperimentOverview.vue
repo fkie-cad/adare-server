@@ -6,11 +6,11 @@
       <q-card-section>
         <div class="row tw-text-gray-600">
           <div class="col">name</div>
-          <div class="col tw-text-right">uuid</div>
+          <div class="col tw-text-right">ulid</div>
         </div>
         <div class="row  tw-text-3xl">
           <div class="col">{{experiment_data.name}}</div>
-          <div class="col tw-text-right">{{experiment_data.uuid}}</div>
+          <div class="col tw-text-right">{{experiment_data.ulid}}</div>
         </div>
       </q-card-section>
       <q-separator />
@@ -161,7 +161,7 @@
       </q-card-section>
       <q-card-section>
         <ExperimentrunTable
-          :experiment="experiment_data.uuid"
+          :experiment="experiment_data.ulid"
         />
       </q-card-section>
     </q-card>
@@ -179,7 +179,7 @@ import ExperimentrunTable from 'components/ExperimentrunTable.vue';
 import ProfileImage from 'components/ProfileImage.vue';
 
 const columns_test = [
-  { name: 'uuid', label: 'uuid', field: 'uuid', align: 'left', sortable: true, hideable: true, },
+  { name: 'ulid', label: 'ulid', field: 'ulid', align: 'left', sortable: true, hideable: true, },
   { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true },
   { name: 'description', label: 'description', field: 'description', align: 'left', sortable: true, hideable: true, },
   { name: 'testfunction', label: 'testfunction', field: 'testfunction', align: 'left', sortable: true, hideable: true, type: 'testfunction'},
@@ -196,7 +196,7 @@ export default {
   components: {AdvancedDataTable, ProfileImage, ExperimentrunTable},
 
   props: {
-    uuid: {
+    ulid: {
       type: String,
       required: true,
     },
@@ -209,8 +209,8 @@ export default {
     let experiment_data = ref<Experiment>()
 
     onMounted(async () => {
-      await ExperimentStore.LoadExperiment(props.uuid)
-      experiment_data.value = ExperimentStore.GetExperiment(props.uuid)
+      await ExperimentStore.LoadExperiment(props.ulid)
+      experiment_data.value = ExperimentStore.GetExperiment(props.ulid)
       console.log(experiment_data.value)
     })
     let GetAbstractTests = () => {

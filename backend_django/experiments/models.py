@@ -124,11 +124,16 @@ class TestfunctionSet(models.Model):
     sha256testfunctionset = models.CharField(max_length=64)
     sha256requirements = models.CharField(max_length=64)
 
-    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published')
-    accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_accepted',
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published_by')
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by',
                                     blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
     published = models.BooleanField(default=False)
+
+    @property
+    def num_testfunctions(self):
+        return self.testfunctions.count()
 
 
 class TestFunction(models.Model):
@@ -138,7 +143,7 @@ class TestFunction(models.Model):
     type = models.CharField(max_length=100)
     description = models.CharField(max_length=1000, blank=True)
     possible_parameters = models.ManyToManyField(TestParameter)
-    testfunction_set = models.ForeignKey(TestfunctionSet, on_delete=models.CASCADE)
+    testfunction_set = models.ForeignKey(TestfunctionSet, on_delete=models.CASCADE, related_name='testfunctions')
 
     class Meta:
         constraints = [
@@ -200,7 +205,7 @@ class PostSetupInstallation(models.Model):
 class Environment(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     name = models.CharField(max_length=100, unique=True)
-    vagrantbox = models.URLField(max_length=2000)
+    vagrantbox = models.CharField(max_length=2000)
     description = models.CharField(max_length=1000, blank=True, null=True)
     os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)
     post_setup_installations = models.ManyToManyField(PostSetupInstallation)
@@ -209,14 +214,19 @@ class Environment(models.Model):
 
     sha256hash = models.CharField(max_length=64, unique=True)
 
-    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='environments_published')
-    accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='environments_accepted',
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published_by')
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by',
                                     blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
     published = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.name}'
+
+    @property
+    def vagrantbox_cloud_url(self):
+        return f'https://app.vagrantup.com/{self.vagrantbox}'
 
 
 class Experiment(models.Model):
@@ -238,10 +248,11 @@ class Experiment(models.Model):
     sha256action = models.CharField(max_length=64)
     sha256testset = models.CharField(max_length=64)
 
-    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_published')
-    accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_accepted',
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published_by')
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by',
                                     blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
     published = models.BooleanField(default=False)
 
     def __str__(self):

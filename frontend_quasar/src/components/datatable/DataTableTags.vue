@@ -11,7 +11,7 @@ export default {
   components: {  },
   props: {
     data: {
-      type: String,
+      type: Array,
       required: true,
     },
     row: {

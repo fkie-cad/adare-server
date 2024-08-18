@@ -74,23 +74,36 @@ class EnvironmentMetadataSerializer(serializers.ModelSerializer):
 
     def get_gitea_url(self, obj):
         environment_url_gitea = obj.file
-        # take parent directory
         environment_url_gitea = convert_gitea_internal_api_url_to_viewable_url(environment_url_gitea)
         return environment_url_gitea
 
 
 class EnvironmentSerializer(serializers.ModelSerializer):
     os_info = OsInfoSerializer()
-    tags = TagSerializer(many=True)
+    tags = serializers.SerializerMethodField('get_tags', read_only=True)
     post_setup_installations = PostSetupInstallationSerializer(many=True)
     published_by = GiteaUserSerializer()
     accepted_by = GiteaUserSerializer()
+
+    def get_tags(self, obj):
+        tag_list = []
+        for tag in obj.tags.all():
+            tag_list.append(tag.name)
+        return tag_list
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if ret['file']:
+            ret['file'] = convert_gitea_internal_api_url_to_viewable_url(ret['file'])
+        return ret
 
     class Meta:
         model = Environment
         fields = [
             'name',
+            'ulid',
             'vagrantbox',
+            'vagrantbox_cloud_url',
             'description',
             'os_info',
             'tags',
@@ -102,12 +115,6 @@ class EnvironmentSerializer(serializers.ModelSerializer):
             'published_by',
             'accepted_by',
         ]
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret['file']:
-            ret['file'] = convert_gitea_internal_api_url_to_external(ret['file'])
-        return ret
 
 
 class ToolSerializer(serializers.ModelSerializer):
@@ -218,12 +225,15 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(many=True)
     published_by = GiteaUserSerializer()
     accepted_by = GiteaUserSerializer()
+    testfunctions = TestFunctionSerializer(many=True)
 
     class Meta:
         model = TestfunctionSet
         fields = [
             'name',
             'description',
+            'testfunctions',
+            'num_testfunctions',
             'file',
             'requirements_file',
             'requirements',
@@ -239,9 +249,9 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if ret['file']:
-            ret['file'] = convert_gitea_internal_api_url_to_external(ret['file'])
+            ret['file'] = convert_gitea_internal_api_url_to_viewable_url(ret['file'])
         if 'requirements_file' in ret.keys() and ret['requirements_file'] != '':
-            ret['requirements_file'] = convert_gitea_internal_api_url_to_external(ret['requirements_file'])
+            ret['requirements_file'] = convert_gitea_internal_api_url_to_viewable_url(ret['requirements_file'])
         return ret
 
 

@@ -43,9 +43,7 @@ export default {
     }
 
     // check if row.typeVarsLink is defined, if not use defaultTypeVarsLink
-    console.log(props.col.typeVarsLink);
     const vars = Object.assign({}, defaultTypeVarsLink, props.col.typeVarsLink);
-    console.log(vars);
 
     return {
       OpenInNewTab,

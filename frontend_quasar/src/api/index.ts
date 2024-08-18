@@ -1,10 +1,10 @@
 // for production
 const SERVER_URL = 'https://adare.seclab-bonn.de/'
-const FRONTEND_URL = 'https://adare.seclab-bonn.de/'
+// const FRONTEND_URL = 'https://adare.seclab-bonn.de/'
 
 // for local development
-//const SERVER_URL = 'http://127.0.0.1:8000/'
-//const FRONTEND_URL = 'http://localhost:9000/'
+// const SERVER_URL = 'http://127.0.0.1:8000/'
+const FRONTEND_URL = 'http://localhost:9000/'
 
 const API_URL = SERVER_URL + 'api/'
 

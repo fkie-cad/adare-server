@@ -13,6 +13,7 @@
       @update:model-value="ChangeSelectFilter"
       @clear="ChangeSelectFilter"
       style="width: 200px"
+      class="q-pr-md"
       v-show="visible"
     >
       <template v-slot:option="scope">

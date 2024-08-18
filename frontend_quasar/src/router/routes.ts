@@ -5,36 +5,22 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     redirect: '/login',
   },
-
-  // {
-  //   path: '/scenario',
-  //   component: () => import('layouts/MainLayout.vue'),
-  //   children: [
-  //     {
-  //       path: '',
-  //       components: {
-  //         main: () => import('pages/ScenarioPage.vue'),
-  //         header: () => import('components/HeaderDefault.vue'),
-  //       }
-  //     },
-  //   ],
-  // },
-  // {
-  //   path: '/scenariodetails/:uuid',
-  //   component: () => import('layouts/MainLayout.vue'),
-  //   children: [
-  //     {
-  //       path: '',
-  //       components: {
-  //         main: () => import('pages/ScenarioExperimentPage.vue'),
-  //         header: () => import('components/HeaderDefault.vue'),
-  //       },
-  //       props: true,
-  //     },
-  //   ],
-  // },
   {
-    path: '/logfile/:experimentrunuuid',
+    path: '/home',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/HomePage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
+      },
+    ],
+  },
+  {
+    path: '/logfile/:experimentrunulid',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -87,21 +73,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/experiment/:scenario',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/ExperimentListPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        },
-        props: true,
-      },
-    ],
-  },
-  {
-    path: '/experimentdetails/:uuid',
+    path: '/experimentdetails/:ulid',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -189,7 +161,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/requests/:uuid',
+    path: '/requests/:ulid',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -203,7 +175,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/experiment/:uuid',
+    path: '/experiment/:ulid',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -213,6 +185,19 @@ const routes: RouteRecordRaw[] = [
           header: () => import('components/HeaderDefault.vue'),
         },
         props: true,
+      }
+    ],
+  },
+  {
+    path: '/runs/',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/RunListPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
       }
     ],
   },

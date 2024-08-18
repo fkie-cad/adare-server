@@ -6,18 +6,17 @@
         :icon="tableProps.inFullscreen ? 'fullscreen_exit' : 'fullscreen'"
         @click="tableProps.toggleFullscreen"
       />
-      <div class="col-3 q-ml-md">
+      <div class="col-3 q-ml-md" v-if="title">
         <div class="row q-table__title">{{ title }}</div>
-        <div class="row q-table__subtitle" v-if="scenario">(Scenario {{ scenario }})</div>
       </div>
       <q-space />
-      <DataTableSearchFilter @update-searchFilter="updateFilter" />
+      <DataTableSearchFilter @update-searchFilter="updateFilter" class="q-mx-md"/>
       <q-btn
         icon="filter_list"
         color="primary"
         class="q-mx-md"
         @click="show_filters = !show_filters"
-        v-if="filterEnabled"
+        v-if="filterEnabled && !no_filter"
       />
       <q-btn
             icon="settings"
@@ -63,81 +62,81 @@
           :actualFilter="actualFilter"
           @update-selectFilter="updateFilter"
         />
-        <div class="q-pr-md">
-          <q-btn-dropdown
-              outline
-              icon="123"
-              label="run counts"
-              text-color="grey-8"
-              size="1.1em"
-            >
-              <div
-               v-for="filter in COUNT_FILTERS" v-bind:key="filter.field" class="q-pr-md"
-              >
-                <q-input
-                  dense
-                  outlined
-                  v-model="filter.value"
-                  :label="filter.name"
-                  class="tw-w-full q-pa-sm"
-                  @update:model-value="ChangeCountFilter(filter.api_field, filter.value)"
-                  :rules="[ val => (Number(val) <= filter.max_value && Number(val) >= 0) || 'invalid input']"
-                />
-                <q-slider
-                  v-model="filter.value"
-                  :min="filter.min_value"
-                  :max="filter.max_value"
-                  :step="1"
-                  color="primary"
-                  class="q-px-md"
-                  :thumb-color="filter.color"
-                  :selection-color="filter.color"
-                  @update:model-value="ChangeCountFilter(filter.api_field, filter.value)"
-                />
-              </div>
-            </q-btn-dropdown>
-        </div>
-        <div v-for="filter in DATE_FILTERS" v-bind:key="filter.field" class="q-pr-md">
-          <q-btn-dropdown
-              outline
-              icon="calendar_today"
-              :label="filter.name"
-              text-color="grey-8"
-              size="1.1em"
-          >
-            <div class="col">
-              <div class="row tw-bg-slate-100 justify-between">
-                <q-radio
-                  v-model="filter.toggle"
-                  :val="true"
-                  label="before"
-                  color="secondary"
-                  @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"
-                />
-                <q-radio
-                  v-model="filter.toggle"
-                  :val="false"
-                  label="after"
-                  color="secondary"
-                  left-label
-                  @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"
-                />
-              </div>
-              <div class="row tw-bg-slate-100">
-                <div class="q-gutter-sm">
-                  <q-radio v-model="filter.experimentrun_status" val="success" label="Success" color="positive" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
-                  <q-radio v-model="filter.experimentrun_status" val="all" label="All" color="secondary" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
-                  <q-radio v-model="filter.experimentrun_status" val="failed" label="Failed" color="negative" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>
-                </div>
-              </div>
-              <q-date
-                v-model="filter.selected_date"
-                @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"
-                class="row q-pa-sm"
-              />
-            </div>
-          </q-btn-dropdown>
-        </div>
+<!--        <div class="q-pr-md">-->
+<!--          <q-btn-dropdown-->
+<!--              outline-->
+<!--              icon="123"-->
+<!--              label="run counts"-->
+<!--              text-color="grey-8"-->
+<!--              size="1.1em"-->
+<!--            >-->
+<!--              <div-->
+<!--               v-for="filter in COUNT_FILTERS" v-bind:key="filter.field" class="q-pr-md"-->
+<!--              >-->
+<!--                <q-input-->
+<!--                  dense-->
+<!--                  outlined-->
+<!--                  v-model="filter.value"-->
+<!--                  :label="filter.name"-->
+<!--                  class="tw-w-full q-pa-sm"-->
+<!--                  @update:model-value="ChangeCountFilter(filter.api_field, filter.value)"-->
+<!--                  :rules="[ val => (Number(val) <= filter.max_value && Number(val) >= 0) || 'invalid input']"-->
+<!--                />-->
+<!--                <q-slider-->
+<!--                  v-model="filter.value"-->
+<!--                  :min="filter.min_value"-->
+<!--                  :max="filter.max_value"-->
+<!--                  :step="1"-->
+<!--                  color="primary"-->
+<!--                  class="q-px-md"-->
+<!--                  :thumb-color="filter.color"-->
+<!--                  :selection-color="filter.color"-->
+<!--                  @update:model-value="ChangeCountFilter(filter.api_field, filter.value)"-->
+<!--                />-->
+<!--              </div>-->
+<!--            </q-btn-dropdown>-->
+<!--        </div>-->
+<!--        <div v-for="filter in DATE_FILTERS" v-bind:key="filter.field" class="q-pr-md">-->
+<!--          <q-btn-dropdown-->
+<!--              outline-->
+<!--              icon="calendar_today"-->
+<!--              :label="filter.name"-->
+<!--              text-color="grey-8"-->
+<!--              size="1.1em"-->
+<!--          >-->
+<!--            <div class="col">-->
+<!--              <div class="row tw-bg-slate-100 justify-between">-->
+<!--                <q-radio-->
+<!--                  v-model="filter.toggle"-->
+<!--                  :val="true"-->
+<!--                  label="before"-->
+<!--                  color="secondary"-->
+<!--                  @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"-->
+<!--                />-->
+<!--                <q-radio-->
+<!--                  v-model="filter.toggle"-->
+<!--                  :val="false"-->
+<!--                  label="after"-->
+<!--                  color="secondary"-->
+<!--                  left-label-->
+<!--                  @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"-->
+<!--                />-->
+<!--              </div>-->
+<!--              <div class="row tw-bg-slate-100">-->
+<!--                <div class="q-gutter-sm">-->
+<!--                  <q-radio v-model="filter.experimentrun_status" val="success" label="Success" color="positive" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>-->
+<!--                  <q-radio v-model="filter.experimentrun_status" val="all" label="All" color="secondary" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>-->
+<!--                  <q-radio v-model="filter.experimentrun_status" val="failed" label="Failed" color="negative" @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"/>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <q-date-->
+<!--                v-model="filter.selected_date"-->
+<!--                @update:model-value="ChangeDateFilter(filter.api_field, filter.selected_date, filter.toggle, filter.experimentrun_status)"-->
+<!--                class="row q-pa-sm"-->
+<!--              />-->
+<!--            </div>-->
+<!--          </q-btn-dropdown>-->
+<!--        </div>-->
       </div>
       <div class="col-auto">
         <q-btn
@@ -188,6 +187,10 @@ export default {
       type: String,
       required: true,
     },
+    title: {
+      type: String,
+      default: '',
+    }
   },
   emits: ['update-visibleColumns', 'update-filter'],
 
@@ -198,6 +201,7 @@ export default {
     const visible_columns = ref<string[]>(props.visibleColumns);
     const hideable_columns = ref<CustomQTableColumn[]>([]);
     const show_filters = ref(false);
+    const no_filter = ref(false);
 
     let actualFilter = ref<Filter>({
       'entries': []
@@ -206,7 +210,7 @@ export default {
     function updateFilter(filter: FilterEntry) {
       actualFilter.value.entries = actualFilter.value.entries.filter((entry: FilterEntry) => entry.field !== filter.field);
       actualFilter.value.entries.push(filter);
-      console.log('filterObject', actualFilter.value);
+      // console.log('filterObject', actualFilter.value);
       emit('update-filter', actualFilter.value);
     }
 
@@ -236,6 +240,11 @@ export default {
 
       // load filter options
       LoadFilterOptions()
+
+      if (props.selectFilters.length == 0) {
+        no_filter.value = true;
+      }
+
     });
 
     function ShowAllColumns() {
@@ -278,6 +287,7 @@ export default {
       hideable_columns,
       show_filters,
       actualFilter,
+      no_filter,
       AdjustShowHideAllColumns,
       ShowAllColumns,
       HideAllColumns,

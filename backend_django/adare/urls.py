@@ -82,6 +82,7 @@ urlpatterns = [
 
 
     path('api/environment/', experiment_frontend_views.EnvironmentListView.as_view()),
+    path('api/environment/filteroptions/', experiment_frontend_views.EnvironmentFilterOptionsView.as_view()),
     path('api/download/environment_<str:name>/', experiment_frontend_views.EnvironmentDownloadView.as_view()),
 
     path('api/download/testfunction_<str:name>/', experiment_frontend_views.TestfunctionDownloadView.as_view()),

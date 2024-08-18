@@ -16,28 +16,45 @@
           class="q-pr-md"
         >
           <q-route-tab
+            name="home"
+            label="Home"
+            icon="home"
+            to="/home"
+            v-if="LoginStore.IsLoggedIn"
+          />
+          <q-route-tab
+            name="run"
+            label="Runs"
+            icon="directions_run"
+            to="/runs"
+            v-if="LoginStore.IsLoggedIn"
+          />
+          <q-route-tab
+            name="experiment"
+            icon="science"
+            label="Experiments"
+            to="/experiment"
+            v-if="LoginStore.IsLoggedIn"
+          />
+          <q-route-tab
             name="environment"
             icon="terrain"
             label="Environments"
             to="/environment"
-          />
-          <q-route-tab
-            name="testfunctionset"
-            icon="quiz"
-            label="Testfunctionsets"
-            to="/testfunctionset"
-          />
-          <q-route-tab
-            name=""
-            icon="science"
-            label="Experiments"
-            to="/experiment"
+            v-if="LoginStore.IsLoggedIn"
           />
           <q-route-tab
             name="requests"
             icon="ion-git-pull-request"
             label="Requests"
             to="/requests"
+            v-if="LoginStore.IsLoggedIn"
+          />
+          <q-route-tab
+            name="testfunctionset"
+            icon="hive"
+            label="Testfunctionsets"
+            to="/testfunctionset"
             v-if="LoginStore.IsLoggedIn"
           />
         </q-tabs>

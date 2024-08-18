@@ -52,7 +52,6 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
       await axios.get(
         API_URLS.USER_API+'profile/',
       ).then((response) => {
-        console.log(response.data)
         this.email = response.data.user.email
         this.teams = response.data.teams
         this.username = response.data.user.username

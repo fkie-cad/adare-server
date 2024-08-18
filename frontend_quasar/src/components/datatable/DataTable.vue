@@ -27,8 +27,11 @@
           :key="col.field"
         >
           <div v-if="col.type">
-            <component :is="col.type" :data="props.row[col.field]" :row="props.row" :col="col"
-            />
+            <component :is="col.type" :data="props.row[col.field.split('.')[0]][col.field.split('.')[1]]" :row="props.row" :col="col" v-if="col.field.includes('.')"/>
+            <component :is="col.type" :data="props.row[col.field]" :row="props.row" :col="col" v-else/>
+          </div>
+          <div v-else-if="col.field.includes('.')">
+            {{ props.row[col.field.split('.')[0]][col.field.split('.')[1]] }}
           </div>
           <div v-else>
             {{ props.row[col.field] }}
@@ -97,8 +100,6 @@ export default {
 
       try {
         const response = await axios.get(url);
-        console.log(url)
-        console.log(response.data)
         mutablePagination.value.rowsNumber = response.data.count;
         rows.value = response.data.results;
       } catch (error) {
