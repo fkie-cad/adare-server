@@ -11,6 +11,7 @@
   >
     <template v-slot:top="props">
       <DataTablePanel
+        :title="title"
         :columns="columns"
         :visible-columns="visibleColumns"
         :table-props="props"

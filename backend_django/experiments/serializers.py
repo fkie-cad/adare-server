@@ -249,9 +249,9 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if ret['file']:
-            ret['file'] = convert_gitea_internal_api_url_to_viewable_url(ret['file'])
+            ret['file'] = convert_gitea_internal_api_url_to_external(ret['file'])
         if 'requirements_file' in ret.keys() and ret['requirements_file'] != '':
-            ret['requirements_file'] = convert_gitea_internal_api_url_to_viewable_url(ret['requirements_file'])
+            ret['requirements_file'] = convert_gitea_internal_api_url_to_external(ret['requirements_file'])
         return ret
 
 

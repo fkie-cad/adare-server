@@ -17,7 +17,7 @@
             username
           </div>
           <div class="column text-h6">
-            {{ LoggedInUserStore.GetUserUsername }}
+            {{ LoggedInUserStore.user.username }}
           </div>
         </div>
         <q-separator />
@@ -26,7 +26,7 @@
             email
           </div>
           <div class="column text-h6">
-            {{ LoggedInUserStore.GetUserEmail }}
+            {{ LoggedInUserStore.user.email }}
           </div>
         </div>
         <q-separator />
@@ -35,7 +35,7 @@
             teams
           </div>
           <div class="column">
-            <span v-for="role in LoggedInUserStore.GetUserTeams" v-bind:key="role.id" class="tw-rounded q-pa-xs q-ma-xs tw-text-center tw-font-bold tw-border-2" :class="getColorForRole(role.name)">
+            <span v-for="role in LoggedInUserStore.user.teams" v-bind:key="role.id" class="tw-rounded q-pa-xs q-ma-xs tw-text-center tw-font-bold tw-border-2" :class="getColorForRole(role.name)">
               {{ role.name }}
             </span>
           </div>

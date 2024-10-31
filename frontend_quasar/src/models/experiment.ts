@@ -1,3 +1,25 @@
+// user
+export interface User {
+  username: string;
+  email: string;
+  avatar: string;
+  teams: Team[];
+  achievements: Achievement[];
+}
+
+interface Achievement {
+  name: string;
+  iconfile: string;
+  description: string;
+  count: number;
+}
+
+export interface Team {
+  id: number;
+  name: string;
+}
+
+// experiment
 export interface Status {
   name: string;
 }
@@ -17,12 +39,6 @@ export interface OsInfo {
   language?: string;
   architecture?: string;
   details?: string;
-}
-
-export interface User {
-  username: string;
-  email: string;
-  avatar: string;
 }
 
 export interface RunCount {
@@ -150,4 +166,5 @@ export interface TestfunctionSet {
   file: string;
   requirements_file: string;
   num_testfunctions: number;
+  testfunctions: Testfunction[];
 }

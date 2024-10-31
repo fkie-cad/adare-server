@@ -2,8 +2,7 @@
     <div class="tw-overflow-visible tw-relative" :class="offset_classes">
       <UserAvatar
         :size="size"
-        :img="LoggedInUserStore.avatar"
-        :username="LoggedInUserStore.username"
+        :user="LoggedInUserStore.user"
       />
     </div>
 </template>
@@ -11,7 +10,7 @@
 <script lang="ts">
 import { useUserStore } from 'src/store/user';
 import { useLoggedInUserStore } from 'src/store/loggedinuser';
-import {ref} from 'vue';
+import { ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import UserAvatar from 'components/global/UserAvatar.vue';
 import { isValidSizeType, SizeType } from 'src/constants';
@@ -30,10 +29,6 @@ export default {
       type: String,
       default: ''
     },
-    username: {
-      type: String,
-      default: ''
-    },
     size: {
       type: String as () => SizeType,
       default: 'md',
@@ -42,7 +37,6 @@ export default {
   },
 
   setup() {
-
     const show_dialog = ref(false)
     const LoggedInUserStore = useLoggedInUserStore()
     storeToRefs(LoggedInUserStore)

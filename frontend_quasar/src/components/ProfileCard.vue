@@ -8,8 +8,7 @@
         <ProfileImage
           offset_classes="tw-top-8"
           editable
-          :username="username"
-          :avatar="avatar"
+          :user="user"
           size="lg"
           :tooltip="false"
         />
@@ -61,7 +60,7 @@ import { useUserStore } from 'src/store/user';
 import { useLoginStore} from 'src/store/login';
 import { useLoggedInUserStore } from 'src/store/loggedinuser';
 import ProfileImage from 'components/ProfileImage.vue';
-import {onMounted, ref} from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {storeToRefs} from 'pinia';
 
 export default {
@@ -79,6 +78,8 @@ export default {
     const UserStore = useUserStore()
     storeToRefs(UserStore)
 
+    const user = computed(() => UserStore.GetUser(props.username))
+
     const LoggedInUserStore = useLoggedInUserStore()
     storeToRefs(LoggedInUserStore)
 
@@ -95,11 +96,9 @@ export default {
       }
     }
 
-    const avatar = ref('')
-
     onMounted(async () => {
       await UserStore.UpdateProfileInformation(props.username)
-      avatar.value = UserStore.GetUserAvatarThumbnail(props.username)
+
     })
 
 
@@ -107,7 +106,7 @@ export default {
       LoginStore,
       UserStore,
       getColorForRole,
-      avatar,
+      user,
     }
 
   }

@@ -1,37 +1,30 @@
 import { defineStore } from 'pinia';
 import { useLoginStore } from 'src/store/login';
-import { Achievement, Team } from 'src/models/user';
 import { api } from 'src/boot/axios';
+import { User } from 'src/models/experiment';
+
+export interface LoggedInUserState {
+  user: User;
+}
 
 export const useLoggedInUserStore = defineStore('userloggedin', {
-  state: () => ({
-    username: '',
-    email: '',
-    teams: [] as Team[],
-    achievements: [] as Achievement[],
-    avatar: '',
+  state: (): LoggedInUserState => ({
+    user: {
+      username: '',
+      email: '',
+      teams: [],
+      achievements: [],
+      avatar: ''
+    }
   }),
 
   getters: {
     GetUser (state) {
-      return state;
-    },
-    GetUserUsername (state) {
-      return state.username;
-    },
-    GetUserEmail (state) {
-      return state.email;
-    },
-    GetUserTeams (state) {
-      return state.teams;
-    },
-    GetUserAchievements (state) {
-      return state.achievements;
+      return state.user;
     },
     IsSupervisor (state) {
-      const groups: Team[] = state.teams;
-      for (let i = 0; i < groups.length; i++) {
-        if (groups[i].name === 'supervisor' || groups[i].name === 'admin') {
+      for (let i = 0; i < state.user.teams.length; i++) {
+        if (state.user.teams[i].name === 'supervisor' || state.user.teams[i].name === 'admin') {
           return true;
         }
       }
@@ -41,11 +34,13 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
 
   actions: {
     ResetUser(){
-      this.username = ''
-      this.email = ''
-      this.teams = []
-      this.achievements = []
-      this.avatar = ''
+      this.user = {
+        username: '',
+        email: '',
+        teams: [],
+        achievements: [],
+        avatar: ''
+      }
     },
 
     async UpdateProfileInformation(){
@@ -55,15 +50,7 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
       }
       await api.get('user/profile/',
       ).then((response) => {
-        this.email = response.data.user.email
-        this.teams = response.data.teams
-        this.username = response.data.user.username
-        this.avatar = response.data.avatar
-        // this.achievements = response.data.achievements
-        // get all iconfile names and convert them to urls
-        // for (let i = 0; i < this.achievements.length; i++) {
-        //   this.achievements[i].iconfile = API_URLS.FILE_API + 'achievements/' + this.achievements[i].iconfile
-        // }
+        this.user = response.data;
       }).catch((error) => {
         console.log(error)
       })

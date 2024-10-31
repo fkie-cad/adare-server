@@ -36,7 +36,6 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('LoginToken');
   const user = localStorage.getItem('LoginUser');
   const tokenExpiration = localStorage.getItem('LoginTokenExpiration');
-  console.log(token, user, tokenExpiration)
 
   // Check if token, user, and expiration exist and if the token is still valid
   if (token && user && tokenExpiration) {

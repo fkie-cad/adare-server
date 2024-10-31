@@ -3,25 +3,26 @@
     class="tw-flex tw-items-center"
   >
     <ProfileImage
-      :username=data.username
+      :user="data"
       size="md"
       :tooltip=true
       :linktoprofile=true
-      :avatar="data.avatar"
       v-if=data
     />
   </div>
 </template>
 
 <script lang="ts">
+import { PropType } from 'vue';
 import ProfileImage from 'components/ProfileImage.vue';
+import { User } from 'src/models/experiment';
 
 export default {
   name: 'DataTableUserIcon',
   components: { ProfileImage },
   props: {
     data: {
-      type: Object,
+      type: Object as PropType<User>,
       required: false,
     },
     row: {

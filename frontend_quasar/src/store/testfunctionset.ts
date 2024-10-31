@@ -15,7 +15,11 @@ export const useTestfunctionSetStore = defineStore('testfunctionSet', {
 
   actions: {
     async fetchTestfunctionSets(query: string) {
-      this.testfunctionSets = await fetchItems('testfunction', query);
+    const data = await fetchItems('testfunction', query);
+    this.testfunctionSets = data.reduce((acc: Record<string, TestfunctionSet>, testfunctionSet: TestfunctionSet) => {
+      acc[testfunctionSet.name] = testfunctionSet;
+      return acc;
+    }, {});
     },
 
     async fetchTestfunctionSetsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string) {
@@ -30,6 +34,17 @@ export const useTestfunctionSetStore = defineStore('testfunctionSet', {
       return await fetchFilterOptions('testfunctionSet', query);
     },
 
+    getTestfunctionSet(name: string) {
+      if (this.testfunctionSets == undefined) {
+        return null;
+      }
+      if (name in this.testfunctionSets) {
+        return this.testfunctionSets[name];
+      }
+      return null;
+    },
+
+    // used for DataTable
     async fetchRows(query: string) {
       await this.fetchTestfunctionSets(query);
     },

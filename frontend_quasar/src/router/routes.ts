@@ -59,19 +59,20 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
-  // {
-  //   path: '/testfunctionset/:name',
-  //   component: () => import('layouts/MainLayout.vue'),
-  //   children: [
-  //     {
-  //       path: '',
-  //       components: {
-  //         main: () => import('pages/TestfunctionsetDetailsPage.vue'),
-  //         header: () => import('components/HeaderDefault.vue'),
-  //       }
-  //     },
-  //   ],
-  // },
+  {
+    path: '/testfunctionset/:name',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/TestfunctionsetDetailsPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
+      },
+    ],
+  },
   {
     path: '/experiment',
     component: () => import('layouts/MainLayout.vue'),

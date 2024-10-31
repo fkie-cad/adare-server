@@ -2,13 +2,12 @@
   <div
     class="tw-flex tw-items-center"
   >
-    <div v-for="user in data" :key="user.id">
+    <div v-for="user in data" :key="user.username">
       <ProfileImage
-        :username=user.username
+        :user=user
         size="md"
         :tooltip=true
         :linktoprofile=true
-        :avatar="user.avatar"
       />
     </div>
   </div>
@@ -16,13 +15,15 @@
 
 <script lang="ts">
 import ProfileImage from 'components/ProfileImage.vue';
+import { User } from 'src/models/experiment';
+import { PropType } from 'vue';
 
 export default {
   name: 'DataTableUserIconList',
   components: { ProfileImage },
   props: {
     data: {
-      type: Object,
+      type: Object as PropType<User[]>,
       required: false,
     },
   },

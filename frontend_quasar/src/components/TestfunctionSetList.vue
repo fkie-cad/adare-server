@@ -10,7 +10,7 @@ import { CustomQTableColumn, TypeVarsDetails } from 'src/models/quasar_extension
 import DataTableUserIcon from 'components/datatable/DataTableUserIcon.vue';
 import DataTableLink from 'components/datatable/DataTableLink.vue';
 import DataTableDetails from 'components/datatable/DataTableDetails.vue';
-import { useTestfunctionSetStore } from 'src/store/testfunctionSet';
+import { useTestfunctionSetStore } from 'src/store/testfunctionset';
 
 const title = 'Testfunction Sets';
 
