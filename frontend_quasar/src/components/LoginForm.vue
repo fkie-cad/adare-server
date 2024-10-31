@@ -32,11 +32,11 @@
 
 <script lang="ts">
 import {ref, reactive, onMounted} from 'vue';
-import { useLoginStore } from 'stores/login';
-import { useLoggedInUserStore } from 'stores/loggedinuser';
+import { useLoginStore } from 'src/store/login';
+import { useLoggedInUserStore } from 'src/store/loggedinuser';
 import { storeToRefs } from 'pinia'
-import axios from 'axios'
-import API_URLS from 'src/api'
+import { api } from 'src/boot/axios';
+import { FRONTEND_URL } from 'src/boot/axios';
 import {useRouter} from 'vue-router';
 
 export default {
@@ -64,9 +64,7 @@ export default {
       // create state for preventing csrf attacks (https://auth0.com/docs/protocols/state-parameters)
       const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 
-      // send request to django backend to get the redirect url
-      axios.defaults.withCredentials = true
-      const resp = await axios.get(API_URLS.GITEA_OAUTH_URL_API + `?redirect_uri=${API_URLS.GITEA_REDIRECT_URI}&state=${state}`)
+      const resp = await api.get('auth/gitea/callback/' + `?redirect_uri=${FRONTEND_URL}login/oauth&state=${state}`)
       if (resp.status === 200) {
         // save the state in the local storage
         localStorage.setItem('state', state)

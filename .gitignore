@@ -105,3 +105,4 @@ yarn-error.log*
 # exlude celery beat schedule file
 */celerybeat-schedule
 */deploy
+/backend_django/pgdata

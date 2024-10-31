@@ -13,7 +13,7 @@
 
 <script lang="ts">
 import { os_icon_mapping, os_color_mapping } from 'src/constants/mappings';
-import {computed, ref} from 'vue';
+import {computed} from 'vue';
 
 
 export default {

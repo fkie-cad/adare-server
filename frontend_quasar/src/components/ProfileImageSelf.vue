@@ -9,11 +9,12 @@
 </template>
 
 <script lang="ts">
-import { useUserStore } from 'stores/user';
-import { useLoggedInUserStore } from 'stores/loggedinuser';
-import {onMounted, ref} from 'vue';
+import { useUserStore } from 'src/store/user';
+import { useLoggedInUserStore } from 'src/store/loggedinuser';
+import {ref} from 'vue';
 import { storeToRefs } from 'pinia';
 import UserAvatar from 'components/global/UserAvatar.vue';
+import { isValidSizeType, SizeType } from 'src/constants';
 
 
 export default {
@@ -34,12 +35,13 @@ export default {
       default: ''
     },
     size: {
-      type: String,
-      default: 'md'
-    }
+      type: String as () => SizeType,
+      default: 'md',
+      validators: [isValidSizeType]
+    },
   },
 
-  setup(props) {
+  setup() {
 
     const show_dialog = ref(false)
     const LoggedInUserStore = useLoggedInUserStore()

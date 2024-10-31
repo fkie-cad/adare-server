@@ -30,8 +30,8 @@ module.exports = configure(function (/* ctx */) {
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
     boot: [
-
-
+      'pinia',
+      'axios',
     ],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
@@ -85,9 +85,16 @@ module.exports = configure(function (/* ctx */) {
       // viteVuePluginOptions: {},
 
 
-      // vitePlugins: [
-      //   [ 'package-name', { ..options.. } ]
-      // ]
+      vitePlugins: [
+        ['vite-plugin-checker', {
+          vueTsc: {
+            tsconfigPath: 'tsconfig.vue-tsc.json'
+          },
+          eslint: {
+            lintCommand: 'eslint "./**/*.{js,ts,mjs,cjs,vue}"'
+          }
+        }, { server: false }]
+      ]
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
@@ -201,7 +208,7 @@ module.exports = configure(function (/* ctx */) {
       builder: {
         // https://www.electron.build/configuration/configuration
 
-        appId: 'quasar-project'
+        appId: 'adare'
       }
     },
 

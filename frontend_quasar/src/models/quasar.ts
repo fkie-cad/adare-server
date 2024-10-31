@@ -1,5 +1,6 @@
 
 // implements quasar QTableColumn (QTableProps['columns'])
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface QTableColumn {
   name: string;
   label: string;

@@ -54,13 +54,12 @@
 </template>
 
 <script lang="ts">
-import { useLoggedInUserStore } from 'stores/loggedinuser';
-import { useLoginStore} from 'stores/login';
+import { useLoggedInUserStore } from 'src/store/loggedinuser';
+import { useLoginStore} from 'src/store/login';
 import ProfileImageSelf from 'components/ProfileImageSelf.vue';
 import {onMounted, ref} from 'vue';
 import {storeToRefs} from 'pinia';
 import { useRouter } from 'vue-router';
-import AchievementIcon from 'components/global/AchievmentIcon.vue';
 
 export default {
   name: 'ProfileCardSelf',
@@ -68,7 +67,7 @@ export default {
     ProfileImageSelf
   },
 
-  setup(props){
+  setup(){
 
     const LoginStore = useLoginStore()
     storeToRefs(LoginStore)

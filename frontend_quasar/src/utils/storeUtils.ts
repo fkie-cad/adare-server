@@ -1,0 +1,39 @@
+import { api } from 'src/boot/axios';
+
+export async function fetchItems(endpoint: string, query: string) {
+  return await api.get(`${endpoint}/${query}`).then(res => res.data.results);
+}
+
+export async function fetchAdvancedItems(
+  endpoint: string,
+  fetchFunction: (query: string) => Promise<void>,
+  limit?: number,
+  offset?: number,
+  sortBy?: string,
+  descending?: boolean,
+  filterString?: string
+) {
+  let query = '';
+  if (limit !== undefined || offset !== undefined || sortBy || filterString) {
+    query += '?';
+  }
+  if (limit !== undefined) {
+    query += `limit=${limit}`;
+  }
+  if (offset !== undefined) {
+    query += `&offset=${offset}`;
+  }
+
+  if (sortBy) {
+    query += `&ordering=${descending ? '-' : ''}${sortBy}`;
+  }
+  if (filterString) {
+    query += `&search=${filterString}`;
+  }
+
+  await fetchFunction(query);
+}
+
+export async function fetchFilterOptions(endpoint: string, query: string) {
+  return await api.get(`${endpoint}/filteroptions/${query}`).then(res => res.data);
+}

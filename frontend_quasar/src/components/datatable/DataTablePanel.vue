@@ -44,7 +44,7 @@
                 <q-separator />
                 <q-item
                   v-for="col in hideable_columns"
-                  :key="col.field"
+                  :key="col.field as string"
                 >
                   <q-checkbox v-model="visible_columns" :val=col.field :label="col.label" @update:model-value="AdjustShowHideAllColumns()"/>
                 </q-item>
@@ -138,26 +138,24 @@
 <!--          </q-btn-dropdown>-->
 <!--        </div>-->
       </div>
-      <div class="col-auto">
-        <q-btn
-          label="clear filters"
-          icon="clear"
-          rounded
-          @click="ClearFilters()"
-        />
-      </div>
+<!--      <div class="col-auto">-->
+<!--        <q-btn-->
+<!--          label="clear filters"-->
+<!--          icon="clear"-->
+<!--          rounded-->
+<!--          @click="ClearFilters()"-->
+<!--        />-->
+<!--      </div>-->
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { ref, onMounted } from 'vue';
-import { CustomQTableColumn } from 'src/datatypes/quasar_extensions';
-import { Filter, FilterEntry, FilterToQueryString } from 'src/datatypes/advancedtable';
+import { ref, onMounted, PropType } from 'vue';
+import { CustomQTableColumn } from 'src/models/quasar_extensions';
+import { Filter, FilterEntry, FilterToQueryString, SelectFilter } from 'src/models/advancedtable';
 import DataTableSearchFilter from 'components/datatable/DataTableSearchFilter.vue';
 import DataTableSelectFilter from 'components/datatable/DataTableSelectFilter.vue';
-import API from 'src/api';
-import axios from 'axios';
 
 export default {
   name: 'DataTablePanel',
@@ -168,11 +166,11 @@ export default {
       required: true,
     },
     visibleColumns: {
-      type: Array as () => string[],
+      type: Array as PropType<(string | ((row: any) => any))[]>,
       required: true,
     },
     columns: {
-      type: Array,
+      type: Array as () => Array<CustomQTableColumn>,
       required: true,
     },
     filterEnabled: {
@@ -180,11 +178,11 @@ export default {
       default: true,
     },
     selectFilters: {
-      type: Array,
+      type: Array as () => Array<SelectFilter>,
       default: () => [],
     },
-    api: {
-      type: String,
+    store: {
+      type: Object,
       required: true,
     },
     title: {
@@ -198,7 +196,7 @@ export default {
 
     const show_all_columns = ref(false);
     const hide_all_columns = ref(false);
-    const visible_columns = ref<string[]>(props.visibleColumns);
+    const visible_columns = ref<(string | ((row: any) => any))[]>(props.visibleColumns);
     const hideable_columns = ref<CustomQTableColumn[]>([]);
     const show_filters = ref(false);
     const no_filter = ref(false);
@@ -215,8 +213,8 @@ export default {
     }
 
     async function LoadFilterOptions(){
-      let url = props.api+'/filteroptions/?'+FilterToQueryString(actualFilter.value)
-      let response = await axios.get(url)
+      let query = '?'+FilterToQueryString(actualFilter.value)
+      let response = await props.store.fetchFilterOptions(query)
       // set options of predefined filters
       for (let filter of props.selectFilters) {
         filter.options = response.data[filter.option_api_field]
@@ -239,7 +237,9 @@ export default {
       hideable_columns.value = props.columns.filter((col: CustomQTableColumn) => col.hideable);
 
       // load filter options
-      LoadFilterOptions()
+      if (props.store.isFilterSupported()){
+        LoadFilterOptions()
+      }
 
       if (props.selectFilters.length == 0) {
         no_filter.value = true;

@@ -5,11 +5,10 @@
 </template>
 
 <script lang="ts">
-import axios from 'axios';
 import {computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import API_URLS from 'src/api';
-import { useLoginStore } from 'src/stores/login';
+import { api } from 'src/boot/axios';
+import { useLoginStore } from 'src/store/login';
 
 export default {
   'name': 'OauthRedirect',
@@ -37,7 +36,6 @@ export default {
 
     // send a post request to the oauth backend to get the access token
     const loginOnBackend = async () => {
-      axios.defaults.withCredentials = true;
 
       // create a html form to send the post request
       if (!code.value) {
@@ -45,8 +43,7 @@ export default {
       }
       const form_data = new FormData();
       form_data.append('code', code.value.toString());
-
-      const response = await axios.post(API_URLS.GITEA_OAUTH_API+`?state=${state.value}`, form_data);
+      const response = await api.post(`auth/gitea/?state=${state.value}`, form_data);
 
       // check response status
       if (response.status !== 200) {

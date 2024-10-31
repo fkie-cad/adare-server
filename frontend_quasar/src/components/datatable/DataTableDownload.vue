@@ -27,14 +27,25 @@ export default {
     }
   },
 
-  setup(props) {
+  setup() {
 
-    function ExtractFilenameFromUrl(url: string) {
-      const filename = url.split('/').pop().split('#')[0].split('?')[0];
-      if (filename === '') {
-        return 'file';
+    function ExtractFilenameFromUrl(url: string): string {
+      // Split the URL by '/' to get the segments
+      const splittedFilename = url.split('/');
+
+      if (splittedFilename.length === 0) {
+        return '';
       }
-      return filename;
+      const lastSegment = splittedFilename.pop();
+      if (!lastSegment) {
+        return '';
+      }
+
+      // Get the filename and strip any fragment (#) or query parameters (?)
+      const filename = lastSegment.split('#')[0].split('?')[0];
+
+      // Return 'file' if the filename is empty, otherwise return the filename
+      return filename || 'file';
     }
 
     function DownloadFile(url: string, filename: string) {

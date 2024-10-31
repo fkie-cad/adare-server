@@ -1,30 +1,30 @@
 <template>
   <div>
-      <DataTable :title="title" :columns="columns" :pagination="pagination" :api="api" />
+      <DataTable :title="title" :columns="columns" :pagination="pagination" :store="testfunctionSetStore" />
   </div>
 </template>
 
 <script lang="ts">
 import DataTable from 'components/datatable/DataTable.vue';
-import { CustomQTableColumn, TypeVarsDetails } from 'src/datatypes/quasar_extensions';
-import API from 'src/api';
+import { CustomQTableColumn, TypeVarsDetails } from 'src/models/quasar_extensions';
 import DataTableUserIcon from 'components/datatable/DataTableUserIcon.vue';
 import DataTableLink from 'components/datatable/DataTableLink.vue';
 import DataTableDetails from 'components/datatable/DataTableDetails.vue';
+import { useTestfunctionSetStore } from 'src/store/testfunctionSet';
 
 const title = 'Testfunction Sets';
 
-function link_to_experiment(ulid: string | undefined) {
-  if (!ulid) {
+function link_to_testfunctionset(name: string | undefined) {
+  if (!name) {
     return '';
   }
-  return '/testfunctiondetails/' + ulid;
+  return '/testfunctionset/' + name;
 }
 
 const typeVarsDetails: TypeVarsDetails = {
   icon: 'o_add_circle',
-  formatter: link_to_experiment,
-  field: 'ulid',
+  formatter: link_to_testfunctionset,
+  field: 'name',
 }
 
 const typeVarsLink = {
@@ -55,13 +55,16 @@ const pagination = {
   rowsNumber: 10,
 };
 
-const api = API.API + 'testfunction';
+const api = 'testfunction';
 
 export default {
   name: 'TestfunctionSetList',
   components: { DataTable },
-  setup(props) {
+  setup() {
+    const testfunctionSetStore = useTestfunctionSetStore();
+
     return {
+      testfunctionSetStore,
       title,
       columns,
       pagination,

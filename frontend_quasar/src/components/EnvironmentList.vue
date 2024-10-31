@@ -1,18 +1,17 @@
 <template>
   <div>
-      <DataTable :title="title" :columns="columns" :pagination="pagination" :api="api" />
+      <DataTable :title="title" :columns="columns" :pagination="pagination" :store="environmentStore" />
   </div>
 </template>
 
 <script lang="ts">
 import DataTable from 'components/datatable/DataTable.vue';
-import { CustomQTableColumn } from 'src/datatypes/quasar_extensions';
-import API from 'src/api';
+import { CustomQTableColumn } from 'src/models/quasar_extensions';
 import DataTableTags from 'components/datatable/DataTableTags.vue';
 import DataTableUserIcon from 'components/datatable/DataTableUserIcon.vue';
 import DataTableOsInfo from 'components/datatable/DataTableOsInfo.vue';
 import DataTableLink from 'components/datatable/DataTableLink.vue';
-
+import { useEnvironmentStore } from 'src/store/environment';
 
 const title = 'Environments';
 
@@ -44,13 +43,16 @@ const pagination = {
   rowsNumber: 10,
 };
 
-const api = API.API + 'environment';
+const api = 'environment';
 
 export default {
   name: 'EnvironmentList',
   components: { DataTable },
-  setup(props) {
+  setup() {
+    const environmentStore = useEnvironmentStore();
+
     return {
+      environmentStore,
       title,
       columns,
       pagination,

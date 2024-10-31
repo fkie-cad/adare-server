@@ -15,7 +15,7 @@
 <script lang="ts">
 import OptionalRouterLink from 'components/global/OptionalRouterLink.vue';
 import UserAvatar from 'components/global/UserAvatar.vue';
-
+import { SizeType, isValidSizeType } from 'src/constants';
 
 export default {
   name: 'ProfileImage',
@@ -31,8 +31,9 @@ export default {
       default: ''
     },
     size: {
-      type: String,
-      default: 'md'
+      type: String as () => SizeType,
+      default: 'md',
+      validators: [isValidSizeType]
     },
     tooltip: {
       type: Boolean,

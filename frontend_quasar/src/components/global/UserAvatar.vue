@@ -1,7 +1,7 @@
 <template>
   <div
     class="tw-rounded-full bg-secondary flex justify-center items-center"
-    :style="{ width: size_to_width[size], height: size_to_width[size] }"
+    :style="{ width: width, height: height }"
   >
     <q-img
       :src="img"
@@ -12,7 +12,7 @@
       <template v-slot:error>
         <span
           class="text-white full-width full-height flex justify-center items-center"
-          :style="{ fontSize: size_to_font_size[size] }"
+          :style="{ fontSize: fontSize }"
         >
           {{ username.charAt(0).toUpperCase() }}
         </span>
@@ -25,20 +25,25 @@
 </template>
 
 <script lang="ts">
+import { ref, computed, defineComponent, PropType } from 'vue'
+import { SizeType, isValidSizeType } from 'src/constants';
 
-export default {
+export default defineComponent({
   name: 'UserAvatar',
 
   props: {
     img: {
       type: String,
+      required: false,
     },
     username: {
       type: String,
+      required: true,
     },
     size: {
-      type: String,
-      default: 'md'
+      type: String as PropType<SizeType>, // Ensure `size` prop uses the `SizeType`
+      default: 'md',
+      validator: (value: string) => isValidSizeType(value), // Validate `size` prop value
     },
     tooltip: {
       type: Boolean,
@@ -47,23 +52,34 @@ export default {
   },
 
   setup(props) {
-    const size_to_width = {
-      'sm': '30px',
-      'md': '50px',
-      'lg': '100px',
-    }
+    // Ensure that size is one of 'sm', 'md', or 'lg'
+    const validSizes: Array<'sm' | 'md' | 'lg'> = ['sm', 'md', 'lg'];
+    const size = ref(validSizes.includes(props.size) ? props.size : 'md');
 
-    const size_to_font_size = {
-      'sm': '10px',
-      'md': '20px',
-      'lg': '40px',
-    }
+    // Mappings for width and font size based on size
+    const sizeToWidth: Record<'sm' | 'md' | 'lg', string> = {
+      sm: '30px',
+      md: '50px',
+      lg: '100px',
+    };
+
+    const sizeToFontSize: Record<'sm' | 'md' | 'lg', string> = {
+      sm: '10px',
+      md: '20px',
+      lg: '40px',
+    };
+
+    // Computed properties for width, height, and font size
+    const width = computed(() => sizeToWidth[size.value]);
+    const height = computed(() => sizeToWidth[size.value]);
+    const fontSize = computed(() => sizeToFontSize[size.value]);
 
     return {
-      size_to_width,
-      size_to_font_size,
-    }
-
-  }
-}
+      fontSize,
+      width,
+      height,
+    };
+  },
+});
 </script>
+

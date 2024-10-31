@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
-import {useLoggedInUserStore} from 'stores/loggedinuser';
+import {useLoggedInUserStore} from 'src/store/loggedinuser';
 
 
 export const useLoginStore = defineStore('login', {
@@ -28,12 +27,10 @@ export const useLoginStore = defineStore('login', {
         this.loggedIn = true
         this.loginUser = localStorage.getItem('LoginUser') || ''
         this.loginToken = localStorage.getItem('LoginToken') || ''
-        axios.defaults.headers.common['Authorization'] = 'Token ' + this.loginToken
       } else{
         this.loggedIn = false
         this.loginUser = ''
         this.loginToken = ''
-        axios.defaults.headers.common['Authorization'] = ''
       }
     },
     SetLoginToken(user: string, token: string, expirationDate: string){

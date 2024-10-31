@@ -10,7 +10,7 @@
 </template>
 
 <script lang="ts">
-import { TypeVarsLink } from 'src/datatypes/quasar_extensions';
+import { TypeVarsLink } from 'src/models/quasar_extensions';
 
 const defaultTypeVarsLink: TypeVarsLink = {
   icon: 'get_app',
@@ -26,10 +26,6 @@ export default {
       type: String,
       required: true,
     },
-    row: {
-      type: Object,
-      required: true,
-    },
     col: {
       type: Object,
       required: true,
@@ -38,12 +34,12 @@ export default {
 
   setup(props) {
 
+    // check if row.typeVarsLink is defined, if not use defaultTypeVarsLink
+    const vars = Object.assign({}, defaultTypeVarsLink, props.col.typeVarsLink);
+
     function OpenInNewTab(url: string){
       window.open(url, '_blank')
     }
-
-    // check if row.typeVarsLink is defined, if not use defaultTypeVarsLink
-    const vars = Object.assign({}, defaultTypeVarsLink, props.col.typeVarsLink);
 
     return {
       OpenInNewTab,

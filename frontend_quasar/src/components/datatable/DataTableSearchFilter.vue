@@ -13,7 +13,7 @@
   </q-input>
 </template>
 <script lang="ts">
-import { FilterEntry } from 'src/datatypes/advancedtable';
+import { FilterEntry } from 'src/models/advancedtable';
 import {ref} from 'vue';
 
 export default {

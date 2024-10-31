@@ -10,7 +10,7 @@
 </template>
 
 <script lang="ts">
-import { CustomQTableColumn, TypeVarsDetails} from 'src/datatypes/quasar_extensions';
+import { CustomQTableColumn, TypeVarsDetails} from 'src/models/quasar_extensions';
 
 const defaultTypeVarsDetails: TypeVarsDetails = {
   icon: 'o_add_cirlce',

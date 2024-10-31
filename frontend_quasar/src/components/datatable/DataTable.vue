@@ -1,7 +1,7 @@
 <template>
   <q-table
     :title="title"
-    :rows="rows"
+    :rows="store.getRows()"
     :columns="columns"
     row-key="name"
     :visible-columns="visibleColumns"
@@ -17,7 +17,7 @@
         :select-filters=selectFilters
         @update-visibleColumns="updateVisibleColumns"
         @update-filter="updateFilter"
-        :api=api
+        :store=store
       />
     </template>
     <template v-slot:body="props">
@@ -44,22 +44,27 @@
 </template>
 
 <script lang="ts">
-import {onMounted, ref} from 'vue';
-import axios from 'axios';
-import {CustomQTableColumn} from 'src/datatypes/quasar_extensions';
-import {QTablePagination} from 'src/datatypes/quasar';
+import { onMounted, ref } from 'vue';
+import {CustomQTableColumn} from 'src/models/quasar_extensions';
+import {QTablePagination} from 'src/models/quasar';
 import DataTablePanel from 'components/datatable/DataTablePanel.vue';
-import { Filter, FilterToQueryString } from 'src/datatypes/advancedtable';
+import { Filter, FilterToQueryString, SelectFilter } from 'src/models/advancedtable';
 
 
 export default {
   name: 'DataTable',
   components: { DataTablePanel },
   props: {
-    title: String,
-    columns: Array as () => CustomQTableColumn[],
+    title: {
+      type: String,
+      required: true,
+    },
+    columns: {
+      type: Array as () => Array<CustomQTableColumn>,
+      required: true,
+    },
     pagination: {
-      type: Object,
+      type: Object as () => QTablePagination,
       default: () => ({
         sortBy: 'desc',
         descending: false,
@@ -68,9 +73,12 @@ export default {
         rowsNumber: 10,
       }),
     },
-    api: String,
+    store: {
+      type: Object,
+      required: true,
+    },
     selectFilters: {
-      type: Array,
+      type: Array as () => Array<SelectFilter>,
       default: () => [],
       required: false,
     },
@@ -78,37 +86,16 @@ export default {
 
 
   setup(props) {
-    const rows = ref([]);
-    const loading = ref(false);
+    const loading = ref<boolean>(false);
     const mutablePagination = ref<QTablePagination>(props.pagination);
-    // set visible columns to those that are initially visible or those who can not be hidden
-    const visibleColumns = ref<Array<string>>(props.columns.filter((c: any) => c.visible).map((c: any) => c.field));
+
+    const visibleColumns = ref<string[]>(
+      props.columns
+        .filter((c: CustomQTableColumn) => c.visible)
+        .map((c: CustomQTableColumn) => c.field) as string[]
+    );
+
     const filterString = ref('');
-
-    const loadTableData = async () => {
-      loading.value = true;
-      const { page, rowsPerPage, sortBy, descending } = mutablePagination.value;
-      const offset = (page - 1) * rowsPerPage;
-      let url = `${props.api}?limit=${rowsPerPage}&offset=${offset}`;
-
-      if (sortBy) {
-        url += `&ordering=${descending ? '-' : ''}${sortBy}`;
-      }
-      if (filterString.value) {
-        url += `${filterString.value}`;
-      }
-
-      try {
-        const response = await axios.get(url);
-        mutablePagination.value.rowsNumber = response.data.count;
-        rows.value = response.data.results;
-      } catch (error) {
-        console.error('Failed to load table data:', error);
-        // handle error (e.g., show notification)
-      } finally {
-        loading.value = false;
-      }
-    };
 
     function updateVisibleColumns(visible_columns: string[]) {
       visibleColumns.value = visible_columns;
@@ -116,13 +103,21 @@ export default {
 
     function updateFilter(filter: Filter) {
       filterString.value = FilterToQueryString(filter);
-      loadTableData();
     }
 
-    onMounted(loadTableData);
+    onMounted(async () => {
+      loading.value = true;
+      const offset = (mutablePagination.value.page - 1) * mutablePagination.value.rowsPerPage;
+      await props.store.fetchRowsAdvanced(
+        mutablePagination.value.rowsPerPage,
+        offset,
+        mutablePagination.value.sortBy,
+        mutablePagination.value.descending,
+      );
+      loading.value = false;
+    });
 
     return {
-      rows,
       loading,
       visibleColumns,
       mutablePagination,

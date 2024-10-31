@@ -1,18 +1,18 @@
 <template>
   <div>
-      <DataTable :title="title" :columns="columns" :pagination="pagination" :selectFilters="selectFilters" :api="api" />
+      <DataTable :title="title" :columns="columns" :pagination="pagination" :selectFilters="selectFilters" :store="experimentStore" />
   </div>
 </template>
 
 <script lang="ts">
 import DataTable from 'components/datatable/DataTable.vue';
-import { CustomQTableColumn, TypeVarsDetails } from 'src/datatypes/quasar_extensions';
-import API from 'src/api';
+import { CustomQTableColumn, TypeVarsDetails } from 'src/models/quasar_extensions';
 import DataTableUserIcon from 'components/datatable/DataTableUserIcon.vue';
 import DataTableDetails from 'components/datatable/DataTableDetails.vue';
 import DataTableLink from 'components/datatable/DataTableLink.vue';
 import DataTableRunCounts from 'components/datatable/DataTableRunCounts.vue';
 import DataTableTags from 'components/datatable/DataTableTags.vue';
+import { useExperimentStore } from 'src/store/experiment';
 
 const title = 'Experiments';
 
@@ -20,7 +20,7 @@ function link_to_experiment(ulid: string | undefined) {
   if (!ulid) {
     return '';
   }
-  return '/experimentdetails/' + ulid;
+  return '/experiment/' + ulid;
 }
 
 const typeVarsDetails: TypeVarsDetails = {
@@ -62,18 +62,18 @@ const pagination = {
   rowsNumber: 10,
 };
 
-const api = API.API + 'experiment';
-
 export default {
   name: 'ExperimentList',
   components: { DataTable },
-  setup(props) {
+  setup() {
+    const experimentStore = useExperimentStore();
+
     return {
+      experimentStore,
       title,
       columns,
       pagination,
       selectFilters,
-      api
     };
   },
 }

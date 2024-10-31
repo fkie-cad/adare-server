@@ -57,13 +57,12 @@
 </template>
 
 <script lang="ts">
-import { useUserStore } from 'stores/user';
-import { useLoginStore} from 'stores/login';
-import { useLoggedInUserStore } from 'stores/loggedinuser';
+import { useUserStore } from 'src/store/user';
+import { useLoginStore} from 'src/store/login';
+import { useLoggedInUserStore } from 'src/store/loggedinuser';
 import ProfileImage from 'components/ProfileImage.vue';
 import {onMounted, ref} from 'vue';
 import {storeToRefs} from 'pinia';
-import { useRouter } from 'vue-router';
 
 export default {
   name: 'ProfileCard',

@@ -1,5 +1,6 @@
 from .base import *
 from decouple import config, Csv
+from corsheaders.defaults import default_headers
 
 # get the secret key from the environment
 SECRET_KEY = config("DJANGO_SECRET_KEY")
@@ -7,6 +8,9 @@ SECRET_KEY = config("DJANGO_SECRET_KEY")
 # CORS configuration
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", cast=Csv(delimiter=','))
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-csrftoken',
+]
 
 # CSRF configuration
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", cast=Csv(delimiter=','))

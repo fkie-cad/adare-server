@@ -19,20 +19,20 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
-  {
-    path: '/logfile/:experimentrunulid',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/LogfilePage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        },
-        props: true,
-      },
-    ],
-  },
+  // {
+  //   path: '/logfile/:experimentrunulid',
+  //   component: () => import('layouts/MainLayout.vue'),
+  //   children: [
+  //     {
+  //       path: '',
+  //       components: {
+  //         main: () => import('pages/LogfilePage.vue'),
+  //         header: () => import('components/HeaderDefault.vue'),
+  //       },
+  //       props: true,
+  //     },
+  //   ],
+  // },
   {
     path: '/environment',
     component: () => import('layouts/MainLayout.vue'),
@@ -59,6 +59,19 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
+  // {
+  //   path: '/testfunctionset/:name',
+  //   component: () => import('layouts/MainLayout.vue'),
+  //   children: [
+  //     {
+  //       path: '',
+  //       components: {
+  //         main: () => import('pages/TestfunctionsetDetailsPage.vue'),
+  //         header: () => import('components/HeaderDefault.vue'),
+  //       }
+  //     },
+  //   ],
+  // },
   {
     path: '/experiment',
     component: () => import('layouts/MainLayout.vue'),
@@ -72,34 +85,20 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
-  {
-    path: '/experimentdetails/:ulid',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/ExperimentPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        },
-        props: true,
-      },
-    ],
-  },
-  {
-    path: '/testfunction/',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/TestfunctionWikiPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        },
-        props: true,
-      },
-    ],
-  },
+  // {
+  //   path: '/testfunction/',
+  //   component: () => import('layouts/MainLayout.vue'),
+  //   children: [
+  //     {
+  //       path: '',
+  //       components: {
+  //         main: () => import('pages/TestfunctionWikiPage.vue'),
+  //         header: () => import('components/HeaderDefault.vue'),
+  //       },
+  //       props: true,
+  //     },
+  //   ],
+  // },
   {
     path: '/login',
     component: () => import('layouts/MainLayout.vue'),
@@ -148,7 +147,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/requests/',
+    path: '/request/',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -160,36 +159,36 @@ const routes: RouteRecordRaw[] = [
       }
     ],
   },
+  // {
+  //   path: '/request/:ulid',
+  //   component: () => import('layouts/MainLayout.vue'),
+  //   children: [
+  //     {
+  //       path: '',
+  //       components: {
+  //         main: () => import('pages/RequestsPage.vue'),
+  //         header: () => import('components/HeaderDefault.vue'),
+  //       },
+  //       props: true,
+  //     }
+  //   ],
+  // },
+  // {
+  //   path: '/experiment/:ulid',
+  //   component: () => import('layouts/MainLayout.vue'),
+  //   children: [
+  //     {
+  //       path: '',
+  //       components: {
+  //         main: () => import('pages/ExperimentPage.vue'),
+  //         header: () => import('components/HeaderDefault.vue'),
+  //       },
+  //       props: true,
+  //     }
+  //   ],
+  // },
   {
-    path: '/requests/:ulid',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/RequestsPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        },
-        props: true,
-      }
-    ],
-  },
-  {
-    path: '/experiment/:ulid',
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
-      {
-        path: '',
-        components: {
-          main: () => import('pages/ExperimentPage.vue'),
-          header: () => import('components/HeaderDefault.vue'),
-        },
-        props: true,
-      }
-    ],
-  },
-  {
-    path: '/runs/',
+    path: '/run/',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
@@ -201,6 +200,21 @@ const routes: RouteRecordRaw[] = [
       }
     ],
   },
+  {
+    path: '/run/:ulid',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/RunDetailsPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        }
+      }
+    ],
+  },
+
+
 
   // Always leave this as last one,
   // but you can also remove it

@@ -11,7 +11,7 @@
 import OauthRedirect from 'components/OauthRedirect.vue';
 
 export default {
-  name: 'OatuhWaitingPage',
+  name: 'OauthWaitingPage',
 
   components: {
     OauthRedirect,

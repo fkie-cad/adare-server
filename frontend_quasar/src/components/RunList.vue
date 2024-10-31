@@ -1,31 +1,37 @@
 <template>
   <div>
-      <DataTable :title="title" :columns="columns" :pagination="pagination" :api="api" />
+      <DataTable :title="title" :columns="columns" :pagination="pagination" :store="runStore"/>
   </div>
 </template>
 
 <script lang="ts">
 import DataTable from 'components/datatable/DataTable.vue';
-import { CustomQTableColumn } from 'src/datatypes/quasar_extensions';
-import API from 'src/api';
-import DataTableTags from 'components/datatable/DataTableTags.vue';
-import DataTableUserIcon from 'components/datatable/DataTableUserIcon.vue';
-import DataTableOsInfo from 'components/datatable/DataTableOsInfo.vue';
-import DataTableLink from 'components/datatable/DataTableLink.vue';
+import { CustomQTableColumn, TypeVarsDetails } from 'src/models/quasar_extensions';
+import DataTableDetails from 'components/datatable/DataTableDetails.vue';
+import DataTableStatus from 'components/datatable/DataTableStatus.vue';
+import { useRunStore } from 'src/store/run';
 
 
 const title = 'Experiment Runs';
 
-const typeVarsLink = {
-  icon: 'open_in_new',
-  tooltip: 'go to gitea',
-  color: 'primary',
+function link_to_run(ulid: string | undefined) {
+  if (!ulid) {
+    return '';
+  }
+  return '/run/' + ulid;
+}
+
+const typeVarsDetails: TypeVarsDetails = {
+  icon: 'o_add_circle',
+  formatter: link_to_run,
+  field: 'ulid',
 }
 
 const columns: CustomQTableColumn[] = [
+  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, visible: true, type: DataTableDetails, typeVarsDetails: typeVarsDetails},
   { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true, visible: true},
   { name: 'experiment', align: 'left', label: 'experiment', field: 'experiment', hideable: true, visible: true},
-  { name: 'status', align: 'left', label: 'status', field: 'status', hideable: true, visible: true},
+  { name: 'result_status', align: 'left', label: 'result_status', field: 'result_status', hideable: true, visible: true, type: DataTableStatus},
 ]
 
 const pagination = {
@@ -36,17 +42,18 @@ const pagination = {
   rowsNumber: 10,
 };
 
-const api = API.API + 'run';
 
 export default {
   name: 'RunList',
   components: { DataTable },
-  setup(props) {
+  setup() {
+    const runStore = useRunStore();
+
     return {
       title,
       columns,
       pagination,
-      api
+      runStore,
     };
   },
 }

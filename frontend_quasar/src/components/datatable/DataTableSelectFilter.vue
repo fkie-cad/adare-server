@@ -32,7 +32,7 @@
 
 <script lang="ts">
 import { defineComponent, onMounted, ref } from 'vue';
-import { Filter, FilterEntry } from 'src/datatypes/advancedtable';
+import { Filter, FilterEntry } from 'src/models/advancedtable';
 
 export default defineComponent({
   name: 'DataTableSelectFilter',

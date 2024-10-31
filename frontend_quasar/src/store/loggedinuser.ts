@@ -1,14 +1,13 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
-import API_URLS from 'src/api';
-import { useLoginStore } from 'src/stores/login';
-import { Achievement, UserInfo } from 'src/datatypes/user';
+import { useLoginStore } from 'src/store/login';
+import { Achievement, Team } from 'src/models/user';
+import { api } from 'src/boot/axios';
 
 export const useLoggedInUserStore = defineStore('userloggedin', {
   state: () => ({
     username: '',
     email: '',
-    teams: [],
+    teams: [] as Team[],
     achievements: [] as Achievement[],
     avatar: '',
   }),
@@ -30,8 +29,13 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
       return state.achievements;
     },
     IsSupervisor (state) {
-      const groups: string[] = state.teams;
-      return groups.includes('supervisor') || groups.includes('admin');
+      const groups: Team[] = state.teams;
+      for (let i = 0; i < groups.length; i++) {
+        if (groups[i].name === 'supervisor' || groups[i].name === 'admin') {
+          return true;
+        }
+      }
+      return false;
     }
   },
 
@@ -49,8 +53,7 @@ export const useLoggedInUserStore = defineStore('userloggedin', {
       if (!LoginStore.IsLoggedIn) {
         return
       }
-      await axios.get(
-        API_URLS.USER_API+'profile/',
+      await api.get('user/profile/',
       ).then((response) => {
         this.email = response.data.user.email
         this.teams = response.data.teams

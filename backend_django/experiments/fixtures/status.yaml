@@ -42,3 +42,11 @@
   pk: 11
   fields:
     name: breakpoint_resolved
+- model: experiments.status
+  pk: 12
+  fields:
+    name: test_missing
+- model: experiments.status
+  pk: 13
+  fields:
+      name: test_failed

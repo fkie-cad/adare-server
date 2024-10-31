@@ -110,7 +110,7 @@ urlpatterns = [
     # path('api/file/achievements/<str:achievement_name>/', files_views.AchievementIconView.as_view()),
 
     # ### statistics urls ###
-    path('api/statistics/', experiment_frontend_views.StatisticView.as_view()),
+    path('api/stats/', experiment_frontend_views.StatisticView.as_view()),
 
     # ### gitea webhook url ###
     # !!!! NEVER EXPOSE THIS URL TO THE PUBLIC INTERNET !!!!

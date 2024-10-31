@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
-import API_URLS from 'src/api';
-import { Achievement, UserInfo } from 'src/datatypes/user';
+import { api } from 'src/boot/axios';
+import { UserInfo } from 'src/models/user';
+
+interface UserState {
+  userDict: UserInfo;
+}
 
 
 export const useUserStore = defineStore('user', {
-  state: () => ({
+  state: (): UserState => ({
     userDict: {} as UserInfo,
   }),
 
@@ -28,7 +31,7 @@ export const useUserStore = defineStore('user', {
       if (!(username in this.userDict)) {
         this.initializeUserDict(username)
       }
-      await axios.get(API_URLS.USER_API + username + '/profile').then((response) => {
+      await api.get( 'user/'+ username + '/profile').then((response) => {
         console.log(response.data)
         this.userDict[username].email = response.data.user.email
         // this.userDict[username].achievements = response.data.achievements

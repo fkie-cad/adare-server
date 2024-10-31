@@ -125,8 +125,7 @@ class TestfunctionSet(models.Model):
     sha256requirements = models.CharField(max_length=64)
 
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published_by')
-    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by',
-                                    blank=True, null=True)
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by', blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     published = models.BooleanField(default=False)
@@ -214,9 +213,8 @@ class Environment(models.Model):
 
     sha256hash = models.CharField(max_length=64, unique=True)
 
-    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published_by')
-    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by',
-                                    blank=True, null=True)
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_env_published_by')
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_env_created_by', blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     published = models.BooleanField(default=False)
@@ -248,8 +246,8 @@ class Experiment(models.Model):
     sha256action = models.CharField(max_length=64)
     sha256testset = models.CharField(max_length=64)
 
-    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_published_by')
-    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by',
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_exp_published_by')
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_exp_created_by',
                                     blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
@@ -286,23 +284,6 @@ class ExperimentRun(models.Model):
             event for event_class in event_classes for event in event_class.objects.filter(run=self)
         ]
         return events
-
-
-# class Scenario(models.Model):
-#     ulid = models.CharField(primary_key=True, max_length=26, default=lambda: generate_ulid)
-#     name = models.CharField(max_length=100, unique=True)
-#     experiments = models.ManyToManyField(Experiment, related_name='scenarios', blank=True)
-#     description = models.CharField(max_length=1000, blank=True)
-#     tags = models.ManyToManyField(Tag, blank=True)
-#
-#     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='scenarios_published')
-#     accepted_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='scenarios_accepted', blank=True,
-#                                     null=True)
-#     published_at = models.DateTimeField(blank=True, null=True)
-#     published = models.BooleanField(default=False)
-#
-#     def __str__(self):
-#         return f'{self.name}'
 
 
 class Label(models.Model):

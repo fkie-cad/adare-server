@@ -26,7 +26,7 @@
             name="run"
             label="Runs"
             icon="directions_run"
-            to="/runs"
+            to="/run"
             v-if="LoginStore.IsLoggedIn"
           />
           <q-route-tab
@@ -44,10 +44,10 @@
             v-if="LoginStore.IsLoggedIn"
           />
           <q-route-tab
-            name="requests"
+            name="request"
             icon="ion-git-pull-request"
             label="Requests"
-            to="/requests"
+            to="/request"
             v-if="LoginStore.IsLoggedIn"
           />
           <q-route-tab
@@ -126,9 +126,9 @@
 </template>
 
 <script>
-import { useLoginStore } from 'stores/login';
-import { useLoggedInUserStore} from 'stores/loggedinuser';
-import { useUserStore } from 'stores/user';
+import { useLoginStore } from 'src/store/login';
+import { useLoggedInUserStore} from 'src/store/loggedinuser';
+import { useUserStore } from 'src/store/user';
 import {onMounted, ref} from 'vue';
 import {storeToRefs} from 'pinia';
 import ProfileImageSelf from 'components/ProfileImageSelf.vue';

@@ -443,11 +443,12 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
 
     def get_events(self, obj):
         event_deserialized = []
-        for event in obj.events:
+        for event in obj.events.order_by('timestamp'):
             event_serializer = get_event_serializer(event.category)
             # use the serializer to deserialize the event
             event_serializer = event_serializer(event)
             event_deserialized.append(event_serializer.data)
+        # sort events by timestamp
         return event_deserialized
 
     class Meta:

@@ -14,7 +14,8 @@
 </template>
 
 <script lang="ts">
-import { os_icon_mapping, os_color_mapping } from 'src/constants/mappings';
+import { ref } from 'vue';
+import { isValidOSListType, os_icon_mapping, os_color_mapping } from 'src/constants/mappings';
 
 export default {
   name: 'DataTableOsInfo',
@@ -27,11 +28,16 @@ export default {
   },
 
   setup(props) {
+    const os = ref<string>(props.data.os);
 
-    // get icon for os (by taking lowercase os name and looking up in os_icon_mapping) (no color and no icon if not found)
-    const os_icon = os_icon_mapping[props.data.os.toLowerCase()] || 'mdi-help';
-    // get color for os (by taking lowercase os name and looking up in os_color_mapping) (no color and no icon if not found)
-    const os_color = os_color_mapping[props.data.os.toLowerCase()] || 'black';
+
+    let os_icon = 'mdi-help-circle';
+    let os_color = 'grey';
+
+    if (isValidOSListType(os.value)) {
+      os_icon = os_icon_mapping[os.value];
+      os_color = os_color_mapping[os.value];
+    }
 
     return {
       os_icon,
