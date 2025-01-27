@@ -122,7 +122,7 @@ export interface Environment {
   description: string;
   vagrantbox: string;
   published_by: User;
-  accepted_by: User;
+  created_by: User;
   published_at: string;
   tags: Tag[];
   os_info: OsInfo;
@@ -136,7 +136,7 @@ export interface Experiment {
   description: string;
   published_by: User;
   published_at: string;
-  accepted_by: User;
+  created_by: User;
   tags: Tag[];
   run_counts: RunCount;
   action_file: string;
@@ -162,7 +162,7 @@ export interface TestfunctionSet {
   description: string;
   published_by: User;
   published_at: string;
-  accepted_by: User;
+  created_by: User;
   file: string;
   requirements_file: string;
   num_testfunctions: number;

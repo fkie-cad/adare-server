@@ -11,9 +11,9 @@ django-rest-knox
 django-redis
 django-csp
 PyYAML
-dj-rest-auth
 # since https://github.com/iMerica/dj-rest-auth/issues/639
-django-allauth==0.61.1
+dj-rest-auth
+django-allauth[socialaccount]
 requests
 celery
 redis
@@ -22,3 +22,6 @@ attrs
 tqdm
 cattrs
 python-ulid
+six~=1.17.0
+certifi~=2024.12.14
+urllib3~=2.3.0

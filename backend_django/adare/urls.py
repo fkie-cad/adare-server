@@ -13,21 +13,16 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-import urllib
-
 from django.contrib import admin
-from django.shortcuts import redirect
 
 import users.views as users_views
 import experiments.views as experiment_frontend_views
 import files.views as files_views
 import giteaeventmanager.views as giteaeventmanager_views
-from knox.views import LogoutView as KnoxLogoutView
 from django.conf.urls.static import static
 from django.urls import path, include, re_path
 from decouple import config
 from django.conf import settings
-from allauth.socialaccount.providers.gitea import views as gitea_views
 
 MODE = config('MODE', default='production')
 

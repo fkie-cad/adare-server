@@ -1,3 +1,7 @@
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from allauth.socialaccount.providers.gitea.views import GiteaOAuth2Adapter
+from allauth.socialaccount.models import SocialAccount
+from dj_rest_auth.registration.views import SocialLoginView
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 import urllib
@@ -5,27 +9,50 @@ from rest_framework import generics
 from rest_framework import permissions
 from users.models import Profile
 from django.conf import settings
-from allauth.socialaccount.models import SocialAccount
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-from allauth.socialaccount.providers.gitea.views import GiteaOAuth2Adapter
-from dj_rest_auth.registration.views import SocialLoginView
 import urllib.parse
 from users.serializers import ProfileSerializer, PublicProfileSerializer
-import users.tasks as tasks
+from users import tasks
 from rest_framework import views, status
 from rest_framework.response import Response
 from knox.models import AuthToken
-
 
 import logging
 
 log = logging.getLogger(__name__)
 
 
+class CustomOAuth2Client(OAuth2Client):
+    def __init__(
+        self,
+        request,
+        consumer_key,
+        consumer_secret,
+        access_token_method,
+        access_token_url,
+        callback_url,
+        _scope,  # This is fix for incompatibility between django-allauth==65.3.1 and dj-rest-auth==7.0.1
+        scope_delimiter=" ",
+        headers=None,
+        basic_auth=False,
+    ):
+        super().__init__(
+            request,
+            consumer_key,
+            consumer_secret,
+            access_token_method,
+            access_token_url,
+            callback_url,
+            scope_delimiter,
+            headers,
+            basic_auth,
+        )
+
+
 class GiteaLoginView(SocialLoginView):
     adapter_class = GiteaOAuth2Adapter
-    client_class = OAuth2Client
+    client_class = CustomOAuth2Client
     callback_url = settings.FRONTEND_URL + '/login/oauth/'
+
 
     def get_response(self):
         # get extra data sent by gitea

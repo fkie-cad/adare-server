@@ -14,13 +14,13 @@
         </div>
         <div class="row tw-text-gray-600 q-pt-md">
           <div class="col"># testfunctions</div>
-          <div class="col tw-text-right">accepted by</div>
+          <div class="col tw-text-right">created by</div>
         </div>
         <div class="row  tw-text-3xl">
           <div class="col">{{testfunctionSet.num_testfunctions}}</div>
           <div class="col flex justify-end">
-            <UserAvatar :user="testfunctionSet.accepted_by" v-if="testfunctionSet.accepted_by"/>
-            <div class="tw-text-3xl">-</div>
+            <UserAvatar :user="testfunctionSet.created_by" v-if="testfunctionSet.created_by"/>
+            <div class="tw-text-3xl" v-else>-</div>
           </div>
         </div>
         <div class="row tw-text-gray-600 q-pt-md" v-if="testfunctionSet.description">

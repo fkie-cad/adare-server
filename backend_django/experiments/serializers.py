@@ -83,7 +83,7 @@ class EnvironmentSerializer(serializers.ModelSerializer):
     tags = serializers.SerializerMethodField('get_tags', read_only=True)
     post_setup_installations = PostSetupInstallationSerializer(many=True)
     published_by = GiteaUserSerializer()
-    accepted_by = GiteaUserSerializer()
+    created_by = GiteaUserSerializer()
 
     def get_tags(self, obj):
         tag_list = []
@@ -113,7 +113,7 @@ class EnvironmentSerializer(serializers.ModelSerializer):
             'published',
             'published_at',
             'published_by',
-            'accepted_by',
+            'created_by',
         ]
 
 
@@ -224,7 +224,7 @@ class TestFunctionSetMetadataSerializer(serializers.ModelSerializer):
 class TestFunctionSetSerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(many=True)
     published_by = GiteaUserSerializer()
-    accepted_by = GiteaUserSerializer()
+    created_by = GiteaUserSerializer()
     testfunctions = TestFunctionSerializer(many=True)
 
     class Meta:
@@ -241,7 +241,7 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
             'sha256testfunctionset',
             'sha256requirements',
             'published_by',
-            'accepted_by',
+            'created_by',
             'published_at',
             'published',
         ]
@@ -249,9 +249,9 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if ret['file']:
-            ret['file'] = convert_gitea_internal_api_url_to_external(ret['file'])
+            ret['file'] = convert_gitea_internal_api_url_to_viewable_url(ret['file'])
         if 'requirements_file' in ret.keys() and ret['requirements_file'] != '':
-            ret['requirements_file'] = convert_gitea_internal_api_url_to_external(ret['requirements_file'])
+            ret['requirements_file'] = convert_gitea_internal_api_url_to_viewable_url(ret['requirements_file'])
         return ret
 
 

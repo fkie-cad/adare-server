@@ -178,13 +178,13 @@ def create_pr_experiment(owner: str, repo: str, new_branch_name: str, experiment
 
 if __name__ == '__main__':
     #import time
-    #clear_branch(OWNER, REPO, 'main')
-    #close_all_prs()
+    # clear_branch(OWNER, REPO, 'main')
+    # close_all_prs()
     #delete_all_branches_except_main()
 
-    create_pr_environment(OWNER, REPO, 'env6', Path('/home/miq/Documents/adare/examples2/environments/tenv3.yml'), 'tenv3')
-    #create_pr_testfunction_create(OWNER, REPO, 'tfx1', Path('/home/miq/Documents/adare/examples/testfunctions/standard'), 'standard')
-    #create_pr_environment(OWNER, REPO, 'envx1', Path('/home/miq/Documents/adare/examples/environments/testenv.yml'), 'testenv')
-    #create_pr_experiment(OWNER, REPO, 'exp2', Path('/home/miq/Documents/adare/examples/experiments/deletefile'), 'deletefile')
+    #create_pr_environment(OWNER, REPO, 'testenv3', Path('/home/miq/Documents/adare/examples2/environments/testenv.yml'), 'testenv')
+    # create_pr_testfunction_create(OWNER, REPO, 'tf_standard', Path('/home/miq/Documents/adare/examples/testfunctions/standard'), 'standard')
+    create_pr_environment(OWNER, REPO, 'envx2', Path('/home/miq/Documents/adare/examples2/environments/testenv2.yml'), 'testenv2')
+    #create_pr_experiment(OWNER, REPO, 'exp1', Path('/home/miq/Documents/adare/examples/experiments/deletefile'), 'deletefile')
     #
     #merge_pr(OWNER, REPO, 111)

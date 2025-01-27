@@ -1,26 +1,15 @@
-import rest_framework.parsers
-from rest_framework import views
-from rest_framework.decorators import permission_classes
+from datetime import datetime
+
+import rest_framework.generics as generics
+import rest_framework.status as http_status_codes
+from django.db import transaction
+from django.db.models import Count, Max, Q
+from django.utils.timezone import make_aware
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.filters import SearchFilter, OrderingFilter
-import rest_framework.generics as generics
-import rest_framework.status as http_status_codes
-import django_filters.rest_framework
-from django.utils.timezone import make_aware
+
 from experiments.parsers import MultiPartJSONParser
-from django.db.models import Count, Max, Q
-from experiments.models import Event
-from django.contrib.auth.models import User
-from helperfunctions.gitea import convert_gitea_internal_api_url_to_viewable_url
-import json
-from django.db import transaction
-
-from datetime import datetime
-from permissions import HasGroupPermission
-
-from experiments.models import *
 # from experiments.filters import ScenarioFilter, ExperimentFilter, RequestFilter, ExperimentRunFilter
 from experiments.serializers import *
 

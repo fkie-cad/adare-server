@@ -59,11 +59,11 @@ INSTALLED_APPS = [
     'files',
 
     # used for authentication (OAuth2 via Gitea)
-    'dj_rest_auth',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.gitea',
+
 ]
 
 MIDDLEWARE = [
