@@ -8,6 +8,9 @@ from django.utils.timezone import make_aware
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter, OrderingFilter
+import django_filters.rest_framework
+from experiments.filters import ExperimentFilter, ExperimentRunFilter
 
 from experiments.parsers import MultiPartJSONParser
 # from experiments.filters import ScenarioFilter, ExperimentFilter, RequestFilter, ExperimentRunFilter
@@ -18,8 +21,8 @@ class ExperimentRunListView(generics.ListAPIView):
     serializer_class = ExperimentRunSerializer
     queryset = ExperimentRun.objects.all()
     permission_classes = [AllowAny]
-    #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
-    #filterset_class = ExperimentRunFilter
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = ExperimentRunFilter
     search_fields = ['ulid', 'experiment__name', 'published_by__username', 'published_at']
     pagination_class = LimitOffsetPagination
 
@@ -35,9 +38,10 @@ class ExperimentRunRetrieveView(generics.RetrieveAPIView):
 class ExperimentListView(generics.ListAPIView):
     serializer_class = ExperimentViewableFilesSerializer
     queryset = Experiment.objects.filter(published=True).all()
-    permission_classes = [IsAuthenticated]
-    #filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
-    #filterset_class = ExperimentFilter
+    #permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = ExperimentFilter
     search_fields = ['name', 'ulid', 'tags__name', 'description', 'published_by__username', 'published_at']
     pagination_class = LimitOffsetPagination
 
@@ -226,7 +230,7 @@ class StatisticView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         response_data = {
             'experiment_count': Experiment.objects.count(),
-            'experiment_run_count': ExperimentRun.objects.count(),
+            'run_count': ExperimentRun.objects.count(),
             'environment_count': Environment.objects.count(),
             'testfunctionset_count': TestfunctionSet.objects.count(),
             'testfunction_count': TestFunction.objects.count(),
@@ -515,7 +519,7 @@ class ExperimentRunPublishView(generics.CreateAPIView):
         data['events'] = event_object_list
 
         # todo: calculate result_status based on events and compare with given result_status if they do not match return error (and delete experiment run)
-        non_empty_test_events = [event for event in data['events'] if event['category'] == 'test_event' and event['result']]
+        # non_empty_test_events = [event for event in data['events'] if event['category'] == 'test_event' and event['result']]
 
 
 

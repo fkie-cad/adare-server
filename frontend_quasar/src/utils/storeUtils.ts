@@ -1,7 +1,7 @@
 import { api } from 'src/boot/axios';
 
 export async function fetchItems(endpoint: string, query: string) {
-  const data = await api.get(`${endpoint}/${query}`).then(res => res.data);
+  const data = await api.get(`${endpoint}/?${query}`).then(res => res.data);
   // if key 'results' is present, we are dealing with a paginated response
   if ('results' in data) {
     return data.results;

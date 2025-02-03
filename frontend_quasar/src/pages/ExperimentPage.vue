@@ -1,6 +1,6 @@
 <template>
   <q-page class="flex justify-center">
-    <ExperimentOverview :ulid="ulid" class="q-pa-lg tw-w-full"/>
+    <ExperimentOverview :name="name" class="q-pa-lg tw-w-full"/>
   </q-page>
 </template>
 
@@ -15,7 +15,7 @@ export default {
   },
 
   props: {
-    ulid: {
+    name: {
       type: String,
       required: true,
     },

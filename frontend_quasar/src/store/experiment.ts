@@ -18,6 +18,19 @@ export const useExperimentStore = defineStore('experiment', {
       this.experiments = await fetchItems('experiment', query);
     },
 
+    getExperimentByName(name: string) {
+      return Object.values(this.experiments).find((experiment) => experiment.name === name);
+    },
+
+    async loadExperimentByName(name: string) {
+      const results = await fetchItems('experiment', 'name=' + name);
+      if (results.length === 0) {
+        return null;
+      }
+      this.experiments[results[0].ulid] = results[0];
+      return results[0];
+    },
+
     async fetchExperimentsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string) {
       await fetchAdvancedItems('experiment', this.fetchExperiments, limit, offset, sortBy, descending, filterString);
     },

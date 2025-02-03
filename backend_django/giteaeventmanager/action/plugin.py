@@ -386,7 +386,7 @@ class ExperimentPlugin(PullRequestPlugin):
         parameter_entry_ids_data = [p.id for p in parameter_entries]
         for abstract_test in abstract_test_q.all():
             # check if all parameter entries are in the abstract test
-            parameter_entry_ids_abstract_test = [p.id for p in abstract_test.parameters]
+            parameter_entry_ids_abstract_test = [p.id for p in abstract_test.parameters.all()]
             if set(parameter_entry_ids_data) == set(parameter_entry_ids_abstract_test):
                 abstract_test_obj = abstract_test
 

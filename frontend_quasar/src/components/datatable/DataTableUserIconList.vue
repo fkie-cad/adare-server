@@ -2,12 +2,12 @@
   <div
     class="tw-flex tw-items-center"
   >
-    <div v-for="user in data" :key="user.username">
+    <div v-for="profile in data" :key="profile.user.username">
       <ProfileImage
-        :user=user
+        :profile=profile
         size="md"
         :tooltip=true
-        :linktoprofile=true
+        :linkToProfile=true
       />
     </div>
   </div>
@@ -15,7 +15,7 @@
 
 <script lang="ts">
 import ProfileImage from 'components/ProfileImage.vue';
-import { User } from 'src/models/experiment';
+import { Profile } from 'src/models/experiment';
 import { PropType } from 'vue';
 
 export default {
@@ -23,7 +23,7 @@ export default {
   components: { ProfileImage },
   props: {
     data: {
-      type: Object as PropType<User[]>,
+      type: Object as PropType<Profile[]>,
       required: false,
     },
   },

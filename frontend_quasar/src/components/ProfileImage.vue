@@ -1,34 +1,35 @@
 <template>
-    <div class="tw-overflow-visible tw-relative bg-opacity-100" :class="offset_classes">
-      <optional-router-link :to="'/user/'+user.username" :disabled="!linktoprofile">
+    <div class="tw-overflow-visible tw-relative bg-opacity-100" :class="offsetClasses" v-if="profile">
+
+      <a :href="'/user/'+profile.user.username" :class="{ 'disabled-link': !linkToProfile }">
         <UserAvatar
           :size="size"
-          :user="user"
+          :profile="profile"
           :tooltip="tooltip"
         >
         </UserAvatar>
-      </optional-router-link>
+      </a>
+
     </div>
 </template>
 
 <script lang="ts">
-import OptionalRouterLink from 'components/global/OptionalRouterLink.vue';
 import UserAvatar from 'components/global/UserAvatar.vue';
 import { SizeType, isValidSizeType } from 'src/constants';
-import { User } from 'src/models/experiment';
+import { Profile } from 'src/models/experiment';
 import { PropType } from 'vue';
 
 export default {
   name: 'ProfileImage',
-  components: {UserAvatar, OptionalRouterLink},
+  components: {UserAvatar},
 
   props: {
-    offset_classes: {
+    offsetClasses: {
       type: String,
       default: ''
     },
-    user: {
-      type: Object as PropType<User>,
+    profile: {
+      type: Object as PropType<Profile>,
       required: true
     },
     size: {
@@ -40,7 +41,7 @@ export default {
       type: Boolean,
       default: false
     },
-    linktoprofile: {
+    linkToProfile: {
       type: Boolean,
       default: false
     },
@@ -49,5 +50,13 @@ export default {
       default: ''
     }
   },
+
 }
 </script>
+
+<style scoped>
+.disabled-link {
+  pointer-events: none;
+  cursor: default;
+}
+</style>

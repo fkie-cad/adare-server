@@ -2,6 +2,10 @@
 export interface User {
   username: string;
   email: string;
+}
+
+export interface Profile {
+  user: User;
   avatar: string;
   teams: Team[];
   achievements: Achievement[];
@@ -94,6 +98,7 @@ export interface Testfunction {
   name: string;
   description: string;
   possible_parameters: AbstractParameter[];
+  set: string;
 }
 
 export interface AbstractTest {
@@ -107,13 +112,15 @@ export interface AbstractTest {
 export interface Run {
   ulid: string;
   experiment: string;
-  published_by: User;
+  environment: string;
+  published_by: string;
   published_at: string;
   timestamp_start: string;
   timestamp_end: string;
   status: Status;
   result_status: Status;
   events: Event[];
+  duration: number;
 }
 
 export interface Environment {
@@ -121,8 +128,8 @@ export interface Environment {
   name: string;
   description: string;
   vagrantbox: string;
-  published_by: User;
-  created_by: User;
+  published_by: string;
+  created_by: string;
   published_at: string;
   tags: Tag[];
   os_info: OsInfo;
@@ -134,14 +141,15 @@ export interface Experiment {
   ulid: string;
   name: string;
   description: string;
-  published_by: User;
+  published_by: string;
   published_at: string;
-  created_by: User;
+  created_by: string;
   tags: Tag[];
   run_counts: RunCount;
   action_file: string;
   testset_file: string;
   metadata_file: string;
+  abstract_tests: AbstractTest[];
 }
 
 export interface Request {
@@ -150,9 +158,9 @@ export interface Request {
   action: string;
   status: Status;
   labels: Label[];
-  requester: User;
-  assignees: User[];
-  reviewers: User[];
+  requester: string;
+  assignees: string[];
+  reviewers: string[];
   last_change_date: string;
   creation_date: string;
 }
@@ -160,9 +168,9 @@ export interface Request {
 export interface TestfunctionSet {
   name: string;
   description: string;
-  published_by: User;
+  published_by: string;
   published_at: string;
-  created_by: User;
+  created_by: string;
   file: string;
   requirements_file: string;
   num_testfunctions: number;

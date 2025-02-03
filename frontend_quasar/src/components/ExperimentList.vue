@@ -26,7 +26,7 @@ function link_to_experiment(ulid: string | undefined) {
 const typeVarsDetails: TypeVarsDetails = {
   icon: 'o_add_circle',
   formatter: link_to_experiment,
-  field: 'ulid',
+  field: 'name',
 }
 
 const typeVarsLink = {
@@ -40,9 +40,9 @@ const columns: CustomQTableColumn[] = [
   { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true, visible: true},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true, visible: true},
   { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true, visible: true},
-  { name: 'published_by', align: 'left', label: 'publisher', field: 'published_by', hideable: false, visible: true, type: DataTableUserIcon},
+  { name: 'published_by', align: 'left', label: 'published by', field: 'published_by', hideable: false, visible: true, type: DataTableUserIcon},
   { name: 'published_at', align: 'left', label: 'publish date', field: 'published_at', hideable: true, visible: true},
-  { name: 'accepted_by', align: 'left', label: 'accepter', field: 'accepted_by', hideable: false, visible: true, type: DataTableUserIcon},
+  { name: 'created_by', align: 'left', label: 'created by', field: 'created_by', hideable: false, visible: true, type: DataTableUserIcon},
   { name: 'tags', align: 'left', label: 'tags', field: 'tags', hideable: true, visible: true, type: DataTableTags},
   { name: 'run_counts', align: 'left', label: 'run counts', field: 'run_counts', hideable: true, visible: true, type: DataTableRunCounts},
   { name: 'action_file', align: 'left', label: 'action file', field: 'action_file', hideable: true, visible: true, type: DataTableLink, typeVarsLink: typeVarsLink},

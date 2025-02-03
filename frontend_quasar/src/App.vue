@@ -10,8 +10,8 @@ export default defineComponent({
   name: 'App',
 
   mounted() {
-    let LoginStore = useLoginStore()
-    LoginStore.InitLogin()
+    let loginStore = useLoginStore()
+    loginStore.initLogin()
   },
 });
 </script>

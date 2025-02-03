@@ -4,7 +4,7 @@
     :style="{ width: width, height: height }"
   >
     <q-img
-      :src="user.avatar"
+      :src="profile.avatar"
       class="object-cover"
       spinner-color="primary"
       img-class="tw-rounded-full"
@@ -14,12 +14,12 @@
           class="text-white full-width full-height flex justify-center items-center"
           :style="{ fontSize: fontSize }"
         >
-          {{ user.username.charAt(0).toUpperCase() }}
+          {{ profile.user.username.charAt(0).toUpperCase() }}
         </span>
       </template>
     </q-img>
     <q-tooltip v-if="tooltip">
-        {{ user.username }}
+        {{ profile.user.username }}
     </q-tooltip>
   </div>
 </template>
@@ -27,14 +27,14 @@
 <script lang="ts">
 import { ref, computed, defineComponent, PropType } from 'vue'
 import { SizeType, isValidSizeType } from 'src/constants';
-import { User } from 'src/models/experiment';
+import { Profile } from 'src/models/experiment';
 
 export default defineComponent({
   name: 'UserAvatar',
 
   props: {
-    user: {
-      type: Object as PropType<User>,
+    profile: {
+      type: Object as PropType<Profile>,
       required: true,
     },
     size: {

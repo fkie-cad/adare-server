@@ -20,46 +20,46 @@
             label="Home"
             icon="home"
             to="/home"
-            v-if="LoginStore.IsLoggedIn"
+            v-if="isLoggedIn"
           />
           <q-route-tab
             name="run"
             label="Runs"
             icon="directions_run"
             to="/run"
-            v-if="LoginStore.IsLoggedIn"
+            v-if="isLoggedIn"
           />
           <q-route-tab
             name="experiment"
             icon="science"
             label="Experiments"
             to="/experiment"
-            v-if="LoginStore.IsLoggedIn"
+            v-if="isLoggedIn"
           />
           <q-route-tab
             name="environment"
             icon="terrain"
             label="Environments"
             to="/environment"
-            v-if="LoginStore.IsLoggedIn"
+            v-if="isLoggedIn"
           />
           <q-route-tab
             name="request"
             icon="ion-git-pull-request"
             label="Requests"
             to="/request"
-            v-if="LoginStore.IsLoggedIn"
+            v-if="isLoggedIn"
           />
           <q-route-tab
             name="testfunctionset"
             icon="hive"
             label="Testfunctionsets"
             to="/testfunctionset"
-            v-if="LoginStore.IsLoggedIn"
+            v-if="isLoggedIn"
           />
         </q-tabs>
 
-        <div v-if="!IsLoggedIn" class="full-height">
+        <div v-if="!isLoggedIn" class="full-height">
           <q-btn
               color="white"
               dense
@@ -73,7 +73,7 @@
           >
           </q-btn>
         </div>
-        <div v-if="IsLoggedIn" class="full-height">
+        <div v-if="isLoggedIn && profile" class="full-height">
             <q-btn-dropdown
               color="white"
               dense
@@ -85,13 +85,16 @@
             >
               <template v-slot:label>
                 <span style="font-size: 14px; font-weight: bold">
-                  {{ LoginStore.GetLoginUser }}
+                  {{ profile.user.username }}
                 </span>
               </template>
               <div class="row no-wrap q-pa-md">
                 <div class="column  justify-center items-center q-pa-lg">
-                  <ProfileImageSelf size="lg"/>
-                  <div class="text-subtitle1 tex q-mt-md">{{ LoginStore.GetLoginUser }}</div>
+                  <ProfileImage
+                    :profile="profile"
+                    size="lg"
+                  />
+                  <div class="text-subtitle1 tex q-mt-md">{{ profile.user.username }}</div>
                 </div>
                 <q-separator vertical inset class="q-mx-lg" />
                 <div class="column justify-center">
@@ -127,44 +130,38 @@
 
 <script>
 import { useLoginStore } from 'src/store/login';
-import { useLoggedInUserStore} from 'src/store/loggedinuser';
 import { useUserStore } from 'src/store/user';
-import {onMounted, ref} from 'vue';
-import {storeToRefs} from 'pinia';
-import ProfileImageSelf from 'components/ProfileImageSelf.vue';
+import {onMounted, ref, computed} from 'vue';
+import ProfileImage from 'components/ProfileImage.vue';
 import {useRouter} from 'vue-router';
 
 export default {
   name: 'HeaderDefault',
   components: {
-    ProfileImageSelf
+    ProfileImage
   },
 
   setup(){
-    const LoginStore = useLoginStore()
-    const {IsLoggedIn} = storeToRefs(LoginStore)
-
-    const LoggedInUserStore = useLoggedInUserStore()
-    storeToRefs(LoggedInUserStore)
-
-    const UserStore = useUserStore()
-
     const router = useRouter()
+    const loginStore = useLoginStore()
+    const userStore = useUserStore()
+
+    const isLoggedIn = computed(() => loginStore.isLoggedIn)
+    const profile = computed(() => userStore.loggedInUserProfile)
 
     async function logout(){
-      LoginStore.Logout()
-      UserStore.clearUserDict()
+      loginStore.logout()
+      userStore.clearUserProfiles()
       await router.push('/login')
     }
 
     onMounted(async () => {
-      await LoggedInUserStore.UpdateProfileInformation()
+      await userStore.loadLoggedInUserProfile()
     })
 
     return {
-      LoginStore,
-      LoggedInUserStore,
-      IsLoggedIn,
+      isLoggedIn,
+      profile,
       logout,
       tab: ref('home'),
     }

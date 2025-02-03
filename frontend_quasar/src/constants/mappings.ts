@@ -11,6 +11,7 @@ export const statusList = [
   'rejected',
   'assigned',
   'success',
+  'failed'
 ] as const;
 export type StatusType = typeof statusList[number];
 
@@ -25,6 +26,7 @@ export const status_color_mapping: Record<StatusType, string> = {
   rejected: 'negative',
   assigned: 'warning',
   success: 'green',
+  failed: 'red',
 };
 
 export const status_icon_mapping: Record<StatusType, string> = {
@@ -32,7 +34,8 @@ export const status_icon_mapping: Record<StatusType, string> = {
   accepted: 'o_check',
   rejected: 'o_close',
   assigned: 'o_pending',
-  success: 'o_done',
+  success: 'o_check_circle',
+  failed: 'o_cancel',
 };
 
 export const osList = ['windows', 'linux'] as const;
@@ -55,3 +58,22 @@ export const os_color_mapping: Record<OSListType, string> = {
 };
 
 
+export const dtypeList = [
+  'int',
+  'float',
+  'str',
+  'bool',
+  'list'
+] as const;
+
+export const dtype_color_mapping: Record<typeof dtypeList[number], string> = {
+  int: 'indigo-3',
+  float: 'blue-3',
+  str: 'orange-3',
+  bool: 'lime-3',
+  list: 'cyan-3',
+}
+
+export function isValidDtype(value: string): value is typeof dtypeList[number] {
+    return (dtypeList as readonly string[]).includes(value);
+}

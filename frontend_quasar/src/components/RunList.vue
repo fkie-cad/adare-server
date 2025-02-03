@@ -28,10 +28,12 @@ const typeVarsDetails: TypeVarsDetails = {
 }
 
 const columns: CustomQTableColumn[] = [
-  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, visible: true, type: DataTableDetails, typeVarsDetails: typeVarsDetails},
-  { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true, visible: true},
+  { name: 'result_status', align: 'left', label: '', field: 'result_status', hideable: true, visible: true, type: DataTableStatus},
   { name: 'experiment', align: 'left', label: 'experiment', field: 'experiment', hideable: true, visible: true},
-  { name: 'result_status', align: 'left', label: 'result_status', field: 'result_status', hideable: true, visible: true, type: DataTableStatus},
+  { name: 'environment', align: 'left', label: 'environment', field: 'environment', hideable: true, visible: true},
+  { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true, visible: true},
+  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, visible: true, type: DataTableDetails, typeVarsDetails: typeVarsDetails},
+  // { name: 'result_status', align: 'left', label: 'result_status', field: 'result_status', hideable: true, visible: true, type: DataTableStatus},
 ]
 
 const pagination = {

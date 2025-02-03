@@ -10,7 +10,7 @@
         </div>
         <div class="row  tw-text-3xl">
           <div class="col">{{testfunctionSet.name}}</div>
-          <div class="col flex justify-end"><UserAvatar :user="testfunctionSet.published_by"/></div>
+          <div class="col flex justify-end"><UserAvatar :profile="profile" v-if="profile"/></div>
         </div>
         <div class="row tw-text-gray-600 q-pt-md">
           <div class="col"># testfunctions</div>
@@ -19,7 +19,7 @@
         <div class="row  tw-text-3xl">
           <div class="col">{{testfunctionSet.num_testfunctions}}</div>
           <div class="col flex justify-end">
-            <UserAvatar :user="testfunctionSet.created_by" v-if="testfunctionSet.created_by"/>
+            <UserAvatar :profile="profile" v-if="profile"/>
             <div class="tw-text-3xl" v-else>-</div>
           </div>
         </div>
@@ -63,14 +63,16 @@
 import { computed, onMounted } from 'vue';
 import { useTestfunctionSetStore } from 'src/store/testfunctionset';
 import { useTestfunctionStore } from 'src/store/testfunction';
+import { useUserStore } from 'src/store/user';
 import DataTable from 'components/datatable/DataTable.vue';
 import { CustomQTableColumn } from 'src/models/quasar_extensions';
 import UserAvatar from 'components/global/UserAvatar.vue';
+import DataTableAbstractParameter from 'components/datatable/DataTableAbstractParameter.vue';
 
 const columns: CustomQTableColumn[] = [
   { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true, visible: true, hideable: true},
   { name: 'description', label: 'description', field: 'description', align: 'left', sortable: true, visible: true, hideable: true},
-  { name: 'possible_parameters', label: 'possible_parameters', field: 'possible_parameters', align: 'left', sortable: true, visible: true, hideable: true},
+  { name: 'possible_parameters', label: 'possible_parameters', field: 'possible_parameters', align: 'left', sortable: true, visible: true, hideable: true, type: DataTableAbstractParameter},
 ]
 
 
@@ -87,8 +89,10 @@ export default {
   setup(props) {
     const store = useTestfunctionSetStore();
     const testfunctionStore = useTestfunctionStore();
+    const userStore = useUserStore();
     testfunctionStore.setTestfunctionSet(props.name);
     const testfunctionSet = computed(() => store.getTestfunctionSet(props.name));
+    const profile = computed(() => testfunctionSet.value ? userStore.getProfile(testfunctionSet.value.published_by) : undefined);
 
     const openGiteaTestfunctionSetDir = () => {
       const file = testfunctionSet.value?.file
@@ -98,12 +102,16 @@ export default {
 
     onMounted(async () => {
       await store.fetchTestfunctionSets('');
+      if (testfunctionSet.value) {
+        await userStore.fetchProfile(testfunctionSet.value.published_by);
+      }
     });
 
     return {
       columns,
       testfunctionStore,
       testfunctionSet,
+      profile,
       openGiteaTestfunctionSetDir,
     };
   }

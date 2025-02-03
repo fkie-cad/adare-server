@@ -3,32 +3,45 @@
     class="tw-flex tw-items-center"
   >
     <ProfileImage
-      :user="data"
+      :profile="profile"
       size="md"
       :tooltip=true
-      :linktoprofile=true
-      v-if=data
+      :linkToProfile=true
+      v-if=profile
     />
   </div>
 </template>
 
 <script lang="ts">
-import { PropType } from 'vue';
+import { computed, onMounted } from 'vue';
 import ProfileImage from 'components/ProfileImage.vue';
-import { User } from 'src/models/experiment';
+import { useUserStore } from 'src/store/user';
 
 export default {
   name: 'DataTableUserIcon',
   components: { ProfileImage },
   props: {
     data: {
-      type: Object as PropType<User>,
-      required: false,
+      type: String,
+      required: true,
     },
     row: {
       type: Object,
       required: true,
     }
   },
+
+  setup(props) {
+    const userStore = useUserStore();
+    const profile = computed(() => userStore.getProfile(props.data));
+
+    onMounted(async () => {
+      await userStore.fetchProfile(props.data);
+    });
+
+    return {
+      profile,
+    };
+  }
 };
 </script>

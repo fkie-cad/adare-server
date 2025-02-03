@@ -1,59 +1,79 @@
 import { defineStore } from 'pinia';
 import { api } from 'src/boot/axios';
-import { User } from 'src/models/experiment';
+import { Profile } from 'src/models/experiment';
+import { useLoginStore } from 'src/store/login';
 
 interface UserState {
-  userDict: Record<string, User>;
+  userProfiles: Record<string, Profile>;
+  loggedInUserProfile: Profile | null;
 }
 
 
 export const useUserStore = defineStore('user', {
   state: (): UserState => ({
-    userDict: {},
+    userProfiles: {},
+    loggedInUserProfile: null,
   }),
 
   getters: {
-  },
-
-  actions: {
-    GetUser(username: string) {
-      return this.userDict[username]
-    },
-    clearUserDict(){
-      this.userDict = {}
-    },
-    initializeUserDict(username: string){
-      this.userDict[username] = {
-        username: username,
-        email: '',
-        teams: [],
-        avatar: '',
-        achievements: [],
+    isSupervisor (state) {
+      if (!state.loggedInUserProfile) {
+        return false;
       }
-    },
-    async UpdateProfileInformation(username: string){
-      if (!(username in this.userDict)) {
-        this.initializeUserDict(username)
+      for (let i = 0; i < state.loggedInUserProfile.teams.length; i++) {
+        if (state.loggedInUserProfile.teams[i].name === 'supervisor' || state.loggedInUserProfile.teams[i].name === 'admin') {
+          return true;
+        }
       }
-      await api.get( 'user/'+ username + '/profile').then((response) => {
-        this.userDict[username].email = response.data.user.email
-        this.userDict[username].teams = response.data.teams
-        this.userDict[username].avatar = response.data.avatar
-      })
-    },
-    GetUserTeams(username: string) {
-      return this.userDict[username].teams
-    },
-    GetUserAvatarThumbnail(username: string) {
-      return this.userDict[username].avatar;
-    },
-    GetUserEmail(username: string) {
-      if (!(username in this.userDict)) {
-        this.initializeUserDict(username)
-      }
-      return this.userDict[username].email
+      return false;
     }
   },
 
+  actions: {
+    getProfile(username: string) {
+      if (username in this.userProfiles) {
+        return this.userProfiles[username];
+      } else if (this.loggedInUserProfile && this.loggedInUserProfile.user.username === username) {
+        return this.loggedInUserProfile;
+      }
+      else {
+        return null;
+      }
+    },
+
+    clearUserProfiles() {
+      this.userProfiles = {};
+    },
+
+    async fetchProfile(username: string) {
+      // check if username is undefined
+      if (username === undefined) {
+        return;
+      }
+      await api.get('user/' + username + '/profile').then((response) => {
+        this.userProfiles[username] = response.data;
+      }).catch((error) => {
+        console.log(error);
+      });
+    },
+
+    async loadLoggedInUserProfile() {
+      const LoginStore= useLoginStore();
+      if (!LoginStore.isLoggedIn) {
+        this.loggedInUserProfile = null;
+        return null;
+      }
+      await api.get('user/profile/').then((response) => {
+        this.loggedInUserProfile = response.data;
+        return this.loggedInUserProfile;
+      }).catch((error) => {
+        console.log(error);
+      });
+    },
+
+    removeLoggedInUserProfile() {
+      this.loggedInUserProfile = null;
+    }
+  },
 
 });

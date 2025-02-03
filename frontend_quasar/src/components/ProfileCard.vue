@@ -1,16 +1,16 @@
 <template>
   <q-card
       class="col-auto"
+      v-if="profile"
     >
       <q-card-section
         class="column justify-center items-center bg-teal-2 tw-h-32"
       >
         <ProfileImage
-          offset_classes="tw-top-8"
           editable
-          :user="user"
+          offset_classes="tw-top-8"
           size="lg"
-          :tooltip="false"
+          :profile="profile"
         />
       </q-card-section>
       <q-card-section>
@@ -19,69 +19,66 @@
             username
           </div>
           <div class="column text-h6">
-            {{ username }}
+            {{ profile.user.username }}
           </div>
         </div>
         <q-separator />
-        <div class="row justify-between q-pa-sm" v-if="LoginStore.IsLoggedIn">
+        <div class="row justify-between q-pa-sm">
           <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             email
           </div>
           <div class="column text-h6">
-            {{ UserStore.GetUserEmail(username) }}
+            {{ profile.user.email }}
           </div>
         </div>
         <q-separator />
-        <div class="row justify-between  q-pa-sm">
+        <div class="row justify-between q-pa-sm">
           <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             teams
           </div>
           <div class="column">
-            <span v-for="role in UserStore.GetUserTeams(username)" v-bind:key="role.id" class="tw-rounded q-pa-xs q-ma-xs tw-text-center tw-font-bold tw-border-2" :class="getColorForRole(role.name)">
+            <span v-for="role in profile.teams" v-bind:key="role.id" class="tw-rounded q-pa-xs q-ma-xs tw-text-center tw-font-bold tw-border-2" :class="getColorForRole(role.name)">
               {{ role.name }}
             </span>
           </div>
         </div>
         <q-separator />
-        <div class="row justify-between  q-pa-sm">
+        <div class="row justify-between q-pa-sm">
           <div class="column text-h6 tw-text-gray-600 q-pr-xl">
             achievements
           </div>
         </div>
 <!--        <div class="row justify-evenly">-->
-<!--          <AchievementIcon :image="achiev.iconfile" :description="achiev.description" :count="achiev.count" v-for="achiev in UserStore.GetUserAchievements(username).values()" v-bind:key="achiev.id" />-->
+<!--          <AchievementIcon  :image="achiev.iconfile" :description="achiev.description" :count="achiev.count" v-for="achiev in LoggedInUserStore.GetUserAchievements.values()" v-bind:key="achiev.id" />-->
 <!--        </div>-->
       </q-card-section>
     </q-card>
 </template>
 
 <script lang="ts">
-import { useUserStore } from 'src/store/user';
 import { useLoginStore} from 'src/store/login';
-import { useLoggedInUserStore } from 'src/store/loggedinuser';
 import ProfileImage from 'components/ProfileImage.vue';
-import { computed, onMounted, ref } from 'vue';
-import {storeToRefs} from 'pinia';
+import { computed, ref, PropType } from 'vue';
+import { Profile } from 'src/models/experiment';
 
 export default {
   name: 'ProfileCard',
   components: {
     ProfileImage
   },
-  props: ['username'],
+  props: {
+    profile: {
+      type: Object as PropType<Profile>,
+      required: true,
+    },
+  },
 
-  setup(props){
+  setup(){
+    const loginStore = useLoginStore()
 
-    const LoginStore = useLoginStore()
-    storeToRefs(LoginStore)
-
-    const UserStore = useUserStore()
-    storeToRefs(UserStore)
-
-    const user = computed(() => UserStore.GetUser(props.username))
-
-    const LoggedInUserStore = useLoggedInUserStore()
-    storeToRefs(LoggedInUserStore)
+    const isLoggedIn = computed(
+      () => loginStore.isLoggedIn
+    )
 
     let role_color_mapping = ref<{ [key: string]: string }>({
       'Owners': 'bg-black text-white tw-border-gray-700',
@@ -96,17 +93,10 @@ export default {
       }
     }
 
-    onMounted(async () => {
-      await UserStore.UpdateProfileInformation(props.username)
-
-    })
-
 
     return {
-      LoginStore,
-      UserStore,
+      isLoggedIn,
       getColorForRole,
-      user,
     }
 
   }

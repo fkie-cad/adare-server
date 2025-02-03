@@ -1,229 +1,89 @@
-<!--<template>-->
-<!--  <div-->
-<!--    v-if="experiment_data"-->
-<!--  >-->
-<!--    <q-card>-->
-<!--      <q-card-section>-->
-<!--        <div class="row tw-text-gray-600">-->
-<!--          <div class="col">name</div>-->
-<!--          <div class="col tw-text-right">ulid</div>-->
-<!--        </div>-->
-<!--        <div class="row  tw-text-3xl">-->
-<!--          <div class="col">{{experiment_data.name}}</div>-->
-<!--          <div class="col tw-text-right">{{experiment_data.ulid}}</div>-->
-<!--        </div>-->
-<!--      </q-card-section>-->
-<!--      <q-separator />-->
-<!--      <q-card-section class="row justify-between">-->
-<!--        <div class="col-8 q-pa-md">-->
-<!--          <q-card>-->
-<!--            <q-card-section class="tw-text-center tw-text-2xl bg-primary text-white q-pa-sm">-->
-<!--              Metadata-->
-<!--            </q-card-section>-->
-<!--            <q-separator/>-->
-<!--            <q-markup-table-->
-<!--              dense-->
-<!--            >-->
-<!--              <tbody>-->
-<!--              <tr>-->
-<!--                <td class="tw-text-left">publisher</td>-->
-<!--                <td>-->
-<!--                  <div class="tw-float-right">-->
-<!--                    <div class="tw-w-fit tw-h-fit q-py-md">-->
-<!--                      <div class="row bg-teal-1 tw-border-solid tw-rounded tw-border-2 tw-border-slate-400 q-pa-sm">-->
-<!--                        <div class="q-px-md tw-self-center">-->
-<!--                          {{ experiment_data.published_by.username }}-->
-<!--                        </div>-->
-<!--                        <ProfileImage-->
-<!--                          :username="experiment_data.published_by.username"-->
-<!--                          tooltip-->
-<!--                          linktoprofile-->
-<!--                          :avatar="experiment_data.published_by.avatar"-->
-<!--                        />-->
-<!--                      </div>-->
-<!--                    </div>-->
-<!--                  </div>-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="tw-text-left">publish date</td>-->
-<!--                <td class="tw-text-right">{{ experiment_data.published_at }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="tw-text-left">description</td>-->
-<!--                <td class="tw-text-right">-->
-<!--                  <div class="tw-whitespace-pre-wrap">-->
-<!--                    {{ experiment_data.description }}-->
-<!--                  </div>-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="tw-text-left">tags</td>-->
-<!--                <td class="tw-text-right">-->
-<!--                  <div class="tw-whitespace-pre-wrap">-->
-<!--                    <q-chip-->
-<!--                      v-for="tag in experiment_data.tags"-->
-<!--                      :key="tag"-->
-<!--                      :label="'#'+tag"-->
-<!--                      color="primary"-->
-<!--                      text-color="white"-->
-<!--                      class="q-ma-xs"-->
-<!--                    />-->
-<!--                  </div>-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              </tbody>-->
-<!--            </q-markup-table>-->
-<!--          </q-card>-->
-<!--        </div>-->
-<!--        <div class="col-4  q-pa-md tw-justify-end">-->
-<!--&lt;!&ndash;          <div class="row">&ndash;&gt;-->
-<!--&lt;!&ndash;            <q-card class="tw-w-full">&ndash;&gt;-->
-<!--&lt;!&ndash;              <q-card-section class="tw-text-center tw-text-2xl bg-primary text-white q-pa-sm">&ndash;&gt;-->
-<!--&lt;!&ndash;                Os Information&ndash;&gt;-->
-<!--&lt;!&ndash;              </q-card-section>&ndash;&gt;-->
-<!--&lt;!&ndash;              <q-separator/>&ndash;&gt;-->
-<!--&lt;!&ndash;              <q-markup-table&ndash;&gt;-->
-<!--&lt;!&ndash;                dense&ndash;&gt;-->
-<!--&lt;!&ndash;              >&ndash;&gt;-->
-<!--&lt;!&ndash;                <tbody>&ndash;&gt;-->
-<!--&lt;!&ndash;                <tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-left">Os</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-right">{{ experiment_data.os_info.os }}</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                </tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                <tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-left">Version</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-right">{{ experiment_data.os_info.version }}</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                </tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                <tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-left">Distribution</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-right">{{ experiment_data.os_info.distribution }}</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                </tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                <tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-left">Architecture</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-right">{{ experiment_data.os_info.architecture }}</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                </tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                <tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-left">Language</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                  <td class="tw-text-right">{{ experiment_data.os_info.language }}</td>&ndash;&gt;-->
-<!--&lt;!&ndash;                </tr>&ndash;&gt;-->
-<!--&lt;!&ndash;                </tbody>&ndash;&gt;-->
-<!--&lt;!&ndash;              </q-markup-table>&ndash;&gt;-->
-<!--&lt;!&ndash;            </q-card>&ndash;&gt;-->
-<!--&lt;!&ndash;          </div>&ndash;&gt;-->
-<!--          <div class="row q-mt-xl">-->
-<!--            <q-card class="tw-w-full">-->
-<!--              <q-card-section class="tw-text-center tw-text-2xl bg-primary text-white q-pa-sm">-->
-<!--                Runs-->
-<!--              </q-card-section>-->
-<!--              <q-separator/>-->
-<!--              <q-markup-table-->
-<!--                dense-->
-<!--              >-->
-<!--                <thead>-->
-<!--                <tr>-->
-<!--                  <th>-->
-<!--                    <q-icon-->
-<!--                      name="check_circle"-->
-<!--                      color="positive"-->
-<!--                      size="32px"-->
-<!--                    />-->
-<!--                  </th>-->
-<!--                  <th>-->
-<!--                    <q-icon-->
-<!--                      name="cancel"-->
-<!--                      color="negative"-->
-<!--                      size="32px"-->
-<!--                    />-->
-<!--                  </th>-->
-<!--                </tr>-->
-<!--                </thead>-->
-<!--                <tbody class="tw-text-center">-->
-<!--                <tr>-->
-<!--                  <td><div class="tw-text-2xl">{{ experiment_data.run_counts.successful }}</div></td>-->
-<!--                  <td><div class="tw-text-2xl">{{ experiment_data.run_counts.failed }}</div></td>-->
-<!--                </tr>-->
-<!--                </tbody>-->
-
-<!--              </q-markup-table>-->
-<!--            </q-card>-->
-<!--          </div>-->
-<!--        </div>-->
-<!--      </q-card-section>-->
-<!--      <q-card-section>-->
-<!--        <AdvancedDataTable-->
-<!--          :data_get_function="GetAbstractTests"-->
-<!--          :visible-columns="vis_columns_test"-->
-<!--          :columns="columns_test"-->
-<!--          title="Tests"-->
-<!--          class="tw-w-full"-->
-<!--        />-->
-<!--      </q-card-section>-->
-<!--      <q-card-section>-->
-<!--        <ExperimentrunTable-->
-<!--          :experiment="experiment_data.ulid"-->
-<!--        />-->
-<!--      </q-card-section>-->
-<!--    </q-card>-->
-<!--  </div>-->
-<!--</template>-->
+<template>
+  <div v-if="experiment">
+    <q-card>
+      <q-card-section>
+        <div class="row tw-text-gray-600">
+          <div class="col">name</div>
+          <div class="col tw-text-right">ulid</div>
+        </div>
+        <div class="row  tw-text-3xl">
+          <div class="col">{{experiment.name}}</div>
+          <div class="col tw-text-right">{{experiment.ulid}}</div>
+        </div>
+      </q-card-section>
+      <q-card-section v-if="experiment.description">
+        <div class="row tw-text-gray-600">
+          <div class="col">description</div>
+        </div>
+        <div class="row">
+          <div class="col">{{experiment.description}}</div>
+        </div>
+      </q-card-section>
+      <q-card-section>
+        <DataTable title="Tests" :store="experimentTestsStore" :columns="columns_test" />
+      </q-card-section>
+    </q-card>
+  </div>
+  <div v-else>
+    <q-card>
+      <q-card-section>
+        <div class="text-h6">Experiment not found</div>
+      </q-card-section>
+    </q-card>
+  </div>
+</template>
 
 
-<!--<script lang="ts">-->
-<!--import { useExperimentStore } from 'src/store/experiments';-->
-<!--import {storeToRefs} from 'pinia';-->
-<!--import {onMounted, ref} from 'vue';-->
-<!--import {Experiment} from 'src/models/scenario';-->
-<!--import AdvancedDataTable from 'components/global/AdvancedDataTable.vue';-->
-<!--import ExperimentrunTable from 'components/ExperimentrunTable.vue';-->
-<!--import ProfileImage from 'components/ProfileImage.vue';-->
+<script lang="ts">
+import { useExperimentStore } from 'src/store/experiment';
+import { onMounted, ref } from 'vue';
+import { Experiment } from 'src/models/experiment';
+import DataTable from 'components/datatable/DataTable.vue';
+import { useExperimentTestsStore } from 'src/store/experimentests';
+import { CustomQTableColumn } from 'src/models/quasar_extensions';
+import DataTableParameter from 'components/datatable/DataTableParameter.vue';
+import DataTableTestfunction from 'components/datatable/DataTableTestfunction.vue';
 
-<!--const columns_test = [-->
-<!--  { name: 'ulid', label: 'ulid', field: 'ulid', align: 'left', sortable: true, hideable: true, },-->
-<!--  { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true },-->
-<!--  { name: 'description', label: 'description', field: 'description', align: 'left', sortable: true, hideable: true, },-->
-<!--  { name: 'testfunction', label: 'testfunction', field: 'testfunction', align: 'left', sortable: true, hideable: true, type: 'testfunction'},-->
-<!--  { name: 'parameters', label: 'parameters', field: 'parameters', align: 'left', sortable: true, hideable: true, type: 'testparameterentry' },-->
-<!--  { name: 'tool__name', label: 'tool name', field: 'tool__name', align: 'left', sortable: true, hideable: true, type: 'subparameter', subparameter: 'command' },-->
-<!--  { name: 'tool__command', label: 'tool command', field: 'tool__command', align: 'left', sortable: true, hideable: true, type: 'subparameter', subparameter: 'command'},-->
-<!--]-->
+const columns_test: CustomQTableColumn[] = [
+  { name: 'name', align: 'left', label: 'name', field: 'name', hideable: true, visible: true},
+  // { name: 'testfunction.set', align: 'left', label: 'set', field: 'testfunction.set', hideable: true, visible: true},
+  { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true, visible: false},
+  { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true, visible: true},
+  { name: 'testfunction', align: 'left', label: 'testfunction', field: 'testfunction', hideable: true, visible: true, type: DataTableTestfunction},
+  { name: 'parameters', align: 'left', label: 'parameters', field: 'parameters', hideable: true, visible: true, type: DataTableParameter},
+]
 
-<!--const vis_columns_test = ['name', 'description', 'testfunction', 'parameters', 'tool__name', 'tool__command']-->
+export default {
+  name: 'ExperimentOverview',
 
-<!--export default {-->
-<!--  name: 'ExperimentOverview',-->
+  components: { DataTable },
 
-<!--  components: {AdvancedDataTable, ProfileImage, ExperimentrunTable},-->
+  props: {
+    name: {
+      type: String,
+      required: true,
+    },
+  },
 
-<!--  props: {-->
-<!--    ulid: {-->
-<!--      type: String,-->
-<!--      required: true,-->
-<!--    },-->
-<!--  },-->
+  setup(props) {
+    let experimentStore = useExperimentStore()
+    const experimentTestsStore = useExperimentTestsStore()
+    let experiment = ref<Experiment>()
 
-<!--  setup(props) {-->
-<!--    let ExperimentStore = useExperimentStore()-->
-<!--    storeToRefs(ExperimentStore)-->
+    onMounted(async () => {
+      const exp = await experimentStore.loadExperimentByName(props.name)
+      if (exp) {
+        experiment.value = exp
+      }
+      await experimentTestsStore.setExperiment(exp.name)
+    })
 
-<!--    let experiment_data = ref<Experiment>()-->
+    return {
+      experiment,
+      experimentTestsStore,
+      columns_test,
+    }
+  }
+}
 
-<!--    onMounted(async () => {-->
-<!--      await ExperimentStore.LoadExperiment(props.ulid)-->
-<!--      experiment_data.value = ExperimentStore.GetExperiment(props.ulid)-->
-<!--      console.log(experiment_data.value)-->
-<!--    })-->
-<!--    let GetAbstractTests = () => {-->
-<!--      return experiment_data.value?.abstract_tests-->
-<!--    }-->
-
-<!--    return {-->
-<!--      experiment_data,-->
-<!--      GetAbstractTests,-->
-<!--      vis_columns_test,-->
-<!--      columns_test,-->
-<!--    }-->
-<!--  }-->
-<!--}-->
-
-<!--</script>-->
+</script>

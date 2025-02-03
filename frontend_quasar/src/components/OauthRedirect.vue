@@ -16,7 +16,7 @@ export default {
   setup() {
     const route = useRoute();
     const router = useRouter();
-    const LoginStore = useLoginStore();
+    const loginStore = useLoginStore();
 
     // Access query parameters
     const state = computed(() => route.query.state);
@@ -50,7 +50,7 @@ export default {
         return;
       }
 
-      LoginStore.SetLoginToken(response.data.user, response.data.token, response.data.expiry);
+      loginStore.setLoginToken(response.data.user, response.data.token, response.data.expiry);
       await router.push('/profile');
 
     };

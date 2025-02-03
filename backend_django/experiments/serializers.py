@@ -82,8 +82,8 @@ class EnvironmentSerializer(serializers.ModelSerializer):
     os_info = OsInfoSerializer()
     tags = serializers.SerializerMethodField('get_tags', read_only=True)
     post_setup_installations = PostSetupInstallationSerializer(many=True)
-    published_by = GiteaUserSerializer()
-    created_by = GiteaUserSerializer()
+    published_by = serializers.CharField(source='published_by.username', read_only=True)
+    created_by = serializers.CharField(source='created_by.username', read_only=True)
 
     def get_tags(self, obj):
         tag_list = []
@@ -176,6 +176,7 @@ class TestParameterEntrySerializer(serializers.ModelSerializer):
 
 class TestFunctionSerializer(serializers.ModelSerializer):
     possible_parameters = TestParameterSerializer(many=True)
+    set = serializers.CharField(source='testfunction_set.name', read_only=True)
 
     class Meta:
         model = TestFunction
@@ -183,6 +184,7 @@ class TestFunctionSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'possible_parameters',
+            'set',
         ]
         extra_kwargs = {
             'description': {'required': False},
@@ -360,9 +362,9 @@ class ExperimentSerializer(serializers.ModelSerializer):
     abstract_tests = AbstractTestSerializer(read_only=True, many=True)
     tags = serializers.SerializerMethodField('get_tags', read_only=True)
     environments = EnvironmentSerializer(read_only=True, many=True)
-    published_by = GiteaUserSerializer(read_only=True)
+    published_by = serializers.CharField(source='published_by.username', read_only=True)
     published_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
-    accepted_by = GiteaUserSerializer(read_only=True)
+    created_by = serializers.CharField(source='created_by.username', read_only=True)
 
     class Meta:
         model = Experiment
@@ -385,7 +387,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
 
             'published',
             'published_by',
-            'accepted_by',
+            'created_by',
             'published_at',
 
             'run_counts',
@@ -436,20 +438,27 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
     # tests = TestSerializer(read_only=True, many=True)
     status = StatusSerializer(read_only=True)
     result_status = StatusSerializer(read_only=True)
-    published_by = GiteaUserSerializer(read_only=True)
+    published_by = serializers.CharField(source='published_by.username', read_only=True)
     published_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     experiment = serializers.CharField(source='experiment.name', read_only=True)
+    environment = serializers.CharField(source='environment.name', read_only=True)
     events = serializers.SerializerMethodField('get_events', read_only=True)
+    duration = serializers.SerializerMethodField('get_duration', read_only=True)
 
     def get_events(self, obj):
         event_deserialized = []
-        for event in obj.events.order_by('timestamp'):
+        for event in sorted(obj.events, key=lambda e: e.timestamp):
             event_serializer = get_event_serializer(event.category)
             # use the serializer to deserialize the event
             event_serializer = event_serializer(event)
             event_deserialized.append(event_serializer.data)
-        # sort events by timestamp
         return event_deserialized
+
+    def get_duration(self, obj):
+        if obj.timestamp_start and obj.timestamp_end:
+            return obj.timestamp_end - obj.timestamp_start
+        return None
+
 
     class Meta:
         model = ExperimentRun
@@ -463,6 +472,8 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
             'status',
             'result_status',
             'experiment',
+            'environment',
+            'duration',
         ]
 
 

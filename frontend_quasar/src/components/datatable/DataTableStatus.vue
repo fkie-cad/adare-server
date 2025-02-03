@@ -1,5 +1,5 @@
 <template>
-    <q-icon :name="icon" :color="color">
+    <q-icon :name="icon" :color="color" size="md">
       <q-tooltip> {{ status }} </q-tooltip>
     </q-icon>
 </template>
@@ -13,7 +13,7 @@ export default {
   components: {  },
   props: {
     data: {
-      type: Array,
+      type: Object,
       required: true,
     },
     row: {

@@ -4,7 +4,7 @@
     flat
     class=""
   >
-    <div v-show="!LoginStore.IsLoggedIn">
+    <div v-show="!isLoggedIn">
       <q-card-section>
         <h3 class="text-h3 q-ma-none q-mb-xl text-center">Sign In</h3>
         <div class="flex justify-center">
@@ -31,10 +31,8 @@
 </template>
 
 <script lang="ts">
-import {ref, reactive, onMounted} from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useLoginStore } from 'src/store/login';
-import { useLoggedInUserStore } from 'src/store/loggedinuser';
-import { storeToRefs } from 'pinia'
 import { api } from 'src/boot/axios';
 import { FRONTEND_URL } from 'src/boot/axios';
 import {useRouter} from 'vue-router';
@@ -43,6 +41,7 @@ export default {
   'name': 'LoginForm',
 
   setup() {
+    const loginStore = useLoginStore()
 
     let login_data = reactive({
       username: '',
@@ -51,14 +50,12 @@ export default {
     let errorMessage = ref('')
     let errorShown = ref(false)
     let directly_logged_in = ref(false)
+    const isLoggedIn = computed(
+      () => loginStore.isLoggedIn
+    )
 
     const router = useRouter()
 
-    const LoggedInUserStore = useLoggedInUserStore()
-    storeToRefs(LoggedInUserStore)
-
-    const LoginStore = useLoginStore()
-    storeToRefs(LoginStore)
 
     const login = async () => {
       // create state for preventing csrf attacks (https://auth0.com/docs/protocols/state-parameters)
@@ -81,10 +78,8 @@ export default {
     }
 
     async function logout () {
-      LoginStore.Logout()
-      LoggedInUserStore.ResetUser()
+      loginStore.logout()
       await router.push('/login')
-      await LoggedInUserStore.UpdateProfileInformation()
     }
 
     function setErrorMessage(message: string){
@@ -93,16 +88,9 @@ export default {
     function showErrorMessage(){
       errorShown.value = true
     }
-    function hideErrorMessage(){
-      errorShown.value = false
-    }
-    function reset () {
-      login_data.username = ''
-      login_data.password = ''
-    }
 
     onMounted(async () => {
-      if(LoginStore.IsLoggedIn){
+      if(isLoggedIn.value){
         await router.push('/profile')
       }
     })
@@ -112,11 +100,9 @@ export default {
       errorMessage,
       errorShown,
       directly_logged_in,
-      LoginStore,
       login,
       logout,
-      reset,
-      hideErrorMessage,
+      isLoggedIn,
     }
   }
 }

@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
     #create_pr_environment(OWNER, REPO, 'testenv3', Path('/home/miq/Documents/adare/examples2/environments/testenv.yml'), 'testenv')
     # create_pr_testfunction_create(OWNER, REPO, 'tf_standard', Path('/home/miq/Documents/adare/examples/testfunctions/standard'), 'standard')
-    create_pr_environment(OWNER, REPO, 'envx2', Path('/home/miq/Documents/adare/examples2/environments/testenv2.yml'), 'testenv2')
-    #create_pr_experiment(OWNER, REPO, 'exp1', Path('/home/miq/Documents/adare/examples/experiments/deletefile'), 'deletefile')
+    #create_pr_environment(OWNER, REPO, 'envx2', Path('/home/miq/Documents/adare/examples2/environments/testenv2.yml'), 'testenv2')
+    create_pr_experiment(OWNER, REPO, 'expq4', Path('/home/miq/Documents/adare/examples2/experiments/deletefile2'), 'deletefile2')
     #
     #merge_pr(OWNER, REPO, 111)

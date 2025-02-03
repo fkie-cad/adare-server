@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import {useLoggedInUserStore} from 'src/store/loggedinuser';
+import {useUserStore} from 'src/store/user';
 
 
 export const useLoginStore = defineStore('login', {
@@ -10,19 +10,19 @@ export const useLoginStore = defineStore('login', {
   }),
 
   getters: {
-    GetLoginUser (state) {
+    getLoginUser (state) {
       return state.loginUser;
     },
-    IsLoggedIn (state) {
+    isLoggedIn (state) {
       return state.loggedIn;
     },
-    GetLoginToken(state){
+    getLoginToken(state){
       return state.loginToken
     }
   },
 
   actions: {
-    SetLoginTokenVars(){
+    setLoginTokenVars(){
       if (localStorage.getItem('LoginToken') && localStorage.getItem('LoginUser') && localStorage.getItem('LoginTokenExpiration')) {
         this.loggedIn = true
         this.loginUser = localStorage.getItem('LoginUser') || ''
@@ -33,35 +33,35 @@ export const useLoginStore = defineStore('login', {
         this.loginToken = ''
       }
     },
-    SetLoginToken(user: string, token: string, expirationDate: string){
+    setLoginToken(user: string, token: string, expirationDate: string){
       localStorage.setItem('LoginUser', user)
       localStorage.setItem('LoginToken', token)
       localStorage.setItem('LoginTokenExpiration', new Date(expirationDate).toISOString())
-      this.SetLoginTokenVars()
+      this.setLoginTokenVars()
     },
-    RemoveLoginToken(){
+    removeLoginToken(){
       localStorage.removeItem('LoginUser')
       localStorage.removeItem('LoginToken')
       localStorage.removeItem('LoginTokenExpiration')
-      this.SetLoginTokenVars()
+      this.setLoginTokenVars()
     },
-    InitLogin(){
+    initLogin(){
       const expiry = localStorage.getItem('LoginTokenExpiration')
       if (!expiry) {
-        this.RemoveLoginToken()
-        this.SetLoginTokenVars()
+        this.removeLoginToken()
+        this.setLoginTokenVars()
         return
       }
       const expiry_data = new Date(expiry)
       if (expiry_data <= new Date()) {
-        this.RemoveLoginToken()
+        this.removeLoginToken()
       }
-      this.SetLoginTokenVars()
+      this.setLoginTokenVars()
     },
-    Logout(){
-      this.RemoveLoginToken()
-      const LoggedInUserStore= useLoggedInUserStore()
-      LoggedInUserStore.ResetUser()
+    logout(){
+      this.removeLoginToken()
+      const userStore = useUserStore()
+      userStore.removeLoggedInUserProfile()
     }
   }
 });

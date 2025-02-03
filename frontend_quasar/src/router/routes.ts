@@ -86,6 +86,20 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
+  {
+    path: '/experiment/:name',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/ExperimentPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
+      },
+    ],
+  },
   // {
   //   path: '/testfunction/',
   //   component: () => import('layouts/MainLayout.vue'),
@@ -210,7 +224,8 @@ const routes: RouteRecordRaw[] = [
         components: {
           main: () => import('pages/RunDetailsPage.vue'),
           header: () => import('components/HeaderDefault.vue'),
-        }
+        },
+        props: true,
       }
     ],
   },
