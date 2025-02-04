@@ -34,9 +34,12 @@
           <div class="col tw-text-right">duration</div>
         </div>
         <div class="row  tw-text-3xl">
-          <div class="col">{{run.result_status}}</div>
+          <div class="col"><StatusIcon :status="run.result_status.name" size="xl"/></div>
           <div class="col tw-text-right">{{ secondsToString(run.duration) }}</div>
         </div>
+      </q-card-section>
+      <q-card-section>
+        <DataTable title="Events" :store="runEventStore" :columns="runEventColumns" />
       </q-card-section>
     </q-card>
   </div>
@@ -46,13 +49,24 @@
 <script lang="ts">
 import { useRunStore } from 'src/store/run';
 import { useUserStore } from 'src/store/user';
+import { useRunEventStore } from 'src/store/runevent';
 import { computed, onMounted, } from 'vue';
 import ProfileImage from 'components/ProfileImage.vue';
+import StatusIcon from 'components/global/StatusIcon.vue';
+import DataTable from 'components/datatable/DataTable.vue';
+import { CustomQTableColumn } from 'src/models/quasar_extensions';
+
+const runEventColumns: CustomQTableColumn[] = [
+  { name: 'status', label: 'status', align: 'left', field: 'status', hideable: true, visible: true },
+  { name: 'category', label: 'category', align: 'left', field: 'category', hideable: true, visible: true },
+  { name: 'ulid', label: 'ulid', align: 'left', field: 'ulid', hideable: true, visible: false },
+
+];
 
 export default {
   name: 'RunDetail',
 
-  components: { ProfileImage },
+  components: { DataTable, StatusIcon, ProfileImage },
 
   props: {
     ulid: {
@@ -64,6 +78,7 @@ export default {
   setup(props) {
     const runStore = useRunStore()
     const userStore = useUserStore()
+    const runEventStore = useRunEventStore()
     const run = computed(() => runStore.getRun(props.ulid))
     const profile = computed(() => userStore.getProfile(run.value.published_by));
 
@@ -77,13 +92,16 @@ export default {
 
     onMounted(async () => {
       await runStore.fetchRun(props.ulid)
+      await runEventStore.setRun(props.ulid)
       await userStore.fetchProfile(run.value.published_by)
     })
 
     return {
       run,
       profile,
+      runEventStore,
       secondsToString,
+      runEventColumns,
     }
   }
 }

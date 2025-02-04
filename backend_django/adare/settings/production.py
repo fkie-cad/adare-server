@@ -1,6 +1,7 @@
 from .base import *
 from decouple import config, Csv
 from corsheaders.defaults import default_headers
+import os
 
 # get the secret key from the environment
 SECRET_KEY = config("DJANGO_SECRET_KEY")
@@ -75,5 +76,30 @@ CSP_STYLE_SRC = ("'self'", )
 CSP_SCRIPT_SRC = ("'self'", )
 CSP_IMG_SRC = ("'self'", )
 CSP_FONT_SRC = ("'self'", )
+
+# minio settings
+# minio-settings
+STORAGES = {
+    "staticfiles": {"BACKEND": 'storages.backends.s3.S3Storage'},
+    "default": {"BACKEND": 'storages.backends.s3.S3Storage'},
+}
+
+MINIO_STORAGE_ENDPOINT = 'http://localhost:9000'
+MINIO_ACCESS_URL = 'adare.seclab-bonn.de/minio/'
+MINIO_STORAGE_ACCESS_KEY = os.getenv('MINIO_ROOT_USER')
+MINIO_STORAGE_SECRET_KEY = os.getenv('MINIO_ROOT_PASSWORD')
+
+AWS_ACCESS_KEY_ID = MINIO_STORAGE_ACCESS_KEY  # MinIO Access Key
+AWS_SECRET_ACCESS_KEY = MINIO_STORAGE_SECRET_KEY # MinIO Secret Key
+AWS_STORAGE_BUCKET_NAME = 'runs'  # Name of the MinIO bucket
+AWS_S3_CUSTOM_DOMAIN = f'{MINIO_ACCESS_URL}/{AWS_STORAGE_BUCKET_NAME}'
+AWS_S3_ENDPOINT_URL = MINIO_STORAGE_ENDPOINT # MinIO endpoint URL
+AWS_S3_REGION_NAME = ''
+AWS_S3_USE_SSL = False
+AWS_S3_VERIFY = False
+AWS_DEFAULT_ACL = None
+AWS_S3_OBJECT_PARAMETERS = {
+    "CacheControl": "max-age=86400",
+}
 
 

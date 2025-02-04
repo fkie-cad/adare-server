@@ -9,7 +9,7 @@ import { TypeVarsTag } from 'src/models/quasar_extensions';
 import { Tag } from 'src/models/experiment';
 
 const defaultTypeVarsTag: TypeVarsTag = {
-  color: 'primary',
+  color: 'pink-9',
 };
 
 export default {
@@ -30,7 +30,6 @@ export default {
     },
     color: {
       type: String,
-      default: 'primary',
     },
   },
 

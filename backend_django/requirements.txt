@@ -16,6 +16,8 @@ dj-rest-auth
 django-allauth[socialaccount]
 requests
 celery
+django-storages
+boto3
 redis
 flower
 attrs

@@ -54,7 +54,7 @@ export const useTestfunctionSetStore = defineStore('testfunctionSet', {
     },
 
     getRows() {
-      return Object.values(this.testfunctionSets);
+      return this.testfunctionSets ? Object.values(this.testfunctionSets) : [];
     },
   },
 });

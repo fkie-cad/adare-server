@@ -46,7 +46,7 @@ export interface OsInfo {
 }
 
 export interface RunCount {
-  successfull: number;
+  successful: number;
   failed: number;
 }
 

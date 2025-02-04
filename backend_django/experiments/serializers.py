@@ -225,8 +225,8 @@ class TestFunctionSetMetadataSerializer(serializers.ModelSerializer):
 
 class TestFunctionSetSerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(many=True)
-    published_by = GiteaUserSerializer()
-    created_by = GiteaUserSerializer()
+    published_by = serializers.CharField(source='published_by.username', read_only=True)
+    created_by = serializers.CharField(source='created_by.username', read_only=True)
     testfunctions = TestFunctionSerializer(many=True)
 
     class Meta:
@@ -414,13 +414,13 @@ class ExperimentSerializer(serializers.ModelSerializer):
         return ret
 
     def get_run_counts(self, obj):
-        # status = Status.objects.get(name='success')
-        # num_successful = ExperimentRun.objects.filter(experiment=obj, status=status).count()
-        # status = Status.objects.get(name='failed')
-        # num_failed = ExperimentRun.objects.filter(experiment=obj, status=status).count()
+        status = Status.objects.get(name='success')
+        num_successful = ExperimentRun.objects.filter(experiment=obj, result_status=status).count()
+        status = Status.objects.get(name='failed')
+        num_failed = ExperimentRun.objects.filter(experiment=obj, result_status=status).count()
         return {
-            'successful': 0,
-            'failed': 0,
+            'successful': num_successful,
+            'failed': num_failed,
         }
 
 
@@ -452,7 +452,20 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
             # use the serializer to deserialize the event
             event_serializer = event_serializer(event)
             event_deserialized.append(event_serializer.data)
-        return event_deserialized
+
+        # filter out all events which status name running if corresponding event with status name finished exists (with same group_id)
+        filtered_events = []
+        for event in event_deserialized:
+            if event['status']['name'] == 'running':
+                for other_event in event_deserialized:
+                    if other_event['status']['name'] == 'finished' and event['group_id'] == other_event['group_id']:
+                        break
+                else:
+                    filtered_events.append(event)
+            else:
+                filtered_events.append(event)
+
+        return filtered_events
 
     def get_duration(self, obj):
         if obj.timestamp_start and obj.timestamp_end:
@@ -474,6 +487,10 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
             'experiment',
             'environment',
             'duration',
+            'adarevm_logfile',
+            'installations_logfile',
+            'packagedump_logfile',
+            'networkdrives_logfile',
         ]
 
 

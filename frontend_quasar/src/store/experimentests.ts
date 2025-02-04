@@ -35,7 +35,7 @@ export const useExperimentTestsStore = defineStore('experimenttests', {
     },
 
     getRows() {
-      return this.experimentStore.getExperimentByName(this.experiment)?.abstract_tests;
+      return this.experimentStore.getExperimentByName(this.experiment)?.abstract_tests || [];
     },
   },
 });

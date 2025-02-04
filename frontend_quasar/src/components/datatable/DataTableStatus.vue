@@ -1,16 +1,13 @@
 <template>
-    <q-icon :name="icon" :color="color" size="md">
-      <q-tooltip> {{ status }} </q-tooltip>
-    </q-icon>
+    <StatusIcon :status="data.name"/>
 </template>
 
 <script lang="ts">
-import { ref } from 'vue';
-import { isValidStatusType, status_color_mapping, status_icon_mapping } from 'src/constants/mappings';
+import StatusIcon from 'components/global/StatusIcon.vue';
 
 export default {
   name: 'DataTableStatus',
-  components: {  },
+  components: { StatusIcon },
   props: {
     data: {
       type: Object,
@@ -25,26 +22,6 @@ export default {
       required: true,
     },
   },
-
-  setup(props) {
-    const status = ref<string>(props.row[props.col.field].name);
-
-    // Declare icon and color with default values
-    let icon = 'mdi-help-circle';
-    let color = 'grey';
-
-    // Check if status is a valid StatusType
-    if (isValidStatusType(status.value)) {
-      icon = status_icon_mapping[status.value];
-      color = status_color_mapping[status.value];
-    }
-
-    return {
-      status,
-      icon,
-      color,
-    };
-  }
 
 };
 </script>
