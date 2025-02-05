@@ -88,6 +88,7 @@ class GuiFindEvent(Event):
     text = models.BooleanField()
     objective = models.CharField(max_length=1000)
     success = models.IntegerField()
+    positions = models.CharField(max_length=1200, blank=True)
 
 
 class GuiClickEvent(Event):

@@ -39,7 +39,49 @@
         </div>
       </q-card-section>
       <q-card-section>
-        <DataTable title="Events" :store="runEventStore" :columns="runEventColumns" />
+        <q-card>
+          <q-card-section class="text-h5 ">
+            Events
+            <q-toggle label="Only show tests" v-model="onlyShowTests" />
+          </q-card-section>
+          <q-card-section>
+            <q-timeline
+              class="q-pa-md"
+            >
+              <CustomQTimelineEntry
+                v-for="event in events"
+                :key="event.ulid"
+                :dot-color="getDotColor(event)"
+                :line-color="getLineColor(event)"
+                :icon="getIcon(event)"
+                class="nonopaque dense"
+              >
+                <template v-slot:subtitle>
+                  <div class="tw-text-base tw-font-normal tw-normal-case text-black tw-opacity-100">
+                    <span v-if="isGuiFindEvent(event)">
+                      find: <i>{{ event.objective }}</i> -> {{event.positions}}
+                    </span>
+                    <span v-if="isGuiClickEvent(event)">
+                      click at: <i>{{ event.target }}</i>
+                    </span>
+                    <span v-if="isGuiKeypressEvent(event)">
+                      press: <i>{{ event.keys }}</i>
+                    </span>
+                    <span v-if="isCommandEvent(event)">
+                      command: <i>{{ event.command }}</i>
+                    </span>
+                    <span v-if="isTestEvent(event)">
+                      test: <i>{{ event.abstracttest.name }}</i> ({{ event.abstracttest.testfunction.name }})
+                    </span>
+                  </div>
+                </template>
+                <div >
+                  toogle this
+                </div>
+              </CustomQTimelineEntry>
+            </q-timeline>
+          </q-card-section>
+        </q-card>
       </q-card-section>
     </q-card>
   </div>
@@ -50,23 +92,23 @@
 import { useRunStore } from 'src/store/run';
 import { useUserStore } from 'src/store/user';
 import { useRunEventStore } from 'src/store/runevent';
-import { computed, onMounted, } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import ProfileImage from 'components/ProfileImage.vue';
 import StatusIcon from 'components/global/StatusIcon.vue';
-import DataTable from 'components/datatable/DataTable.vue';
-import { CustomQTableColumn } from 'src/models/quasar_extensions';
-
-const runEventColumns: CustomQTableColumn[] = [
-  { name: 'status', label: 'status', align: 'left', field: 'status', hideable: true, visible: true },
-  { name: 'category', label: 'category', align: 'left', field: 'category', hideable: true, visible: true },
-  { name: 'ulid', label: 'ulid', align: 'left', field: 'ulid', hideable: true, visible: false },
-
-];
+import CustomQTimelineEntry from 'components/global/CustomQTimelineEntry.vue';
+import {
+  isGuiIdleEvent,
+  Event,
+  isGuiFindEvent,
+  isGuiClickEvent,
+  isGuiKeypressEvent,
+  isCommandEvent, isErrorEvent, isTestEvent
+} from 'src/models/experiment';
 
 export default {
   name: 'RunDetail',
 
-  components: { DataTable, StatusIcon, ProfileImage },
+  components: { CustomQTimelineEntry, StatusIcon, ProfileImage },
 
   props: {
     ulid: {
@@ -81,6 +123,13 @@ export default {
     const runEventStore = useRunEventStore()
     const run = computed(() => runStore.getRun(props.ulid))
     const profile = computed(() => userStore.getProfile(run.value.published_by));
+    const onlyShowTests = ref<boolean>(false)
+    const events = computed(() => {
+      if (onlyShowTests.value) {
+        return Array.isArray(run.value.events) ? run.value.events.filter(event => isTestEvent(event)) : [];
+      }
+      return Array.isArray(run.value.events) ? run.value.events.filter(event => !isGuiIdleEvent(event)) : [];
+    })
 
     function secondsToString(seconds: number){
       // round to nearest second
@@ -96,14 +145,72 @@ export default {
       await userStore.fetchProfile(run.value.published_by)
     })
 
+    function getDotColor(event: Event){
+      if (isTestEvent(event)){
+        if(event.result.status.name === 'success'){
+          return 'positive'
+        } else if(event.result.status.name  === 'failed'){
+          return 'negative'
+        }
+      }
+      return 'blue-grey-6'
+    }
+
+    function getLineColor(event: Event){
+      if (isGuiFindEvent(event)){
+        return 'positive'
+      }
+      return 'positive'
+    }
+
+    function getIcon(event: Event){
+      if (isGuiFindEvent(event)){
+        return 'search'
+      } else if (isGuiClickEvent(event)){
+        return 'mouse'
+      } else if (isGuiIdleEvent(event)){
+        return 'pause'
+      } else if (isGuiKeypressEvent(event)){
+        return 'keyboard'
+      } else if (isCommandEvent(event)){
+        return 'code'
+      } else if (isErrorEvent(event)){
+        return 'error'
+      } else if (isTestEvent(event)){
+        return 'quiz'
+      }
+      return ''
+    }
+
     return {
       run,
       profile,
       runEventStore,
       secondsToString,
-      runEventColumns,
+      isGuiIdleEvent,
+      isGuiClickEvent,
+      isTestEvent,
+      isGuiKeypressEvent,
+      isCommandEvent,
+      isGuiFindEvent,
+      getDotColor,
+      getLineColor,
+      getIcon,
+      events,
+      onlyShowTests
     }
   }
 }
 
 </script>
+
+<style scoped>
+.q-timeline__entry.nonopaque >>> .q-timeline__subtitle {
+  opacity: 1;
+}
+
+.q-timeline__entry.dense >>> .q-timeline__content {
+  padding-bottom: 0.1rem;
+}
+
+</style>

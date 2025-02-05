@@ -84,8 +84,8 @@ STORAGES = {
     "default": {"BACKEND": 'storages.backends.s3.S3Storage'},
 }
 
-MINIO_STORAGE_ENDPOINT = 'http://localhost:9000'
-MINIO_ACCESS_URL = 'adare.seclab-bonn.de/minio/'
+MINIO_STORAGE_ENDPOINT = 'http://minio:9000'
+MINIO_ACCESS_URL = 'adare.seclab-bonn.de/minio'
 MINIO_STORAGE_ACCESS_KEY = os.getenv('MINIO_ROOT_USER')
 MINIO_STORAGE_SECRET_KEY = os.getenv('MINIO_ROOT_PASSWORD')
 

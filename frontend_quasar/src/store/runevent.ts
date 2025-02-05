@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { useRunStore } from 'src/store/run';
+import { Event } from 'src/models/experiment';
 
 interface RunEventState {
   runStore: ReturnType<typeof useRunStore>;
@@ -34,7 +35,7 @@ export const useRunEventStore = defineStore('runevents', {
       // do nothing since data is already fetched
     },
 
-    getRows() {
+    getRows(): Event[] {
       return this.runStore.getRun(this.run)?.events || [];
     },
   },

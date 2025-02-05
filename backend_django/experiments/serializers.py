@@ -4,7 +4,7 @@ from experiments.models import *
 from django.contrib.auth.models import User
 from users.serializers import GiteaUserSerializer
 from helperfunctions.gitea import convert_gitea_internal_api_url_to_viewable_url, convert_gitea_internal_api_url_to_external
-
+from helperfunctions.minio import get_presigned_url
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -433,6 +433,10 @@ class ExperimentViewableFilesSerializer(ExperimentSerializer):
         return ret
 
 
+def _convert_to_presigned_url(url):
+    if url:
+        return get_presigned_url(url)
+    return None
 
 class ExperimentRunSerializer(serializers.ModelSerializer):
     # tests = TestSerializer(read_only=True, many=True)
@@ -444,8 +448,31 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
     environment = serializers.CharField(source='environment.name', read_only=True)
     events = serializers.SerializerMethodField('get_events', read_only=True)
     duration = serializers.SerializerMethodField('get_duration', read_only=True)
+    adarevm_logfile = serializers.SerializerMethodField('get_adarevm_logfile', read_only=True)
+    installations_logfile = serializers.SerializerMethodField('get_installations_logfile', read_only=True)
+    packagedump_logfile = serializers.SerializerMethodField('get_packagedump_logfile', read_only=True)
+    networkdrives_logfile = serializers.SerializerMethodField('get_networkdrives_logfile', read_only=True)
+
+    def get_adarevm_logfile(self, obj):
+        return _convert_to_presigned_url(obj.adarevm_logfile.name)
+
+    def get_installations_logfile(self, obj):
+        return _convert_to_presigned_url(obj.installations_logfile.name)
+
+    def get_packagedump_logfile(self, obj):
+        return _convert_to_presigned_url(obj.packagedump_logfile.name)
+
+    def get_networkdrives_logfile(self, obj):
+        return _convert_to_presigned_url(obj.networkdrives_logfile.name)
 
     def get_events(self, obj):
+        def __get_duration_in_seconds(date1: str, date2: str):
+            from datetime import datetime
+            date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+            date1 = datetime.strptime(date1, date_format)
+            date2 = datetime.strptime(date2, date_format)
+            return (date2 - date1).total_seconds()
+
         event_deserialized = []
         for event in sorted(obj.events, key=lambda e: e.timestamp):
             event_serializer = get_event_serializer(event.category)
@@ -454,18 +481,23 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
             event_deserialized.append(event_serializer.data)
 
         # filter out all events which status name running if corresponding event with status name finished exists (with same group_id)
-        filtered_events = []
-        for event in event_deserialized:
-            if event['status']['name'] == 'running':
-                for other_event in event_deserialized:
-                    if other_event['status']['name'] == 'finished' and event['group_id'] == other_event['group_id']:
-                        break
-                else:
-                    filtered_events.append(event)
-            else:
-                filtered_events.append(event)
+        filtered_events = {
 
-        return filtered_events
+        }
+        for event in event_deserialized:
+            if event['group_id'] not in filtered_events.keys():
+                event['duration'] = -1
+
+                filtered_events[event['group_id']] = event
+            else:
+                if event['status']['name'] == 'finished':
+                    duration = __get_duration_in_seconds(filtered_events[event['group_id']]['timestamp'], event['timestamp'])
+                    event['duration'] = duration
+                    filtered_events[event['group_id']] = event
+                else:
+                    duration = __get_duration_in_seconds(event['timestamp'], filtered_events[event['group_id']]['timestamp'])
+                    filtered_events[event['group_id']]['duration'] = duration
+        return filtered_events.values()
 
     def get_duration(self, obj):
         if obj.timestamp_start and obj.timestamp_end:
@@ -755,7 +787,8 @@ class GuiFindEventSerializer(serializers.ModelSerializer):
             # event specific fields
             'text',
             'objective',
-            'success'
+            'success',
+            'positions',
         ]
 
     def create(self, validated_data):

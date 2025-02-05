@@ -49,6 +49,19 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+// built interceptor to remove token from local storage if the token if we get 401
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response.status === 401) {
+      localStorage.removeItem('LoginToken');
+      localStorage.removeItem('LoginUser');
+      localStorage.removeItem('LoginTokenExpiration');
+    }
+    return Promise.reject(error);
+  }
+);
+
 
 export default boot(({ app }) => {
   // For use inside Vue files (Options API) through this.$axios and this.$api

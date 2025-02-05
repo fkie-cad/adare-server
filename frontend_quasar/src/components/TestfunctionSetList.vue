@@ -39,7 +39,7 @@ const columns: CustomQTableColumn[] = [
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true, visible: true},
   { name: 'published_by', align: 'left', label: 'published by', field: 'published_by', hideable: false, visible: true, type: DataTableUserIcon},
   { name: 'published_at', align: 'left', label: 'published at', field: 'published_at', hideable: true, visible: true},
-  { name: 'accepted_by', align: 'left', label: 'accepted by', field: 'accepted_by', hideable: false, visible: true, type: DataTableUserIcon},
+  { name: 'created_by', align: 'left', label: 'created by', field: 'created_by', hideable: false, visible: true, type: DataTableUserIcon},
   { name: 'file', align: 'left', label: 'file', field: 'file', hideable: true, visible: true, type: DataTableLink, typeVarsLink: typeVarsLink},
   { name: 'requirements_file', align: 'left', label: 'requirements_file', field: 'requirements_file', hideable: true, visible: true, type: DataTableLink, typeVarsLink: typeVarsLink},
   { name: 'num_testfunctions', align: 'left', label: '# testfunctions', field: 'num_testfunctions', hideable: true, visible: true},
