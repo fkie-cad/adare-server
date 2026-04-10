@@ -109,3 +109,4 @@ yarn-error.log*
 /backend_django/.env
 CLAUDE.md
 .superpowers/
+.pre-commit-config.yaml

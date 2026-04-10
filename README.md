@@ -4,6 +4,7 @@
 
 - Docker & Docker Compose
 - Node.js 20+
+- [pre-commit](https://pre-commit.com/) and [gitleaks](https://github.com/gitleaks/gitleaks) (`brew install pre-commit gitleaks`, then run `pre-commit install` once per clone to enable the secret-scanning hook)
 
 ## Quick Start
 
