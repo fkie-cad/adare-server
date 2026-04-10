@@ -1,20 +1,14 @@
 <template>
-  <q-badge v-for="item in data" :key="item.name" :color="vars.color" class="q-ma-xs">
-    #{{ item }}
-  </q-badge>
+  <ScopedTagBadge v-for="item in data" :key="item.name" :tag="item" />
 </template>
 
 <script lang="ts">
-import { TypeVarsTag } from 'src/models/quasar_extensions';
 import { Tag } from 'src/models/experiment';
-
-const defaultTypeVarsTag: TypeVarsTag = {
-  color: 'pink-9',
-};
+import ScopedTagBadge from 'src/components/global/ScopedTagBadge.vue';
 
 export default {
   name: 'DataTableTags',
-  components: {  },
+  components: { ScopedTagBadge },
   props: {
     data: {
       type: Array as () => Tag[],
@@ -28,20 +22,6 @@ export default {
       type: Object,
       required: true,
     },
-    color: {
-      type: String,
-    },
   },
-
-  setup(props) {
-
-    // check if row.typeVarsLink is defined, if not use defaultTypeVarsLink
-    const vars = Object.assign({}, defaultTypeVarsTag, props.col.typeVarsTag);
-
-    return {
-      vars,
-    };
-  }
-
 };
 </script>

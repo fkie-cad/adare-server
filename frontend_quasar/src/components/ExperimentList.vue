@@ -7,6 +7,7 @@
 <script lang="ts">
 import DataTable from 'components/datatable/DataTable.vue';
 import { CustomQTableColumn, TypeVarsDetails } from 'src/models/quasar_extensions';
+import { SelectFilter } from 'src/models/advancedtable';
 import DataTableUserIcon from 'components/datatable/DataTableUserIcon.vue';
 import DataTableDetails from 'components/datatable/DataTableDetails.vue';
 import DataTableLink from 'components/datatable/DataTableLink.vue';
@@ -50,9 +51,7 @@ const columns: CustomQTableColumn[] = [
   { name: 'metadata_file', align: 'left', label: 'metadata file', field: 'metadata_file', hideable: true, visible: true, type: DataTableLink, typeVarsLink: typeVarsLink},
 ]
 
-const selectFilters = [
-  { name: 'tags', field: 'tags', api_field: 'tags_mc', option_api_field: 'tags', type: 'options_mc', options: [] as string[], total_options: [] as string[], selected: []},
-]
+const selectFilters: SelectFilter[] = []
 
 const pagination = {
   sortBy: 'desc',

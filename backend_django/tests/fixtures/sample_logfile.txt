@@ -1,0 +1,5 @@
+2024-01-15 10:00:00 INFO Starting experiment run
+2024-01-15 10:00:01 INFO Setting up environment
+2024-01-15 10:00:05 INFO Running test: is_file
+2024-01-15 10:00:06 INFO Test is_file: PASSED
+2024-01-15 10:00:07 INFO Experiment run completed successfully

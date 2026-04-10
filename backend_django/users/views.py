@@ -21,36 +21,9 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class CustomOAuth2Client(OAuth2Client):
-    def __init__(
-        self,
-        request,
-        consumer_key,
-        consumer_secret,
-        access_token_method,
-        access_token_url,
-        callback_url,
-        _scope,  # This is fix for incompatibility between django-allauth==65.3.1 and dj-rest-auth==7.0.1
-        scope_delimiter=" ",
-        headers=None,
-        basic_auth=False,
-    ):
-        super().__init__(
-            request,
-            consumer_key,
-            consumer_secret,
-            access_token_method,
-            access_token_url,
-            callback_url,
-            scope_delimiter,
-            headers,
-            basic_auth,
-        )
-
-
 class GiteaLoginView(SocialLoginView):
     adapter_class = GiteaOAuth2Adapter
-    client_class = CustomOAuth2Client
+    client_class = OAuth2Client
     callback_url = settings.FRONTEND_URL + '/login/oauth/'
 
 
@@ -139,3 +112,40 @@ class CSRFView(views.APIView):
     @method_decorator(ensure_csrf_cookie, 'dispatch')
     def get(self, request):
         return Response(status=status.HTTP_200_OK)
+
+
+class DevLoginView(views.APIView):
+    """Dev-only login that creates a local user + Knox token without Gitea."""
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        from decouple import config
+        if config('MODE', default='production') != 'development':
+            return Response({'error': 'not available'}, status=status.HTTP_403_FORBIDDEN)
+
+        from django.contrib.auth.models import User
+        from users.models import GiteaUser
+
+        username = request.data.get('username', 'devuser')
+
+        user, _ = User.objects.get_or_create(
+            username=username,
+            defaults={'email': f'{username}@localhost'},
+        )
+
+        GiteaUser.objects.get_or_create(
+            user=user,
+            defaults={
+                'gitea_id': 99999,
+                'username': username,
+                'email': user.email,
+            },
+        )
+
+        token_instance, token = AuthToken.objects.create(user)
+
+        return Response({
+            'user': user.username,
+            'token': token,
+            'expiry': token_instance.expiry,
+        }, status=status.HTTP_200_OK)

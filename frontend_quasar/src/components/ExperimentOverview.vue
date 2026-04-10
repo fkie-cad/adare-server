@@ -42,14 +42,12 @@
         </div>
         <div class="row">
           <div class="col">
-            <q-badge
+            <ScopedTagBadge
               v-for="item in experiment.tags"
               :key="item.name"
-              color="pink-9"
-              class="q-ma-xs tw-text-sm"
-            >
-              #{{ item }}
-            </q-badge>
+              :tag="item"
+              class="tw-text-sm"
+            />
           </div>
           <div class="col tw-text-right">
             <q-badge color="positive" class="q-ma-sm q-px-sm tw-text-xl">
@@ -91,6 +89,78 @@
         <DataTable title="Tests" :store="experimentTestsStore" :columns="columns_test" />
       </q-card-section>
     </q-card>
+
+    <!-- Environments used by this experiment -->
+    <q-card class="q-mt-md" v-if="experiment.environments && experiment.environments.length > 0">
+      <q-card-section>
+        <div class="text-subtitle1 text-weight-bold q-mb-sm">
+          Environments
+          <q-badge color="primary" class="q-ml-sm">{{ experiment.environments.length }}</q-badge>
+        </div>
+        <q-markup-table flat dense separator="horizontal">
+          <thead>
+            <tr>
+              <th class="text-left">Name</th>
+              <th class="text-left">OS</th>
+              <th class="text-left">Vagrant Box</th>
+              <th class="text-left">Tags</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="env in experiment.environments" :key="env.ulid">
+              <td>
+                <router-link :to="`/environment/${env.name}`" class="text-primary text-weight-medium">
+                  {{ env.name }}
+                </router-link>
+              </td>
+              <td>{{ env.os_info?.distribution }} {{ env.os_info?.version }}</td>
+              <td>{{ env.vagrantbox }}</td>
+              <td>
+                <ScopedTagBadge v-for="tag in env.tags.slice(0, 3)" :key="tag.name" :tag="tag" />
+              </td>
+            </tr>
+          </tbody>
+        </q-markup-table>
+      </q-card-section>
+    </q-card>
+
+    <!-- Recent Runs -->
+    <q-card class="q-mt-md" v-if="recentRuns.length > 0">
+      <q-card-section>
+        <div class="text-subtitle1 text-weight-bold q-mb-sm">
+          Recent Runs
+          <q-badge color="primary" class="q-ml-sm">{{ recentRuns.length }}</q-badge>
+        </div>
+        <q-markup-table flat dense separator="horizontal">
+          <thead>
+            <tr>
+              <th class="text-left">ULID</th>
+              <th class="text-left">Environment</th>
+              <th class="text-left">Result</th>
+              <th class="text-left">Duration</th>
+              <th class="text-left">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="run in recentRuns" :key="run.ulid">
+              <td>
+                <router-link :to="`/run/${run.ulid}`" class="text-primary">
+                  {{ run.ulid.substring(0, 10) }}...
+                </router-link>
+              </td>
+              <td>{{ run.environment }}</td>
+              <td>
+                <q-badge :color="run.result_status?.name === 'success' ? 'positive' : 'negative'">
+                  {{ run.result_status?.name }}
+                </q-badge>
+              </td>
+              <td>{{ run.duration ? formatDuration(run.duration) : '-' }}</td>
+              <td>{{ run.published_at }}</td>
+            </tr>
+          </tbody>
+        </q-markup-table>
+      </q-card-section>
+    </q-card>
   </div>
   <div v-else>
     <q-card>
@@ -105,13 +175,16 @@
 <script lang="ts">
 import { useExperimentStore } from 'src/store/experiment';
 import { useUserStore } from 'src/store/user';
-import { computed, onMounted } from 'vue';
+import { useRunStore } from 'src/store/run';
+import { computed, ref, onMounted } from 'vue';
 import DataTable from 'components/datatable/DataTable.vue';
 import { useExperimentTestsStore } from 'src/store/experimentests';
 import { CustomQTableColumn } from 'src/models/quasar_extensions';
 import DataTableParameter from 'components/datatable/DataTableParameter.vue';
 import DataTableTestfunction from 'components/datatable/DataTableTestfunction.vue';
 import ProfileImage from 'components/ProfileImage.vue';
+import ScopedTagBadge from 'components/global/ScopedTagBadge.vue';
+import { Run } from 'src/models/experiment';
 
 const columns_test: CustomQTableColumn[] = [
   { name: 'name', align: 'left', label: 'name', field: 'name', hideable: true, visible: true},
@@ -125,7 +198,7 @@ const columns_test: CustomQTableColumn[] = [
 export default {
   name: 'ExperimentOverview',
 
-  components: { ProfileImage, DataTable },
+  components: { ProfileImage, DataTable, ScopedTagBadge },
 
   props: {
     name: {
@@ -137,14 +210,26 @@ export default {
   setup(props) {
     const experimentStore = useExperimentStore()
     const userStore = useUserStore()
+    const runStore = useRunStore()
     const experimentTestsStore = useExperimentTestsStore()
     const experiment = computed(() => experimentStore.getExperimentByName(props.name))
     const createdByProfile = computed(() => experiment.value ? userStore.getProfile(experiment.value.created_by) : undefined);
     const publishedByProfile = computed(() => experiment.value ? userStore.getProfile(experiment.value.published_by) : undefined);
+    const recentRuns = ref<Run[]>([]);
 
     function OpenExperimentInNewTab(){
       let url = experiment.value?.action_file?.split('/').slice(0, -1).join('/')
       window.open(url, '_blank')
+    }
+
+    function formatDuration(duration: number) {
+      if (!duration || duration < 0) return '-';
+      const seconds = Math.floor(duration);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      if (hours > 0) return `${hours}h ${minutes % 60}m`;
+      if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+      return `${seconds}s`;
     }
 
     onMounted(async () => {
@@ -154,6 +239,14 @@ export default {
       }
       await experimentTestsStore.setExperiment(experiment.value.name)
       await userStore.fetchProfile(experiment.value.created_by)
+
+      // Fetch recent runs for this experiment
+      try {
+        await runStore.fetchRunsAdvanced(5, 0, 'timestamp_start', true, props.name);
+        recentRuns.value = runStore.getRows();
+      } catch (e) {
+        // Runs not available
+      }
     })
 
     return {
@@ -163,6 +256,8 @@ export default {
       createdByProfile,
       OpenExperimentInNewTab,
       publishedByProfile,
+      recentRuns,
+      formatDuration,
     }
   }
 }

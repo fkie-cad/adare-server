@@ -1,0 +1,158 @@
+.PHONY: up down migrate shell logs seed quasar react deploy deploy-react deploy-quasar deploy-all db-backup deploy-check deploy-migrate deploy-dry-run db-reset-and-init remote-status remote-logs remote-celery-logs deploy-setup help test test-quick test-e2e test-e2e-debug test-e2e-interactive test-e2e-interactive-react test-e2e-interactive-both test-all test-cov react-test
+
+COMPOSE = podman compose -f backend_django/docker-compose.yml
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+up: ## Start all services (podman compose up --build)
+	$(COMPOSE) up --build
+
+down: ## Stop all services
+	$(COMPOSE) down
+
+migrate: ## Run Django migrations
+	$(COMPOSE) exec web python manage.py migrate
+
+shell: ## Open Django shell
+	$(COMPOSE) exec web python manage.py shell
+
+logs: ## Follow web container logs
+	$(COMPOSE) logs -f web
+
+seed: ## Load sample dev data
+	$(COMPOSE) exec web python manage.py seed_dev_data
+
+quasar: ## Start Quasar dev server
+	cd frontend_quasar && npx quasar dev
+
+react: ## Start React dev server
+	cd frontend_react && npm run dev
+
+deploy: ## Deploy backend to production
+	backend_django/deploy/deploy-backend.sh
+
+deploy-react: ## Deploy React frontend to production
+	backend_django/deploy/deploy-react.sh
+
+deploy-quasar: ## Deploy Quasar frontend to production
+	backend_django/deploy/deploy-quasar.sh
+
+deploy-all: ## Deploy backend + both frontends to production
+	backend_django/deploy/deploy-backend.sh && backend_django/deploy/deploy-quasar.sh && backend_django/deploy/deploy-react.sh
+
+db-backup: ## Backup production database
+	backend_django/deploy/db-backup.sh
+
+remote-status: ## Show remote Docker service status
+	ssh adare "cd ~/webapp && podman compose ps"
+
+remote-logs: ## Follow remote backend logs
+	ssh adare "cd ~/webapp && podman compose logs -f backend"
+
+deploy-check: ## Run post-deploy health checks
+	backend_django/deploy/deploy-check.sh
+
+deploy-migrate: ## Run migrations only (no code upload)
+	backend_django/deploy/deploy-backend.sh --migrate-only
+
+deploy-dry-run: ## Preview what a deploy would do
+	backend_django/deploy/deploy-backend.sh --dry-run
+
+db-reset-and-init: ## Full DB nuke + reinitialize
+	backend_django/deploy/db-reset-and-init.sh
+
+remote-celery-logs: ## Follow Celery worker logs
+	ssh adare "cd ~/webapp && podman compose logs -f celery_worker"
+
+deploy-setup: ## Bootstrap local prod files from remote backup (run once)
+	backend_django/deploy/deploy-setup.sh
+
+test: ## Run API integration tests (Layer 1)
+	$(COMPOSE) exec web python -m pytest tests/api/ -v --tb=short
+
+test-quick: ## Run fast tests only (skip slow-marked)
+	$(COMPOSE) exec web python -m pytest tests/api/ -v -m "not slow"
+
+test-e2e: ## Run E2E Gitea flow tests (Layer 2)
+	$(COMPOSE) exec web python manage.py test_e2e_gitea
+
+test-e2e-debug: ## Run E2E tests without cleanup
+	$(COMPOSE) exec web python manage.py test_e2e_gitea --skip-cleanup --verbose
+
+test-e2e-interactive: ## Run E2E tests with Quasar frontend for GUI inspection
+	@echo "Starting containers..."
+	@$(COMPOSE) up --build -d
+	@echo "Starting Quasar dev server..."
+	@cd frontend_quasar && npx quasar dev > /dev/null 2>&1 & echo $$! > /tmp/adare-quasar-dev.pid
+	@sleep 3
+	@echo "Quasar dev server running at http://localhost:9000"
+	@echo ""
+	@$(COMPOSE) exec web python manage.py test_e2e_gitea --interactive --verbose; \
+		EXIT_CODE=$$?; \
+		if [ -f /tmp/adare-quasar-dev.pid ]; then \
+			kill $$(cat /tmp/adare-quasar-dev.pid) 2>/dev/null; \
+			rm -f /tmp/adare-quasar-dev.pid; \
+			echo "Quasar dev server stopped."; \
+		fi; \
+		echo "Stopping containers..."; \
+		$(COMPOSE) down; \
+		exit $$EXIT_CODE
+
+react-test: ## Run React frontend tests
+	cd frontend_react && npm test
+
+test-e2e-interactive-react: ## Run E2E tests with React frontend for GUI inspection
+	@echo "Starting containers..."
+	@$(COMPOSE) up --build -d
+	@echo "Starting React dev server..."
+	@cd frontend_react && npm run dev > /dev/null 2>&1 & echo $$! > /tmp/adare-react-dev.pid
+	@sleep 3
+	@echo "React dev server running at http://localhost:5173"
+	@echo ""
+	@$(COMPOSE) exec web python manage.py test_e2e_gitea --interactive --verbose; \
+		EXIT_CODE=$$?; \
+		if [ -f /tmp/adare-react-dev.pid ]; then \
+			kill $$(cat /tmp/adare-react-dev.pid) 2>/dev/null; \
+			rm -f /tmp/adare-react-dev.pid; \
+			echo "React dev server stopped."; \
+		fi; \
+		echo "Stopping containers..."; \
+		$(COMPOSE) down; \
+		exit $$EXIT_CODE
+
+test-e2e-interactive-both: ## Run E2E tests with both Quasar and React frontends
+	@echo "Starting containers..."
+	@$(COMPOSE) up --build -d
+	@echo "Starting Quasar dev server..."
+	@cd frontend_quasar && npx quasar dev > /dev/null 2>&1 & echo $$! > /tmp/adare-quasar-dev.pid
+	@echo "Starting React dev server..."
+	@cd frontend_react && npm run dev > /dev/null 2>&1 & echo $$! > /tmp/adare-react-dev.pid
+	@sleep 3
+	@echo "Quasar dev server running at http://localhost:9000"
+	@echo "React dev server running at http://localhost:5173"
+	@echo ""
+	@$(COMPOSE) exec web python manage.py test_e2e_gitea --interactive --verbose; \
+		EXIT_CODE=$$?; \
+		if [ -f /tmp/adare-quasar-dev.pid ]; then \
+			kill $$(cat /tmp/adare-quasar-dev.pid) 2>/dev/null; \
+			rm -f /tmp/adare-quasar-dev.pid; \
+			echo "Quasar dev server stopped."; \
+		fi; \
+		if [ -f /tmp/adare-react-dev.pid ]; then \
+			kill $$(cat /tmp/adare-react-dev.pid) 2>/dev/null; \
+			rm -f /tmp/adare-react-dev.pid; \
+			echo "React dev server stopped."; \
+		fi; \
+		echo "Stopping containers..."; \
+		$(COMPOSE) down; \
+		exit $$EXIT_CODE
+
+test-all: ## Run both test layers
+	$(COMPOSE) exec web python -m pytest tests/api/ -v --tb=short && \
+	$(COMPOSE) exec web python manage.py test_e2e_gitea
+
+test-cov: ## Run tests with coverage report
+	$(COMPOSE) exec web python -m pytest tests/api/ -v --cov=experiments --cov=users --cov=giteaeventmanager --cov-report=term-missing
+
+.DEFAULT_GOAL := help

@@ -1,7 +1,6 @@
 from .base import *
 from decouple import config, Csv
 from corsheaders.defaults import default_headers
-import os
 
 # get the secret key from the environment
 SECRET_KEY = config("DJANGO_SECRET_KEY")
@@ -65,7 +64,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = False
 
 # setup HSTS
-SECURE_HSTS_SECONDS = 86400  # 1 day
+SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
@@ -86,8 +85,8 @@ STORAGES = {
 
 MINIO_STORAGE_ENDPOINT = 'http://minio:9000'
 MINIO_ACCESS_URL = 'adare.seclab-bonn.de/minio'
-MINIO_STORAGE_ACCESS_KEY = os.getenv('MINIO_ROOT_USER')
-MINIO_STORAGE_SECRET_KEY = os.getenv('MINIO_ROOT_PASSWORD')
+MINIO_STORAGE_ACCESS_KEY = config('MINIO_ROOT_USER')
+MINIO_STORAGE_SECRET_KEY = config('MINIO_ROOT_PASSWORD')
 
 AWS_ACCESS_KEY_ID = MINIO_STORAGE_ACCESS_KEY  # MinIO Access Key
 AWS_SECRET_ACCESS_KEY = MINIO_STORAGE_SECRET_KEY # MinIO Secret Key

@@ -1,16 +1,36 @@
 from rest_framework import serializers
 
-from experiments.models import *
 from django.contrib.auth.models import User
 from users.serializers import GiteaUserSerializer
 from helperfunctions.gitea import convert_gitea_internal_api_url_to_viewable_url, convert_gitea_internal_api_url_to_external
 from helperfunctions.minio import get_presigned_url
 
+from experiments.models import (
+    Tag, TagScope, Status, Result, TestParameter, TestParameterEntry, Event,
+    CommandEvent, TestEvent, ErrorEvent, GuiFindEvent, GuiClickEvent,
+    GuiKeypressEvent, GuiIdleEvent, Requirement, TestfunctionSet,
+    TestFunction, Tool, AbstractTest, OsInfo, PostSetupInstallation,
+    Environment, Experiment, ExperimentRun, Label, Request,
+    RequestCreationMessage,
+)
+
+class TagScopeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TagScope
+        fields = ['name', 'is_predefined', 'color']
+
+
 class TagSerializer(serializers.ModelSerializer):
+    scope = serializers.CharField(source='scope.name', read_only=True, allow_null=True, default=None)
+    color = serializers.CharField(source='scope.color', read_only=True, allow_null=True, default=None)
+
     class Meta:
         model = Tag
         fields = [
             'name',
+            'scope',
+            'value',
+            'color',
         ]
 
 
@@ -80,16 +100,10 @@ class EnvironmentMetadataSerializer(serializers.ModelSerializer):
 
 class EnvironmentSerializer(serializers.ModelSerializer):
     os_info = OsInfoSerializer()
-    tags = serializers.SerializerMethodField('get_tags', read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
     post_setup_installations = PostSetupInstallationSerializer(many=True)
     published_by = serializers.CharField(source='published_by.username', read_only=True)
-    created_by = serializers.CharField(source='created_by.username', read_only=True)
-
-    def get_tags(self, obj):
-        tag_list = []
-        for tag in obj.tags.all():
-            tag_list.append(tag.name)
-        return tag_list
+    created_by = serializers.CharField(source='created_by.username', read_only=True, allow_null=True, default=None)
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -225,6 +239,7 @@ class TestFunctionSetMetadataSerializer(serializers.ModelSerializer):
 
 class TestFunctionSetSerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(many=True)
+    tags = TagSerializer(many=True, read_only=True)
     published_by = serializers.CharField(source='published_by.username', read_only=True)
     created_by = serializers.CharField(source='created_by.username', read_only=True)
     testfunctions = TestFunctionSerializer(many=True)
@@ -236,6 +251,7 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
             'description',
             'testfunctions',
             'num_testfunctions',
+            'tags',
             'file',
             'requirements_file',
             'requirements',
@@ -274,57 +290,6 @@ class AbstractTestSerializer(serializers.ModelSerializer):
         ]
 
 
-# class TestSerializer(serializers.ModelSerializer):
-#     result = ResultSerializer()
-#     abstracttest_ulid = serializers.CharField(source='abstracttest.ulid')
-#
-#     class Meta:
-#         model = Test
-#         fields = [
-#             'ulid',
-#             'abstracttest_ulid',
-#             'result',
-#         ]
-#
-#     def create(self, validated_data):
-#         testfunction_data = validated_data.pop('testfunction')
-#         parameters_data = validated_data.pop('parameters')
-#
-#         if 'tool' in validated_data.keys():
-#             tool_data = validated_data.pop('tool')
-#             if tool_data:
-#                 try:
-#                     tool = Tool.objects.get(name=tool_data['name'], command=tool_data['command'])
-#                 except Tool.DoesNotExist:
-#                     tool_serializer = ToolSerializer(data=tool_data)
-#                     tool_serializer.is_valid()
-#                     tool = tool_serializer.save()
-#                 validated_data['tool'] = tool
-#
-#         test_parameter_entrys = []
-#         for parameter_entry in parameters_data:
-#             try:
-#                 test_parameter_entry = TestParameterEntry.objects.get(
-#                     parameter__name=parameter_entry['parameter']['name'], value=parameter_entry['value'])
-#             except TestParameterEntry.DoesNotExist:
-#                 test_parameter_entry_serializer = TestParameterEntrySerializer(data=parameter_entry)
-#                 test_parameter_entry_serializer.is_valid()
-#                 test_parameter_entry = test_parameter_entry_serializer.save()
-#             test_parameter_entrys.append(test_parameter_entry)
-#
-#         try:
-#             testfunction = TestFunction.objects.get(name=testfunction_data['name'])
-#         except TestFunction.DoesNotExist:
-#             testfunction_serializer = TestFunctionSerializer(data=testfunction_data)
-#             testfunction_serializer.is_valid()
-#             testfunction = testfunction_serializer.save()
-#         validated_data['testfunction'] = testfunction
-#
-#         abstract_test = AbstractTest.objects.create(**validated_data)
-#         abstract_test.parameters.set(test_parameter_entrys)
-#         return abstract_test
-
-
 class CurrentUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -360,7 +325,7 @@ class ExperimentMetadataSerializer(serializers.ModelSerializer):
 class ExperimentSerializer(serializers.ModelSerializer):
     run_counts = serializers.SerializerMethodField('get_run_counts', read_only=True)
     abstract_tests = AbstractTestSerializer(read_only=True, many=True)
-    tags = serializers.SerializerMethodField('get_tags', read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
     environments = EnvironmentSerializer(read_only=True, many=True)
     published_by = serializers.CharField(source='published_by.username', read_only=True)
     published_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
@@ -397,12 +362,6 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'abstract_tests': {'read_only': True},
         }
 
-    def get_tags(self, obj):
-        tag_list = []
-        for tag in obj.tags.all():
-            tag_list.append(tag.name)
-        return tag_list
-
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if ret['action_file']:
@@ -414,13 +373,20 @@ class ExperimentSerializer(serializers.ModelSerializer):
         return ret
 
     def get_run_counts(self, obj):
-        status = Status.objects.get(name='success')
-        num_successful = ExperimentRun.objects.filter(experiment=obj, result_status=status).count()
-        status = Status.objects.get(name='failed')
-        num_failed = ExperimentRun.objects.filter(experiment=obj, result_status=status).count()
+        # Use annotated fields from the view queryset if available
+        successful = getattr(obj, 'successful_run_count', None)
+        failed = getattr(obj, 'failed_run_count', None)
+        if successful is not None and failed is not None:
+            return {
+                'successful': successful,
+                'failed': failed,
+            }
+        # Fallback for non-annotated querysets (e.g. detail views)
+        successful = obj.experiment_runs.filter(result_status__name='success').count()
+        failed = obj.experiment_runs.filter(result_status__name='failed').count()
         return {
-            'successful': num_successful,
-            'failed': num_failed,
+            'successful': successful,
+            'failed': failed,
         }
 
 
@@ -435,11 +401,13 @@ class ExperimentViewableFilesSerializer(ExperimentSerializer):
 
 def _convert_to_presigned_url(url):
     if url:
-        return get_presigned_url(url)
+        try:
+            return get_presigned_url(url)
+        except Exception:
+            return None
     return None
 
 class ExperimentRunSerializer(serializers.ModelSerializer):
-    # tests = TestSerializer(read_only=True, many=True)
     status = StatusSerializer(read_only=True)
     result_status = StatusSerializer(read_only=True)
     published_by = serializers.CharField(source='published_by.username', read_only=True)
@@ -463,45 +431,41 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
         return _convert_to_presigned_url(obj.packagedump_logfile.name)
 
     def get_networkdrives_logfile(self, obj):
-        return _convert_to_presigned_url(obj.networkdrives_logfile.name)
+        return _convert_to_presigned_url(obj.networkdrives_logfile.name if obj.networkdrives_logfile else None)
 
     def get_events(self, obj):
-        def __get_duration_in_seconds(date1: str, date2: str):
-            from datetime import datetime
-            date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
-            date1 = datetime.strptime(date1, date_format)
-            date2 = datetime.strptime(date2, date_format)
-            return (date2 - date1).total_seconds()
+        from django.utils.dateparse import parse_datetime
+
+        def _duration_seconds(ts1, ts2):
+            dt1 = parse_datetime(ts1) if isinstance(ts1, str) else ts1
+            dt2 = parse_datetime(ts2) if isinstance(ts2, str) else ts2
+            if dt1 and dt2:
+                return (dt2 - dt1).total_seconds()
+            return -1
 
         event_deserialized = []
         for event in sorted(obj.events, key=lambda e: e.timestamp):
-            event_serializer = get_event_serializer(event.category)
-            # use the serializer to deserialize the event
-            event_serializer = event_serializer(event)
+            event_serializer = get_event_serializer(event)(event)
             event_deserialized.append(event_serializer.data)
 
-        # filter out all events which status name running if corresponding event with status name finished exists (with same group_id)
-        filtered_events = {
-
-        }
+        filtered_events = {}
         for event in event_deserialized:
-            if event['group_id'] not in filtered_events.keys():
+            if event['group_id'] not in filtered_events:
                 event['duration'] = -1
-
                 filtered_events[event['group_id']] = event
             else:
                 if event['status']['name'] == 'finished':
-                    duration = __get_duration_in_seconds(filtered_events[event['group_id']]['timestamp'], event['timestamp'])
+                    duration = _duration_seconds(filtered_events[event['group_id']]['timestamp'], event['timestamp'])
                     event['duration'] = duration
                     filtered_events[event['group_id']] = event
                 else:
-                    duration = __get_duration_in_seconds(event['timestamp'], filtered_events[event['group_id']]['timestamp'])
+                    duration = _duration_seconds(event['timestamp'], filtered_events[event['group_id']]['timestamp'])
                     filtered_events[event['group_id']]['duration'] = duration
-        return filtered_events.values()
+        return list(filtered_events.values())
 
     def get_duration(self, obj):
         if obj.timestamp_start and obj.timestamp_end:
-            return obj.timestamp_end - obj.timestamp_start
+            return (obj.timestamp_end - obj.timestamp_start).total_seconds()
         return None
 
 
@@ -527,42 +491,12 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
 
 
 
-# class ScenarioSerializer(serializers.ModelSerializer):
-#     published_by = GiteaUserSerializer(read_only=True)
-#     accepted_by = GiteaUserSerializer(read_only=True)
-#     published_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
-#     tags = serializers.SerializerMethodField('get_tags', read_only=True)
-#
-#     class Meta:
-#         model = Scenario
-#         fields = [
-#             'ulid',
-#             'name',
-#             'experiments',
-#             'description',
-#             'tags',
-#
-#             'published_by',
-#             'accepted_by',
-#             'published_at',
-#             'published',
-#         ]
-#
-#     def get_tags(self, obj):
-#         tag_list = []
-#         for tag in obj.tags.all():
-#             tag_list.append(tag.name)
-#         return tag_list
-
-
 class GenericRequestObjectSerializer(serializers.Field):
     def to_representation(self, value):
         if value is None:
             return None
         if isinstance(value, Experiment):
             return ExperimentSerializer(value).data
-        # elif isinstance(value, Scenario):
-        #     return ScenarioSerializer(value).data
         elif isinstance(value, TestfunctionSet):
             return TestFunctionSetSerializer(value).data
         elif isinstance(value, Environment):
@@ -580,7 +514,7 @@ class RequestSerializer(serializers.ModelSerializer):
     reviewers = GiteaUserSerializer(read_only=True, many=True)
     assignees = GiteaUserSerializer(read_only=True, many=True)
 
-    labels = serializers.SerializerMethodField('get_labels', read_only=True)
+    labels = serializers.SlugRelatedField(many=True, read_only=True, slug_field='name')
 
     class Meta:
         model = Request
@@ -605,16 +539,8 @@ class RequestSerializer(serializers.ModelSerializer):
             'labels',
         ]
 
-    def get_labels(self, obj):
-        label_list = []
-        for label in obj.labels.all():
-            label_list.append(label.name)
-        return label_list
-
 
 class ExperimentRunCreateSerializer(serializers.ModelSerializer):
-    # tests = TestSerializer(read_only=True, many=True)
-
     class Meta:
         model = ExperimentRun
         fields = [
@@ -916,20 +842,20 @@ class GuiIdleEventSerializer(serializers.ModelSerializer):
         gui_idle_event = GuiIdleEvent.objects.create(**validated_data)
         return gui_idle_event
 
-def get_event_serializer(event_type: str):
-    if event_type == 'command':
+def get_event_serializer(event):
+    if isinstance(event, CommandEvent):
         return CommandEventSerializer
-    elif event_type == 'test':
+    elif isinstance(event, TestEvent):
         return TestEventSerializer
-    elif event_type == 'error':
+    elif isinstance(event, ErrorEvent):
         return ErrorEventSerializer
-    elif event_type == 'gui:find':
+    elif isinstance(event, GuiFindEvent):
         return GuiFindEventSerializer
-    elif event_type == 'gui:click':
+    elif isinstance(event, GuiClickEvent):
         return GuiClickEventSerializer
-    elif event_type == 'gui:keypress':
+    elif isinstance(event, GuiKeypressEvent):
         return GuiKeypressEventSerializer
-    elif event_type == 'gui:idle':
+    elif isinstance(event, GuiIdleEvent):
         return GuiIdleEventSerializer
     else:
-        raise Exception(f'Unexpected event type {event_type}')
+        raise ValueError(f'Unknown event model: {type(event).__name__}')

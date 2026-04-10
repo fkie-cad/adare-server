@@ -1,0 +1,42 @@
+{
+  "action": "closed",
+  "number": 1,
+  "pull_request": {
+    "id": 1,
+    "number": 1,
+    "title": "[experiment create] test-experiment",
+    "body": "",
+    "state": "closed",
+    "merged": true,
+    "merged_by": {
+      "id": 99999,
+      "login": "devuser"
+    },
+    "user": {
+      "id": 99999,
+      "login": "devuser",
+      "email": "devuser@localhost"
+    },
+    "head": {
+      "ref": "experiment/test-experiment",
+      "sha": "abc123"
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [],
+    "assignees": [],
+    "requested_reviewers": []
+  },
+  "repository": {
+    "name": "adareTEST",
+    "full_name": "testowner/adareTEST",
+    "owner": {
+      "login": "testowner"
+    }
+  },
+  "sender": {
+    "id": 99999,
+    "login": "devuser"
+  }
+}

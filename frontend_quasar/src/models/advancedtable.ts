@@ -38,12 +38,28 @@ export interface SelectFilter {
   options: string[];
   total_options: string[];
   selected: string[];
+  scope?: string;
+  color?: string;
 }
 
 export function FilterToQueryString(filter: Filter): string {
   let query = '';
+  const scopedTags: string[] = [];
+
   filter.entries.forEach((entry) => {
+    if (entry.field.startsWith('tags_scoped_')) {
+      // Collect scoped tag values for merging into single tags_scoped param
+      if (entry.value) {
+        scopedTags.push(...entry.value.split(','));
+      }
+    } else {
       query += `&${entry.field}=${entry.value}`;
+    }
   });
+
+  if (scopedTags.length > 0) {
+    query += `&tags_scoped=${scopedTags.join(',')}`;
+  }
+
   return query;
 }

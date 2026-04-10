@@ -31,6 +31,9 @@ export interface Status {
 
 export interface Tag {
   name: string;
+  scope: string | null;
+  value: string;
+  color: string | null;
 }
 
 export interface Label {
@@ -233,6 +236,7 @@ export interface TestfunctionSet {
   published_by: string;
   published_at: string;
   created_by: string;
+  tags: Tag[];
   file: string;
   requirements_file: string;
   num_testfunctions: number;

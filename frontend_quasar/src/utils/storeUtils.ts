@@ -10,6 +10,30 @@ export async function fetchItems(endpoint: string, query: string) {
   }
 }
 
+export interface ScopedFilterParams {
+  tags_scoped?: string[];
+  environment_mc?: string[];
+  os_mc?: string[];
+  testfunction_set?: string;
+}
+
+export function buildFilterQuery(params: ScopedFilterParams): string {
+  const parts: string[] = [];
+  if (params.tags_scoped && params.tags_scoped.length > 0) {
+    parts.push(`tags_scoped=${params.tags_scoped.join(',')}`);
+  }
+  if (params.environment_mc && params.environment_mc.length > 0) {
+    parts.push(`environment_mc=${params.environment_mc.join(',')}`);
+  }
+  if (params.os_mc && params.os_mc.length > 0) {
+    parts.push(`os_mc=${params.os_mc.join(',')}`);
+  }
+  if (params.testfunction_set) {
+    parts.push(`testfunction_set=${params.testfunction_set}`);
+  }
+  return parts.join('&');
+}
+
 export async function fetchAdvancedItems(
   endpoint: string,
   fetchFunction: (query: string) => Promise<void>,
@@ -17,10 +41,11 @@ export async function fetchAdvancedItems(
   offset?: number,
   sortBy?: string,
   descending?: boolean,
-  filterString?: string
+  filterString?: string,
+  scopedFilters?: ScopedFilterParams,
 ) {
   let query = '';
-  if (limit !== undefined || offset !== undefined || sortBy || filterString) {
+  if (limit !== undefined || offset !== undefined || sortBy || filterString || scopedFilters) {
     query += '?';
   }
   if (limit !== undefined) {
@@ -35,6 +60,12 @@ export async function fetchAdvancedItems(
   }
   if (filterString) {
     query += `&search=${filterString}`;
+  }
+  if (scopedFilters) {
+    const scopedQuery = buildFilterQuery(scopedFilters);
+    if (scopedQuery) {
+      query += `&${scopedQuery}`;
+    }
   }
 
   await fetchFunction(query);

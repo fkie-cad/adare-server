@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { TestfunctionSet } from 'src/models/experiment';
-import { fetchItems, fetchAdvancedItems, fetchFilterOptions } from 'src/utils/storeUtils';
+import { fetchItems, fetchAdvancedItems, fetchFilterOptions, ScopedFilterParams } from 'src/utils/storeUtils';
 
 interface TestfunctionSetState {
   testfunctionSets: Record<string, TestfunctionSet>;
@@ -22,8 +22,8 @@ export const useTestfunctionSetStore = defineStore('testfunctionSet', {
     }, {});
     },
 
-    async fetchTestfunctionSetsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string) {
-      await fetchAdvancedItems('testfunctionSet', this.fetchTestfunctionSets, limit, offset, sortBy, descending, filterString);
+    async fetchTestfunctionSetsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string, scopedFilters?: ScopedFilterParams) {
+      await fetchAdvancedItems('testfunction', this.fetchTestfunctionSets, limit, offset, sortBy, descending, filterString, scopedFilters);
     },
 
     isFilterSupported() {
@@ -31,7 +31,7 @@ export const useTestfunctionSetStore = defineStore('testfunctionSet', {
     },
 
     async fetchFilterOptions(query: string) {
-      return await fetchFilterOptions('testfunctionSet', query);
+      return await fetchFilterOptions('testfunction', query);
     },
 
     getTestfunctionSet(name: string) {
@@ -49,8 +49,8 @@ export const useTestfunctionSetStore = defineStore('testfunctionSet', {
       await this.fetchTestfunctionSets(query);
     },
 
-    async fetchRowsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string) {
-      await this.fetchTestfunctionSetsAdvanced(limit, offset, sortBy, descending, filterString);
+    async fetchRowsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string, scopedFilters?: ScopedFilterParams) {
+      await this.fetchTestfunctionSetsAdvanced(limit, offset, sortBy, descending, filterString, scopedFilters);
     },
 
     getRows() {

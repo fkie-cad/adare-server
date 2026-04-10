@@ -9,7 +9,7 @@ from django.conf import settings
 from giteaeventmanager.auth import GiteaAuthHandle
 from datetime import datetime
 from experiments.models import Requirement as RequirementModel, TestfunctionSet, TestFunction, TestParameter, \
-    Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo, Tag, PostSetupInstallation
+    Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo, Tag, TagScope, PostSetupInstallation
 from giteaeventmanager.exception import TaskFailure
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
@@ -446,7 +446,7 @@ class ExperimentPlugin(PullRequestPlugin):
         for env in metadata['environments']:
             env_instance = Environment.objects.filter(name=env).first()
             if not env_instance:
-                raise TaskFailure(f'environment {env["name"]} does not exist')
+                raise TaskFailure(f'environment {env} does not exist')
             environments.append(env_instance)
 
         # deserialize the testset file
@@ -457,7 +457,17 @@ class ExperimentPlugin(PullRequestPlugin):
         tag_objects = []
         if tags := metadata.get('tags'):
             for tag in tags:
-                obj, created = Tag.objects.get_or_create(name=tag)
+                if not tag:
+                    continue
+                if ':' in tag:
+                    scope_name, value = tag.split(':', 1)
+                    scope = TagScope.objects.filter(name=scope_name).first()
+                    if scope:
+                        obj, created = Tag.objects.get_or_create(scope=scope, value=value)
+                    else:
+                        obj, created = Tag.objects.get_or_create(scope=None, value=tag)
+                else:
+                    obj, created = Tag.objects.get_or_create(scope=None, value=tag)
                 tag_objects.append(obj)
 
         # create experiment object
@@ -556,7 +566,17 @@ class EnvironmentPlugin(PullRequestPlugin):
         tag_objects = []
         if tags := environment_data.get('tags'):
             for tag in tags:
-                obj, created = Tag.objects.get_or_create(name=tag)
+                if not tag:
+                    continue
+                if ':' in tag:
+                    scope_name, value = tag.split(':', 1)
+                    scope = TagScope.objects.filter(name=scope_name).first()
+                    if scope:
+                        obj, created = Tag.objects.get_or_create(scope=scope, value=value)
+                    else:
+                        obj, created = Tag.objects.get_or_create(scope=None, value=tag)
+                else:
+                    obj, created = Tag.objects.get_or_create(scope=None, value=tag)
                 tag_objects.append(obj)
 
         # create postsetupinstallation objects

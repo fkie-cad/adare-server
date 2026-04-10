@@ -62,6 +62,13 @@
           :actualFilter="actualFilter"
           @update-selectFilter="updateFilter"
         />
+        <DataTableSelectFilter
+          v-for="filter in scopeFilters"
+          :key="filter.field"
+          :filter="filter"
+          :actualFilter="actualFilter"
+          @update-selectFilter="updateFilter"
+        />
 <!--        <div class="q-pr-md">-->
 <!--          <q-btn-dropdown-->
 <!--              outline-->
@@ -154,6 +161,7 @@
 import { ref, onMounted, PropType } from 'vue';
 import { CustomQTableColumn } from 'src/models/quasar_extensions';
 import { Filter, FilterEntry, FilterToQueryString, SelectFilter } from 'src/models/advancedtable';
+import { getTagColor } from 'src/constants/tagColors';
 import DataTableSearchFilter from 'components/datatable/DataTableSearchFilter.vue';
 import DataTableSelectFilter from 'components/datatable/DataTableSelectFilter.vue';
 
@@ -200,6 +208,7 @@ export default {
     const hideable_columns = ref<CustomQTableColumn[]>([]);
     const show_filters = ref(false);
     const no_filter = ref(false);
+    const scopeFilters = ref<SelectFilter[]>([]);
 
     let actualFilter = ref<Filter>({
       'entries': []
@@ -208,7 +217,6 @@ export default {
     function updateFilter(filter: FilterEntry) {
       actualFilter.value.entries = actualFilter.value.entries.filter((entry: FilterEntry) => entry.field !== filter.field);
       actualFilter.value.entries.push(filter);
-      // console.log('filterObject', actualFilter.value);
       emit('update-filter', actualFilter.value);
     }
 
@@ -217,8 +225,35 @@ export default {
       let response = await props.store.fetchFilterOptions(query)
       // set options of predefined filters
       for (let filter of props.selectFilters) {
-        filter.options = response.data[filter.option_api_field]
-        filter.total_options = response.data[filter.option_api_field]
+        filter.options = response[filter.option_api_field]
+        filter.total_options = response[filter.option_api_field]
+      }
+
+      // Generate scope-based tag filters from tags_by_scope
+      // API returns { scope: [{value, name, count}, ...] }
+      if (response?.tags_by_scope) {
+        const tagsByScope = response.tags_by_scope as Record<string, Array<{value: string, name: string, count: number}>>;
+        const newScopeFilters: SelectFilter[] = [];
+        for (const [scope, tagEntries] of Object.entries(tagsByScope)) {
+          if (tagEntries.length === 0) continue;
+          const tagNames = tagEntries.map(t => t.name);
+          newScopeFilters.push({
+            name: scope === 'unscoped' ? 'tags' : scope,
+            field: `tags_scoped_${scope}`,
+            api_field: `tags_scoped_${scope}`,
+            option_api_field: '',
+            type: 'options_mc',
+            options: tagNames,
+            total_options: tagNames,
+            selected: [],
+            scope: scope,
+            color: getTagColor(scope === 'unscoped' ? null : scope),
+          });
+        }
+        scopeFilters.value = newScopeFilters;
+        if (newScopeFilters.length > 0) {
+          no_filter.value = false;
+        }
       }
     }
 
@@ -236,7 +271,7 @@ export default {
       // set hideable columns to all columns where column.hideable is true
       hideable_columns.value = props.columns.filter((col: CustomQTableColumn) => col.hideable);
 
-      // load filter options
+      // load filter options (may populate scopeFilters dynamically)
       if (props.store.isFilterSupported()){
         LoadFilterOptions()
       }
@@ -288,6 +323,7 @@ export default {
       show_filters,
       actualFilter,
       no_filter,
+      scopeFilters,
       AdjustShowHideAllColumns,
       ShowAllColumns,
       HideAllColumns,

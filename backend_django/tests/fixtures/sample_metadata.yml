@@ -1,0 +1,6 @@
+name: test-experiment
+description: A test experiment
+environments:
+  - testenv
+tags:
+  - test

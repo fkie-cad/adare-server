@@ -1,3 +1,5 @@
+import itertools
+
 from django.db import models
 import ulid
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
@@ -9,8 +11,31 @@ def generate_ulid():
     return str(ulid.ULID())
 
 
-class Tag(models.Model):
+class TagScope(models.Model):
     name = models.CharField(max_length=50, unique=True)
+    is_predefined = models.BooleanField(default=False)
+    color = models.CharField(max_length=7, blank=True)
+
+    def __str__(self):
+        return str(self.name)
+
+
+class Tag(models.Model):
+    scope = models.ForeignKey(TagScope, on_delete=models.SET_NULL, null=True, blank=True, related_name='tags')
+    value = models.CharField(max_length=100)
+    name = models.CharField(max_length=150, unique=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['scope', 'value'], name='unique_scope_value')
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.scope:
+            self.name = f'{self.scope.name}:{self.value}'
+        else:
+            self.name = self.value
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return str(self.name)
@@ -55,9 +80,9 @@ class Event(models.Model):
 
     status = models.ForeignKey(Status, on_delete=models.PROTECT)
     error = models.CharField(max_length=2000, blank=True)
-    group_id = models.IntegerField()
+    group_id = models.IntegerField(db_index=True)
 
-    timestamp = models.DateTimeField()
+    timestamp = models.DateTimeField(db_index=True)
 
     class Meta:
         abstract = True
@@ -109,9 +134,14 @@ class GuiIdleEvent(Event):
 
 
 class Requirement(models.Model):
-    package = models.CharField(max_length=100, unique=True)
+    package = models.CharField(max_length=100)
     version = models.CharField(max_length=100, blank=True)
     relation = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['package', 'version'], name='unique_package_version')
+        ]
 
 
 class TestfunctionSet(models.Model):
@@ -119,6 +149,7 @@ class TestfunctionSet(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=1000, blank=True)
     requirements = models.ManyToManyField(Requirement)
+    tags = models.ManyToManyField(Tag, blank=True)
     file = models.URLField(max_length=2000)
     requirements_file = models.URLField(max_length=2000)
     sha256hash = models.CharField(max_length=64, unique=True)
@@ -129,7 +160,7 @@ class TestfunctionSet(models.Model):
     created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_created_by', blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
-    published = models.BooleanField(default=False)
+    published = models.BooleanField(default=False, db_index=True)
 
     @property
     def num_testfunctions(self):
@@ -174,15 +205,6 @@ class AbstractTest(models.Model):
         return str(self.name)
 
 
-# class Test(models.Model):
-#     ulid = models.CharField(primary_key=True, max_length=26, default=lambda: generate_ulid)
-#     abstracttest = models.ForeignKey(AbstractTest, on_delete=models.CASCADE)
-#     result = models.ForeignKey(Result, on_delete=models.CASCADE)
-#
-#     def __str__(self):
-#         return str(self.abstracttest.name)
-
-
 class OsInfo(models.Model):
     os = models.CharField(max_length=50)
     distribution = models.CharField(max_length=50)
@@ -196,7 +218,6 @@ class OsInfo(models.Model):
 
 
 class PostSetupInstallation(models.Model):
-    id = models.IntegerField(primary_key=True, auto_created=True)
     name = models.CharField(max_length=500)
     description = models.CharField(max_length=1000, blank=True)
     command = models.CharField(max_length=2000)
@@ -205,7 +226,7 @@ class PostSetupInstallation(models.Model):
 class Environment(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     name = models.CharField(max_length=100, unique=True)
-    vagrantbox = models.CharField(max_length=2000)
+    vagrantbox = models.CharField(max_length=2000, default="")
     description = models.CharField(max_length=1000, blank=True, null=True)
     os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)
     post_setup_installations = models.ManyToManyField(PostSetupInstallation)
@@ -214,11 +235,11 @@ class Environment(models.Model):
 
     sha256hash = models.CharField(max_length=64, unique=True)
 
-    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_env_published_by')
-    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_env_created_by', blank=True, null=True)
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='environments_published')
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='environments_created', blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
-    published = models.BooleanField(default=False)
+    published = models.BooleanField(default=False, db_index=True)
 
     def __str__(self):
         return f'{self.name}'
@@ -233,8 +254,8 @@ class Experiment(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
 
-    action_file = models.URLField(max_length=2000)
-    testset_file = models.URLField(max_length=2000)
+    action_file = models.URLField(max_length=2000, default="")
+    testset_file = models.URLField(max_length=2000, default="")
     metadata_file = models.URLField(max_length=2000)
     bibtex_file = models.URLField(max_length=2000, blank=True, null=True)
     markdown_file = models.URLField(max_length=2000, blank=True, null=True)
@@ -244,15 +265,15 @@ class Experiment(models.Model):
     tags = models.ManyToManyField(Tag)
 
     sha256hash = models.CharField(max_length=64, unique=True)
-    sha256action = models.CharField(max_length=64)
-    sha256testset = models.CharField(max_length=64)
+    sha256action = models.CharField(max_length=64, default="")
+    sha256testset = models.CharField(max_length=64, default="")
 
-    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_exp_published_by')
-    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='testfunctionsets_exp_created_by',
+    published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_published')
+    created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_created',
                                     blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
-    published = models.BooleanField(default=False)
+    published = models.BooleanField(default=False, db_index=True)
 
     def __str__(self):
         return f'{self.name}'
@@ -264,7 +285,7 @@ class ExperimentRun(models.Model):
     published_at = models.DateTimeField()
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='experiment_runs')
     environment = models.ForeignKey(Environment, on_delete=models.PROTECT)
-    timestamp_start = models.DateTimeField()
+    timestamp_start = models.DateTimeField(db_index=True)
     timestamp_end = models.DateTimeField()
     status = models.ForeignKey(Status, on_delete=models.PROTECT, related_name='status')
     result_status = models.ForeignKey(Status, on_delete=models.PROTECT, related_name='result_status')
@@ -279,12 +300,15 @@ class ExperimentRun(models.Model):
 
     @property
     def events(self):
-        event_classes = [CommandEvent, TestEvent, ErrorEvent, GuiFindEvent, GuiClickEvent, GuiKeypressEvent,
-                         GuiIdleEvent]
-        events = [
-            event for event_class in event_classes for event in event_class.objects.filter(run=self)
-        ]
-        return events
+        return list(itertools.chain(
+            self.command_events.all(),
+            self.test_events.all(),
+            self.error_events.all(),
+            self.gui_find_events.all(),
+            self.gui_click_events.all(),
+            self.gui_keypress_events.all(),
+            self.gui_idle_events.all(),
+        ))
 
 
 class Label(models.Model):

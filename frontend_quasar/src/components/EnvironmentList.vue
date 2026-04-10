@@ -6,14 +6,26 @@
 
 <script lang="ts">
 import DataTable from 'components/datatable/DataTable.vue';
-import { CustomQTableColumn } from 'src/models/quasar_extensions';
+import { CustomQTableColumn, TypeVarsDetails } from 'src/models/quasar_extensions';
 import DataTableTags from 'components/datatable/DataTableTags.vue';
 import DataTableUserIcon from 'components/datatable/DataTableUserIcon.vue';
 import DataTableOsInfo from 'components/datatable/DataTableOsInfo.vue';
 import DataTableLink from 'components/datatable/DataTableLink.vue';
+import DataTableDetails from 'components/datatable/DataTableDetails.vue';
 import { useEnvironmentStore } from 'src/store/environment';
 
 const title = 'Environments';
+
+function link_to_environment(name: string | undefined) {
+  if (!name) return '';
+  return '/environment/' + name;
+}
+
+const typeVarsDetails: TypeVarsDetails = {
+  icon: 'o_add_circle',
+  formatter: link_to_environment,
+  field: 'name',
+}
 
 const typeVarsLink = {
   icon: 'open_in_new',
@@ -22,6 +34,7 @@ const typeVarsLink = {
 }
 
 const columns: CustomQTableColumn[] = [
+  { name: 'details', label: 'details', field: 'details', align: 'left', hideable: true, visible: true, type: DataTableDetails, typeVarsDetails: typeVarsDetails},
   { name: 'name', label: 'name', field: 'name', align: 'left', sortable: true, visible: true},
   { name: 'description', align: 'left', label: 'description', field: 'description', hideable: true, visible: true},
   { name: 'ulid', align: 'left', label: 'ulid', field: 'ulid', hideable: true, visible: true},

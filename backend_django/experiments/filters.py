@@ -1,5 +1,5 @@
 from django_filters import rest_framework as filters
-from experiments.models import Experiment, TestFunction, Request, Tag, Label, ExperimentRun
+from experiments.models import Experiment, Environment, TestfunctionSet, TestFunction, Request, Tag, Label, ExperimentRun
 from django.db.models import Q, Count
 from datetime import datetime
 
@@ -24,6 +24,30 @@ class ExperimentFilter(filters.FilterSet):
     tags_mc = filters.ModelMultipleChoiceFilter(field_name='tags__name', to_field_name='name',
                                                 queryset=Tag.objects.all())
 
+    # scoped tag filter: accepts comma-separated scope:value pairs e.g. tool:Autopsy,goal:tool-test
+    tags_scoped = filters.CharFilter(method='tags_scoped_filter')
+
+    # filter experiments by environment name
+    environment_mc = filters.CharFilter(method='environment_mc_filter')
+
+    # filter experiments by testfunction set name
+    testfunction_set = filters.CharFilter(method='testfunction_set_filter')
+
+    def tags_scoped_filter(self, queryset, name, value):
+        tag_names = [t.strip() for t in value.split(',') if t.strip()]
+        for tag_name in tag_names:
+            queryset = queryset.filter(tags__name=tag_name)
+        return queryset.distinct()
+
+    def environment_mc_filter(self, queryset, name, value):
+        env_names = [e.strip() for e in value.split(',') if e.strip()]
+        return queryset.filter(environments__name__in=env_names).distinct()
+
+    def testfunction_set_filter(self, queryset, name, value):
+        return queryset.filter(
+            abstract_tests__testfunction__testfunction_set__name=value
+        ).distinct()
+
     def os_info_filter(self, queryset, name, value):
         return queryset.filter(
             Q(os_info__os__icontains=value) |
@@ -35,17 +59,13 @@ class ExperimentFilter(filters.FilterSet):
         )
 
     def runcount_pos_filter(self, queryset, name, value):
-        # count the number of experiment runs for each experiment that have the status success
-        # and filter out those that have less than the specified number
         return queryset.annotate(
-            runcount=Count('experiment_runs', filter=Q(experiment_runs__status__name='success'))
+            runcount=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='success'))
         ).filter(runcount__gte=value)
 
     def runcount_neg_filter(self, queryset, name, value):
-        # count the number of experiment runs for each experiment that have the status success
-        # and filter out those that have more than the specified number
         return queryset.annotate(
-            runcount=Count('experiment_runs', filter=Q(experiment_runs__status__name='failed'))
+            runcount=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='failed'))
         ).filter(runcount__gte=value)
 
     def runcount_filter(self, queryset, name, value):
@@ -157,6 +177,51 @@ class ExperimentFilter(filters.FilterSet):
 #         ]
 #
 #
+class EnvironmentFilter(filters.FilterSet):
+    tags_mc = filters.ModelMultipleChoiceFilter(field_name='tags__name', to_field_name='name',
+                                                queryset=Tag.objects.all())
+    tags_scoped = filters.CharFilter(method='tags_scoped_filter')
+    os_mc = filters.CharFilter(method='os_mc_filter')
+
+    def tags_scoped_filter(self, queryset, name, value):
+        tag_names = [t.strip() for t in value.split(',') if t.strip()]
+        for tag_name in tag_names:
+            queryset = queryset.filter(tags__name=tag_name)
+        return queryset.distinct()
+
+    def os_mc_filter(self, queryset, name, value):
+        os_values = [o.strip() for o in value.split(',') if o.strip()]
+        return queryset.filter(
+            Q(os_info__os__in=os_values) | Q(os_info__distribution__in=os_values)
+        ).distinct()
+
+    class Meta:
+        model = Environment
+        fields = [
+            'name',
+            'tags',
+        ]
+
+
+class TestfunctionSetFilter(filters.FilterSet):
+    tags_mc = filters.ModelMultipleChoiceFilter(field_name='tags__name', to_field_name='name',
+                                                queryset=Tag.objects.all())
+    tags_scoped = filters.CharFilter(method='tags_scoped_filter')
+
+    def tags_scoped_filter(self, queryset, name, value):
+        tag_names = [t.strip() for t in value.split(',') if t.strip()]
+        for tag_name in tag_names:
+            queryset = queryset.filter(tags__name=tag_name)
+        return queryset.distinct()
+
+    class Meta:
+        model = TestfunctionSet
+        fields = [
+            'name',
+            'tags',
+        ]
+
+
 class ExperimentRunFilter(filters.FilterSet):
     ulid_contains = filters.CharFilter(field_name='ulid', lookup_expr='contains')
 

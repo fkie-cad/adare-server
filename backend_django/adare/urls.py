@@ -59,6 +59,7 @@ urlpatterns = [
 
     # #
     path('api/experiment/filteroptions/', experiment_frontend_views.ExperimentFilterOptionsView.as_view()),
+    path('api/experiment/dashboard/', experiment_frontend_views.ExperimentDashboardView.as_view()),
     # # check if an experiment is published to the webapp if yes, return the experiment information
     path('api/experiment/check/', experiment_frontend_views.ExperimentCheckView.as_view()),
     path('api/experiment/checkmuliple/', experiment_frontend_views.ExperimentCheckMultipleView.as_view()),
@@ -67,7 +68,7 @@ urlpatterns = [
     # # get all experiment runs (paginated, filtered, sorted)
     path('api/run/', experiment_frontend_views.ExperimentRunListView.as_view()),
     # # get a single experiment run by uuid
-    path('api/run/run_<str:uuid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
+    path('api/run/run_<str:ulid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
     # #
     # path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
     # # check if an experiment run is published to the webapp
@@ -78,6 +79,7 @@ urlpatterns = [
 
     path('api/environment/', experiment_frontend_views.EnvironmentListView.as_view()),
     path('api/environment/filteroptions/', experiment_frontend_views.EnvironmentFilterOptionsView.as_view()),
+    path('api/environment/environment_<str:name>/', experiment_frontend_views.EnvironmentView.as_view()),
     path('api/download/environment_<str:name>/', experiment_frontend_views.EnvironmentDownloadView.as_view()),
 
     path('api/download/testfunction_<str:name>/', experiment_frontend_views.TestfunctionDownloadView.as_view()),
@@ -88,12 +90,13 @@ urlpatterns = [
 
     # ### testfunction urls ###
     path('api/testfunction/', experiment_frontend_views.TestFunctionListView.as_view()),
+    path('api/testfunction/filteroptions/', experiment_frontend_views.TestfunctionFilterOptionsView.as_view()),
 
     # ### request urls ###
     # get all requests (paginated, filtered, sorted)
     path('api/request/', experiment_frontend_views.RequestListView.as_view()),
     # # get a single request by uuid
-    path('api/request/request_<str:uuid>/', experiment_frontend_views.RequestRetrieveView.as_view()),
+    path('api/request/request_<str:ulid>/', experiment_frontend_views.RequestRetrieveView.as_view()),
     # #
     path('api/request/filteroptions/', experiment_frontend_views.RequestFilterOptionsView.as_view()),
 
@@ -106,10 +109,29 @@ urlpatterns = [
 
     # ### statistics urls ###
     path('api/stats/', experiment_frontend_views.StatisticView.as_view()),
+    path('api/statistics/', experiment_frontend_views.StatisticView.as_view()),
 
     # ### gitea webhook url ###
     # !!!! NEVER EXPOSE THIS URL TO THE PUBLIC INTERNET !!!!
     path('internal/gitea/webhook/', giteaeventmanager_views.GiteaWebhookView.as_view()),
     path('internal/gitea/requestcheck/', giteaeventmanager_views.RequestCheckView.as_view()),
 
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+]
+
+if MODE == 'development':
+    import experiments.dev_views as dev_views
+    urlpatterns += [
+        path('api/auth/dev/', users_views.DevLoginView.as_view()),
+        path('api/submit/experiment/', dev_views.DevSubmitExperimentView.as_view()),
+        path('api/submit/testfunction/', dev_views.DevSubmitTestfunctionView.as_view()),
+        path('api/submit/environment/', dev_views.DevSubmitEnvironmentView.as_view()),
+    ]
+else:
+    import experiments.submit_views as submit_views
+    urlpatterns += [
+        path('api/submit/experiment/', submit_views.SubmitExperimentView.as_view()),
+        path('api/submit/testfunction/', submit_views.SubmitTestfunctionView.as_view()),
+        path('api/submit/environment/', submit_views.SubmitEnvironmentView.as_view()),
+    ]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -15,6 +15,7 @@
       style="width: 200px"
       class="q-pr-md"
       v-show="visible"
+      :color="filter.color || 'primary'"
     >
       <template v-slot:option="scope">
         <q-item v-bind="scope.itemProps">
@@ -22,7 +23,7 @@
             <q-item-label>
               <q-icon name="check" v-if="scope.selected" size="1rem"/>
               <q-icon v-else size="1rem"/>
-              {{ scope.opt }}
+              {{ displayLabel(scope.opt) }}
             </q-item-label>
           </q-item-section>
         </q-item>
@@ -61,20 +62,26 @@ export default defineComponent({
     });
 
     const ChangeSelectFilter = () => {
-      // create filter entry for each selected field
-      for (const selectedField of selectedFields.value) {
-        const filterEntry: FilterEntry = {
-          field: props.filter.api_field,
-          type: 'select',
-          value: selectedField,
-        };
-        emit('update-selectFilter', filterEntry);
-      }
+      const filterEntry: FilterEntry = {
+        field: props.filter.api_field,
+        type: 'select',
+        value: selectedFields.value.join(','),
+      };
+      emit('update-selectFilter', filterEntry);
     };
+
+    function displayLabel(opt: string): string {
+      // Strip scope: prefix for scoped tag filters
+      if (props.filter.scope && opt.includes(':')) {
+        return opt.split(':').slice(1).join(':');
+      }
+      return opt;
+    }
 
     return {
       selectedFields,
       ChangeSelectFilter,
+      displayLabel,
       visible,
     }
 

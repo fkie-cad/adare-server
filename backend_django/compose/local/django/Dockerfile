@@ -1,11 +1,17 @@
 FROM python:3.10.2-slim-bullseye
 
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /bin/uv
+
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
 
 RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y build-essential \
+  # git (needed for uv to install git dependencies)
+  && apt-get install -y git \
   # psycopg2 dependencies
   && apt-get install -y libpq-dev \
   # Translations dependencies
@@ -14,9 +20,10 @@ RUN apt-get update \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-# Requirements are installed here to ensure they will be cached.
-COPY ./requirements.txt /requirements.txt
-RUN pip install -r /requirements.txt
+# Install dependencies via uv
+COPY uv.lock pyproject.toml /tmp/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    cd /tmp && uv sync --locked --no-install-project
 
 # now exchange django all auth social account models file with /extra/models.py todo: remove this when django all auth fixes the issue
 COPY ./extra/models.py /usr/local/lib/python3.10/site-packages/allauth/socialaccount/models.py

@@ -106,3 +106,6 @@ yarn-error.log*
 */celerybeat-schedule
 */deploy
 /backend_django/pgdata
+/backend_django/.env
+CLAUDE.md
+.superpowers/

@@ -47,6 +47,20 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
+    path: '/environment/:name',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      {
+        path: '',
+        components: {
+          main: () => import('pages/EnvironmentPage.vue'),
+          header: () => import('components/HeaderDefault.vue'),
+        },
+        props: true,
+      },
+    ],
+  },
+  {
     path: '/testfunctionset',
     component: () => import('layouts/MainLayout.vue'),
     children: [

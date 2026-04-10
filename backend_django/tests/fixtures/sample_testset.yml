@@ -1,0 +1,8 @@
+name: test-experiment-testset
+description: Testset for E2E test experiment
+tests:
+  - name: check-file-exists
+    description: Verify a file exists at the given path
+    type: is_file
+    params:
+      path: /tmp/test_file.txt

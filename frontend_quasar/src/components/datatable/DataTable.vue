@@ -102,8 +102,16 @@ export default {
       visibleColumns.value = visible_columns;
     }
 
-    function updateFilter(filter: Filter) {
+    async function updateFilter(filter: Filter) {
       filterString.value = FilterToQueryString(filter);
+      loading.value = true;
+      // FilterToQueryString returns &field=value&... — strip leading &
+      const queryParams = filterString.value.replace(/^&/, '');
+      const offset = (mutablePagination.value.page - 1) * mutablePagination.value.rowsPerPage;
+      const paginationParams = `limit=${mutablePagination.value.rowsPerPage}&offset=${offset}`;
+      const query = queryParams ? `${paginationParams}&${queryParams}` : paginationParams;
+      await props.store.fetchRows(query);
+      loading.value = false;
     }
 
     onMounted(async () => {

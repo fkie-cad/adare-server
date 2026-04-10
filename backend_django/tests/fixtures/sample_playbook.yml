@@ -1,0 +1,9 @@
+---
+- name: Test Experiment Playbook
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure test file exists
+      file:
+        path: /tmp/test_file.txt
+        state: touch

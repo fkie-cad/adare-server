@@ -1,0 +1,11 @@
+name: testenv
+vagrantbox: generic/ubuntu2204
+description: Test environment for automated testing
+os:
+  os: Linux
+  distribution: Ubuntu
+  version: "22.04"
+  language: en_US
+  architecture: x86_64
+tags:
+  - test

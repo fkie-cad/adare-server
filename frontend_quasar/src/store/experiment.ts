@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { Experiment } from 'src/models/experiment';
-import { fetchItems, fetchAdvancedItems, fetchFilterOptions } from 'src/utils/storeUtils';
+import { fetchItems, fetchAdvancedItems, fetchFilterOptions, ScopedFilterParams } from 'src/utils/storeUtils';
 
 interface ExperimentState {
   experiments: Record<string, Experiment>;
@@ -10,7 +10,7 @@ interface ExperimentState {
 export const useExperimentStore = defineStore('experiment', {
   state: (): ExperimentState => ({
     experiments: {},
-    filterSupported: false,
+    filterSupported: true,
   }),
 
   actions: {
@@ -31,8 +31,8 @@ export const useExperimentStore = defineStore('experiment', {
       return results[0];
     },
 
-    async fetchExperimentsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string) {
-      await fetchAdvancedItems('experiment', this.fetchExperiments, limit, offset, sortBy, descending, filterString);
+    async fetchExperimentsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string, scopedFilters?: ScopedFilterParams) {
+      await fetchAdvancedItems('experiment', this.fetchExperiments, limit, offset, sortBy, descending, filterString, scopedFilters);
     },
 
     isFilterSupported() {
@@ -47,8 +47,8 @@ export const useExperimentStore = defineStore('experiment', {
       await this.fetchExperiments(query);
     },
 
-    async fetchRowsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string) {
-      await this.fetchExperimentsAdvanced(limit, offset, sortBy, descending, filterString);
+    async fetchRowsAdvanced(limit?: number, offset?: number, sortBy?: string, descending?: boolean, filterString?: string, scopedFilters?: ScopedFilterParams) {
+      await this.fetchExperimentsAdvanced(limit, offset, sortBy, descending, filterString, scopedFilters);
     },
 
     getRows() {

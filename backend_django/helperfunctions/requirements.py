@@ -30,10 +30,10 @@ def parse_requirements_from_file(file: Path) -> list:
             if not line.strip():
                 continue
             # match package name, version and relation (also allow for only package name)
-            match = re.match(r"^(?!#)(\w[\w\.-]*)([<>=]=?[\w\.-]+)?$", line)
+            match = re.match(r"^(?!#)(\w[\w\.-]*)(?:([<>=!]=?)(\S+))?$", line.strip())
             if match:
                 package, relation, version = match.groups()
-                requirements.append(Requirement(package, version, relation))
+                requirements.append(Requirement(package, version or "", relation or ""))
 
     return requirements
 
@@ -49,7 +49,7 @@ def check_if_requirements_file_is_valid(file: Path) -> bool:
             if not line.strip():
                 continue
             # match package name, version and relation (also allow for only package name)
-            match = re.match(r"^(?!#)(\w[\w\.-]*)([<>=]=?[\w\.-]+)?$", line)
+            match = re.match(r"^(?!#)(\w[\w\.-]*)(?:([<>=!]=?)(\S+))?$", line.strip())
             if not match:
                 return False
     return True

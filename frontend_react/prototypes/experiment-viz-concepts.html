@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADARE — Experiment Visualization Concepts</title>
+<style>
+/* ═══════════════════════════════════════════════
+   ADARE Design Tokens
+   ═══════════════════════════════════════════════ */
+:root {
+  --primary: oklch(0.55 0.15 168);
+  --primary-fg: oklch(0.985 0 0);
+  --primary-hover: oklch(0.48 0.13 168);
+  --secondary: oklch(0.50 0.15 255);
+  --destructive: oklch(0.45 0.22 25);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-fg: oklch(0.145 0 0);
+  --muted: oklch(0.97 0.014 254.604);
+  --muted-fg: oklch(0.556 0.022 257.417);
+  --border: oklch(0.922 0.013 255.508);
+  --accent: oklch(0.95 0.02 168);
+  --accent-fg: oklch(0.25 0.05 168);
+
+  /* Chart palette */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Tag scope colors */
+  --tag-tool: #1e40af;
+  --tag-artifact: #166534;
+  --tag-goal: #6b21a8;
+  --tag-unscoped: #374151;
+
+  /* Status */
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --fail: #dc2626;
+  --fail-bg: #fef2f2;
+  --untested: #d1d5db;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  --radius: 8px;
+  --radius-sm: 4px;
+}
+
+/* ═══════════════════════════════════════════════
+   Base Reset & Typography
+   ═══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--foreground);
+  background: var(--muted);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════════
+   Shell: Header + Tab Bar
+   ═══════════════════════════════════════════════ */
+.app-header {
+  background: var(--primary);
+  color: var(--primary-fg);
+  padding: var(--sp-4) var(--sp-6);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.app-header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.app-header .subtitle {
+  font-size: 11px;
+  opacity: 0.7;
+  letter-spacing: 0.04em;
+}
+
+.tab-bar {
+  display: flex;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--sp-6);
+  gap: 0;
+  position: sticky;
+  top: 51px;
+  z-index: 99;
+}
+.tab-btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: var(--sp-3) var(--sp-5);
+  border: none;
+  background: none;
+  color: var(--muted-fg);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.tab-btn:hover {
+  color: var(--foreground);
+  background: var(--accent);
+}
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: var(--accent);
+}
+.tab-btn .tab-num {
+  display: inline-block;
+  background: var(--muted);
+  color: var(--muted-fg);
+  font-size: 10px;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 3px;
+  margin-right: var(--sp-2);
+}
+.tab-btn.active .tab-num {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+
+/* ═══════════════════════════════════════════════
+   Panels
+   ═══════════════════════════════════════════════ */
+.panel {
+  display: none;
+  padding: var(--sp-6);
+  max-width: 1400px;
+  margin: 0 auto;
+  animation: panelIn 0.25s ease;
+}
+.panel.active { display: block; }
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: var(--sp-1);
+  color: var(--foreground);
+}
+.panel-desc {
+  font-size: 11px;
+  color: var(--muted-fg);
+  margin-bottom: var(--sp-6);
+  max-width: 700px;
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════
+   Cards (shared)
+   ═══════════════════════════════════════════════ */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.04);
+}
+
+/* ═══════════════════════════════════════════════
+   Tags
+   ═══════════════════════════════════════════════ */
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+.tag-tool { background: var(--tag-tool); }
+.tag-artifact { background: var(--tag-artifact); }
+.tag-goal { background: var(--tag-goal); }
+.tag-unscoped { background: var(--tag-unscoped); }
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ═══════════════════════════════════════════════
+   1. Card / Grid View
+   ═══════════════════════════════════════════════ */
+.view-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  width: fit-content;
+}
+.view-toggle button {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-4);
+  border: none;
+  background: var(--card);
+  color: var(--muted-fg);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.view-toggle button.active {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--sp-5);
+}
+
+.exp-card {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  transition: box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.exp-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--primary);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.exp-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px oklch(0 0 0 / 0.08);
+}
+.exp-card:hover::before { opacity: 1; }
+
+.exp-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+.exp-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.3;
+}
+.exp-card-date {
+  font-size: 10px;
+  color: var(--muted-fg);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.exp-card-desc {
+  font-size: 11px;
+  color: var(--muted-fg);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Mini bar chart for success/fail */
+.mini-chart {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.mini-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--muted);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+.mini-bar-success {
+  height: 100%;
+  background: var(--success);
+  transition: width 0.4s ease;
+}
+.mini-bar-fail {
+  height: 100%;
+  background: var(--fail);
+  transition: width 0.4s ease;
+}
+.mini-chart-label {
+  font-size: 10px;
+  color: var(--muted-fg);
+  white-space: nowrap;
+  min-width: 56px;
+  text-align: right;
+}
+
+.exp-card-envs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.env-pill {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--muted-fg);
+  background: var(--muted);
+  letter-spacing: 0.02em;
+}
+.env-pill.os-win { border-color: #93c5fd; color: #1d4ed8; background: #eff6ff; }
+.env-pill.os-linux { border-color: #d1d5db; color: #374151; background: #f9fafb; }
+
+/* Table view fallback */
+.exp-table-wrap { overflow-x: auto; }
+.exp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.exp-table th {
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  font-weight: 600;
+  color: var(--muted-fg);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+.exp-table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.exp-table tr:hover td { background: var(--accent); }
+.exp-table .col-name { font-weight: 600; }
+.exp-table .col-rate {
+  font-variant-numeric: tabular-nums;
+}
+.rate-good { color: var(--success); }
+.rate-warn { color: #d97706; }
+.rate-bad { color: var(--fail); }
+
+/* ═══════════════════════════════════════════════
+   2. Experiment x Environment Matrix
+   ═══════════════════════════════════════════════ */
+.matrix-legend {
+  display: flex;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-5);
+  align-items: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 11px;
+  color: var(--muted-fg);
+}
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid oklch(0 0 0 / 0.08);
+}
+
+.matrix-wrap {
+  overflow-x: auto;
+}
+.matrix-table {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 11px;
+}
+.matrix-table th {
+  padding: var(--sp-2) var(--sp-3);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-fg);
+  white-space: nowrap;
+}
+.matrix-table th.env-col {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  padding: var(--sp-3) var(--sp-2);
+  height: 100px;
+  vertical-align: bottom;
+}
+.matrix-table td.row-label {
+  font-weight: 600;
+  color: var(--foreground);
+  padding-right: var(--sp-5);
+  white-space: nowrap;
+  text-align: right;
+}
+.matrix-cell {
+  width: 52px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  vertical-align: middle;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: default;
+  transition: transform 0.12s, box-shadow 0.12s;
+  position: relative;
+}
+.matrix-cell:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.15);
+  z-index: 2;
+}
+
+.matrix-cell[data-rate="100"] { background: #15803d; color: #fff; }
+.matrix-cell[data-rate="high"] { background: #22c55e; color: #fff; }
+.matrix-cell[data-rate="mid"]  { background: #fbbf24; color: #78350f; }
+.matrix-cell[data-rate="low"]  { background: #f87171; color: #fff; }
+.matrix-cell[data-rate="zero"] { background: #dc2626; color: #fff; }
+.matrix-cell[data-rate="none"] { background: var(--muted); color: var(--muted-fg); font-size: 9px; font-weight: 400; }
+
+.matrix-table td.row-rate {
+  padding-left: var(--sp-4);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════
+   3. Success Rate Dashboard
+   ═══════════════════════════════════════════════ */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--sp-5);
+}
+@media (max-width: 900px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+.stat-card {
+  padding: var(--sp-4);
+  text-align: center;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: var(--sp-1);
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-size: 10px;
+  color: var(--muted-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stat-value.c-primary { color: var(--primary); }
+.stat-value.c-success { color: var(--success); }
+.stat-value.c-fail { color: var(--fail); }
+.stat-value.c-muted { color: var(--muted-fg); }
+
+/* Horizontal bar chart */
+.bar-chart { display: flex; flex-direction: column; gap: 6px; }
+.bar-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 50px;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: 3px 0;
+  font-size: 11px;
+}
+.bar-row:hover { background: var(--accent); border-radius: var(--radius-sm); }
+.bar-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar-track {
+  height: 18px;
+  background: var(--muted);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+.bar-fill-success {
+  height: 100%;
+  background: var(--success);
+  transition: width 0.5s ease;
+  min-width: 0;
+}
+.bar-fill-fail {
+  height: 100%;
+  background: var(--fail);
+  transition: width 0.5s ease;
+}
+.bar-pct {
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+/* Sidebar list */
+.sidebar-section { margin-bottom: var(--sp-5); }
+.sidebar-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-fg);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-list { display: flex; flex-direction: column; gap: 4px; }
+.sidebar-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+}
+.sidebar-item:hover { background: var(--accent); }
+.sidebar-item .label {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-item .value {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-fg);
+  flex-shrink: 0;
+  margin-left: var(--sp-3);
+}
+
+/* ═══════════════════════════════════════════════
+   4. Tag Treemap / Bubble Cloud
+   ═══════════════════════════════════════════════ */
+.treemap-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-5);
+}
+@media (max-width: 800px) {
+  .treemap-container { grid-template-columns: 1fr; }
+}
+
+.scope-group {
+  padding: var(--sp-5);
+}
+.scope-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.scope-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.scope-dot-tool { background: var(--tag-tool); }
+.scope-dot-artifact { background: var(--tag-artifact); }
+.scope-dot-goal { background: var(--tag-goal); }
+.scope-name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-fg);
+}
+.scope-count {
+  font-size: 10px;
+  color: var(--muted-fg);
+  margin-left: auto;
+}
+
+.bubble-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  align-content: flex-start;
+  min-height: 200px;
+}
+
+.bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  cursor: default;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  text-align: center;
+  line-height: 1.2;
+}
+.bubble:hover {
+  transform: scale(1.12);
+  box-shadow: 0 4px 16px oklch(0 0 0 / 0.18);
+  z-index: 2;
+}
+.bubble .bubble-name {
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bubble .bubble-count {
+  font-size: 14px;
+}
+.bubble-tool { background: var(--tag-tool); }
+.bubble-artifact { background: var(--tag-artifact); }
+.bubble-goal { background: var(--tag-goal); }
+
+/* Summary strip for treemap */
+.treemap-summary {
+  display: flex;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
+}
+.treemap-summary .ts-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.treemap-summary .ts-val {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+/* Tooltip */
+.tooltip {
+  position: fixed;
+  background: var(--foreground);
+  color: var(--background);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.12s;
+  max-width: 260px;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px oklch(0 0 0 / 0.2);
+}
+.tooltip.visible { opacity: 1; }
+
+/* ═══════════════════════════════════════════════
+   Stagger animation for cards/rows
+   ═══════════════════════════════════════════════ */
+.stagger { animation: staggerIn 0.35s ease both; }
+@keyframes staggerIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="app-header">
+  <h1>ADARE</h1>
+  <span class="subtitle">Experiment Visualization Concepts</span>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="cards">
+    <span class="tab-num">1</span>Card / Grid
+  </button>
+  <button class="tab-btn" data-tab="matrix">
+    <span class="tab-num">2</span>Exp x Env Matrix
+  </button>
+  <button class="tab-btn" data-tab="dashboard">
+    <span class="tab-num">3</span>Success Rate
+  </button>
+  <button class="tab-btn" data-tab="treemap">
+    <span class="tab-num">4</span>Tag Cloud
+  </button>
+</div>
+
+<!-- Tooltip (shared) -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- ════════════════════════════════════════════════
+     Panel 1: Card / Grid View
+     ════════════════════════════════════════════════ -->
+<div class="panel active" id="panel-cards">
+  <div class="panel-title">Experiment Card View</div>
+  <div class="panel-desc">
+    Toggle between card and table layouts. Cards surface key signals at a glance:
+    tags, success/fail ratio, target environments, and last run date.
+  </div>
+
+  <div class="view-toggle">
+    <button class="active" data-view="grid" onclick="setView('grid')">Grid</button>
+    <button data-view="table" onclick="setView('table')">Table</button>
+  </div>
+
+  <div id="card-grid-view" class="card-grid"></div>
+  <div id="card-table-view" class="card" style="display:none">
+    <div class="exp-table-wrap">
+      <table class="exp-table" id="card-table"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     Panel 2: Experiment x Environment Matrix
+     ════════════════════════════════════════════════ -->
+<div class="panel" id="panel-matrix">
+  <div class="panel-title">Experiment x Environment Matrix</div>
+  <div class="panel-desc">
+    Heatmap grid showing pass rates across every experiment-environment combination.
+    Hover cells for detail. Rows sorted by overall success rate descending.
+  </div>
+
+  <div class="matrix-legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:#15803d"></div>100%</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#22c55e"></div>70-99%</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#fbbf24"></div>40-69%</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#f87171"></div>1-39%</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#dc2626"></div>0%</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--muted)"></div>Untested</div>
+  </div>
+
+  <div class="card" style="padding: var(--sp-5); overflow-x: auto;">
+    <div class="matrix-wrap">
+      <table class="matrix-table" id="matrix-table"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     Panel 3: Success Rate Dashboard
+     ════════════════════════════════════════════════ -->
+<div class="panel" id="panel-dashboard">
+  <div class="panel-title">Success Rate Dashboard</div>
+  <div class="panel-desc">
+    Experiments ranked by success rate with stacked pass/fail bars.
+    Summary statistics and per-environment breakdowns on the right.
+  </div>
+
+  <div id="stat-row" class="stat-row"></div>
+
+  <div class="dashboard-grid">
+    <div class="card" style="padding: var(--sp-5);">
+      <div id="bar-chart" class="bar-chart"></div>
+    </div>
+    <div>
+      <div class="card sidebar-section" style="padding: var(--sp-4);" id="sidebar-envs"></div>
+      <div class="card sidebar-section" style="padding: var(--sp-4); margin-top: var(--sp-4);" id="sidebar-recent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     Panel 4: Tag Treemap / Cloud
+     ════════════════════════════════════════════════ -->
+<div class="panel" id="panel-treemap">
+  <div class="panel-title">Tag Cloud by Scope</div>
+  <div class="panel-desc">
+    Tags grouped by scope (tool / artifact / goal). Bubble size reflects
+    the number of experiments using that tag. Hover for details.
+  </div>
+
+  <div class="treemap-summary card" id="treemap-summary"></div>
+  <div class="treemap-container" id="treemap-groups"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// Mock Data
+// ══════════════════════════════════════════════════
+const ENVIRONMENTS = [
+  { name: 'Win10-22H2',   os: 'windows' },
+  { name: 'Win11-23H2',   os: 'windows' },
+  { name: 'Ubuntu-22.04', os: 'linux' },
+  { name: 'Ubuntu-24.04', os: 'linux' },
+  { name: 'Debian-12',    os: 'linux' },
+  { name: 'Fedora-39',    os: 'linux' },
+];
+
+const EXPERIMENTS = [
+  {
+    name: 'disk-image-acquisition',
+    desc: 'Acquires forensic disk images using dd and FTK Imager across target environments.',
+    tags: ['tool:dd', 'tool:ftk-imager', 'goal:acquisition'],
+    runs: { successful: 42, failed: 3 },
+    lastRun: '2026-04-07',
+    envRuns: { 'Win10-22H2': [8,0], 'Win11-23H2': [7,1], 'Ubuntu-22.04': [9,0], 'Ubuntu-24.04': [8,1], 'Debian-12': [6,0], 'Fedora-39': [4,1] },
+  },
+  {
+    name: 'memory-forensics-volatility',
+    desc: 'Analyzes volatile memory dumps with Volatility framework for IOC extraction.',
+    tags: ['tool:volatility', 'artifact:memory-dump', 'goal:analysis'],
+    runs: { successful: 35, failed: 8 },
+    lastRun: '2026-04-06',
+    envRuns: { 'Win10-22H2': [7,2], 'Win11-23H2': [6,3], 'Ubuntu-22.04': [8,1], 'Ubuntu-24.04': [7,0], 'Debian-12': [5,1], 'Fedora-39': [2,1] },
+  },
+  {
+    name: 'registry-hive-analysis',
+    desc: 'Extracts and parses Windows registry hives for forensic artifacts using RegRipper.',
+    tags: ['tool:regripper', 'artifact:registry', 'goal:analysis'],
+    runs: { successful: 18, failed: 12 },
+    lastRun: '2026-04-05',
+    envRuns: { 'Win10-22H2': [9,2], 'Win11-23H2': [9,3], 'Ubuntu-22.04': [0,4], 'Ubuntu-24.04': [0,3], 'Debian-12': null, 'Fedora-39': null },
+  },
+  {
+    name: 'network-pcap-analysis',
+    desc: 'Deep packet inspection and protocol analysis on captured network traffic.',
+    tags: ['tool:wireshark', 'tool:tshark', 'artifact:pcap', 'goal:analysis'],
+    runs: { successful: 51, failed: 2 },
+    lastRun: '2026-04-08',
+    envRuns: { 'Win10-22H2': [9,0], 'Win11-23H2': [8,1], 'Ubuntu-22.04': [10,0], 'Ubuntu-24.04': [9,0], 'Debian-12': [8,0], 'Fedora-39': [7,1] },
+  },
+  {
+    name: 'file-carving-autopsy',
+    desc: 'Recovers deleted files from disk images using Autopsy and Scalpel carving engines.',
+    tags: ['tool:autopsy', 'tool:scalpel', 'artifact:disk-image', 'goal:recovery'],
+    runs: { successful: 28, failed: 14 },
+    lastRun: '2026-04-04',
+    envRuns: { 'Win10-22H2': [6,3], 'Win11-23H2': [5,4], 'Ubuntu-22.04': [7,2], 'Ubuntu-24.04': [6,2], 'Debian-12': [3,2], 'Fedora-39': [1,1] },
+  },
+  {
+    name: 'timeline-generation',
+    desc: 'Generates super timelines from filesystem, registry, and log artifacts.',
+    tags: ['tool:plaso', 'tool:log2timeline', 'goal:timeline'],
+    runs: { successful: 22, failed: 5 },
+    lastRun: '2026-04-03',
+    envRuns: { 'Win10-22H2': [5,1], 'Win11-23H2': [4,1], 'Ubuntu-22.04': [5,0], 'Ubuntu-24.04': [4,1], 'Debian-12': [3,1], 'Fedora-39': [1,1] },
+  },
+  {
+    name: 'email-header-analysis',
+    desc: 'Parses and validates email headers for origin tracing and spoofing detection.',
+    tags: ['tool:mbox-parser', 'artifact:email', 'goal:analysis'],
+    runs: { successful: 15, failed: 1 },
+    lastRun: '2026-04-02',
+    envRuns: { 'Win10-22H2': [3,0], 'Win11-23H2': [2,1], 'Ubuntu-22.04': [4,0], 'Ubuntu-24.04': [3,0], 'Debian-12': [2,0], 'Fedora-39': [1,0] },
+  },
+  {
+    name: 'browser-artifact-extraction',
+    desc: 'Extracts browsing history, cookies, and cached data from Chromium/Firefox profiles.',
+    tags: ['tool:hindsight', 'artifact:browser-data', 'goal:extraction'],
+    runs: { successful: 31, failed: 6 },
+    lastRun: '2026-04-07',
+    envRuns: { 'Win10-22H2': [7,1], 'Win11-23H2': [6,2], 'Ubuntu-22.04': [7,0], 'Ubuntu-24.04': [6,1], 'Debian-12': [3,1], 'Fedora-39': [2,1] },
+  },
+  {
+    name: 'usb-device-history',
+    desc: 'Tracks USB device connection history through registry and log artifacts.',
+    tags: ['tool:usbdeview', 'artifact:registry', 'goal:tracking'],
+    runs: { successful: 12, failed: 8 },
+    lastRun: '2026-04-01',
+    envRuns: { 'Win10-22H2': [6,1], 'Win11-23H2': [6,2], 'Ubuntu-22.04': [0,3], 'Ubuntu-24.04': [0,2], 'Debian-12': null, 'Fedora-39': null },
+  },
+  {
+    name: 'hash-verification',
+    desc: 'Validates evidence integrity through recursive hash computation and comparison.',
+    tags: ['tool:hashdeep', 'tool:md5deep', 'goal:integrity'],
+    runs: { successful: 60, failed: 0 },
+    lastRun: '2026-04-08',
+    envRuns: { 'Win10-22H2': [10,0], 'Win11-23H2': [10,0], 'Ubuntu-22.04': [10,0], 'Ubuntu-24.04': [10,0], 'Debian-12': [10,0], 'Fedora-39': [10,0] },
+  },
+  {
+    name: 'steganography-detection',
+    desc: 'Detects hidden data in image files using statistical analysis and signature scanning.',
+    tags: ['tool:stegdetect', 'tool:zsteg', 'artifact:image', 'goal:detection'],
+    runs: { successful: 9, failed: 11 },
+    lastRun: '2026-03-28',
+    envRuns: { 'Win10-22H2': [2,3], 'Win11-23H2': [1,3], 'Ubuntu-22.04': [3,2], 'Ubuntu-24.04': [2,1], 'Debian-12': [1,1], 'Fedora-39': [0,1] },
+  },
+  {
+    name: 'log-correlation-engine',
+    desc: 'Correlates Windows Event Logs across systems for lateral movement detection.',
+    tags: ['tool:logparser', 'artifact:eventlog', 'goal:correlation'],
+    runs: { successful: 20, failed: 4 },
+    lastRun: '2026-04-06',
+    envRuns: { 'Win10-22H2': [5,1], 'Win11-23H2': [4,1], 'Ubuntu-22.04': [4,0], 'Ubuntu-24.04': [4,1], 'Debian-12': [2,0], 'Fedora-39': [1,1] },
+  },
+];
+
+// ══════════════════════════════════════════════════
+// Utilities
+// ══════════════════════════════════════════════════
+function pct(s, f) { const t = s + f; return t === 0 ? 0 : Math.round((s / t) * 100); }
+function tagScope(tag) {
+  const i = tag.indexOf(':');
+  return i > 0 ? tag.substring(0, i) : 'unscoped';
+}
+function tagName(tag) {
+  const i = tag.indexOf(':');
+  return i > 0 ? tag.substring(i + 1) : tag;
+}
+function tagClass(tag) {
+  const scope = tagScope(tag);
+  return 'tag tag-' + ({'tool':'tool','artifact':'artifact','goal':'goal'}[scope] || 'unscoped');
+}
+function envClass(env) {
+  return env.os === 'windows' ? 'env-pill os-win' : 'env-pill os-linux';
+}
+function formatDate(d) {
+  return d; // Already formatted as YYYY-MM-DD
+}
+function rateClass(p) {
+  if (p >= 80) return 'rate-good';
+  if (p >= 50) return 'rate-warn';
+  return 'rate-bad';
+}
+function matrixRate(arr) {
+  if (!arr) return 'none';
+  const [s, f] = arr;
+  const p = pct(s, f);
+  if (p === 100) return '100';
+  if (p >= 70) return 'high';
+  if (p >= 40) return 'mid';
+  if (p > 0) return 'low';
+  return 'zero';
+}
+
+// ══════════════════════════════════════════════════
+// Tooltip
+// ══════════════════════════════════════════════════
+const tip = document.getElementById('tooltip');
+function showTip(e, html) {
+  tip.innerHTML = html;
+  tip.classList.add('visible');
+  moveTip(e);
+}
+function moveTip(e) {
+  const pad = 12;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  if (x + 260 > window.innerWidth) x = e.clientX - 260 - pad;
+  if (y + 80 > window.innerHeight) y = e.clientY - 80;
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+}
+function hideTip() { tip.classList.remove('visible'); }
+
+// ══════════════════════════════════════════════════
+// Tab switching
+// ══════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ══════════════════════════════════════════════════
+// 1. Card / Grid View
+// ══════════════════════════════════════════════════
+function renderCards() {
+  const grid = document.getElementById('card-grid-view');
+  grid.innerHTML = EXPERIMENTS.map((exp, i) => {
+    const p = pct(exp.runs.successful, exp.runs.failed);
+    const total = exp.runs.successful + exp.runs.failed;
+    const tags = exp.tags.map(t => `<span class="${tagClass(t)}">${t}</span>`).join('');
+    const envs = ENVIRONMENTS.map(e => `<span class="${envClass(e)}">${e.name}</span>`).join('');
+    return `
+      <div class="card exp-card stagger" style="animation-delay:${i * 40}ms">
+        <div class="exp-card-header">
+          <div class="exp-card-name">${exp.name}</div>
+          <div class="exp-card-date">${formatDate(exp.lastRun)}</div>
+        </div>
+        <div class="exp-card-desc">${exp.desc}</div>
+        <div class="tag-list">${tags}</div>
+        <div class="mini-chart">
+          <div class="mini-bar-wrap">
+            <div class="mini-bar-success" style="width:${p}%"></div>
+            <div class="mini-bar-fail" style="width:${100 - p}%"></div>
+          </div>
+          <div class="mini-chart-label">${exp.runs.successful}/${total} (${p}%)</div>
+        </div>
+        <div class="exp-card-envs">${envs}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderTable() {
+  const table = document.getElementById('card-table');
+  const sorted = [...EXPERIMENTS].sort((a, b) =>
+    pct(b.runs.successful, b.runs.failed) - pct(a.runs.successful, a.runs.failed)
+  );
+  let html = `<thead><tr>
+    <th>Experiment</th><th>Tags</th><th>Runs</th><th>Rate</th><th>Last Run</th>
+  </tr></thead><tbody>`;
+  sorted.forEach((exp, i) => {
+    const p = pct(exp.runs.successful, exp.runs.failed);
+    const total = exp.runs.successful + exp.runs.failed;
+    const tags = exp.tags.map(t => `<span class="${tagClass(t)}">${t}</span>`).join(' ');
+    html += `<tr class="stagger" style="animation-delay:${i * 30}ms">
+      <td class="col-name">${exp.name}</td>
+      <td><div class="tag-list">${tags}</div></td>
+      <td>${exp.runs.successful}s / ${exp.runs.failed}f (${total})</td>
+      <td class="col-rate ${rateClass(p)}">${p}%</td>
+      <td>${formatDate(exp.lastRun)}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function setView(view) {
+  document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.view-toggle button[data-view="${view}"]`).classList.add('active');
+  document.getElementById('card-grid-view').style.display = view === 'grid' ? 'grid' : 'none';
+  document.getElementById('card-table-view').style.display = view === 'table' ? 'block' : 'none';
+}
+
+renderCards();
+renderTable();
+
+// ══════════════════════════════════════════════════
+// 2. Matrix
+// ══════════════════════════════════════════════════
+function renderMatrix() {
+  const sorted = [...EXPERIMENTS].sort((a, b) => {
+    const pa = pct(a.runs.successful, a.runs.failed);
+    const pb = pct(b.runs.successful, b.runs.failed);
+    return pb - pa;
+  });
+
+  let html = '<thead><tr><th></th>';
+  ENVIRONMENTS.forEach(e => {
+    html += `<th class="env-col">${e.name}</th>`;
+  });
+  html += '<th>Overall</th></tr></thead><tbody>';
+
+  sorted.forEach((exp, i) => {
+    const overall = pct(exp.runs.successful, exp.runs.failed);
+    html += `<tr class="stagger" style="animation-delay:${i * 40}ms">`;
+    html += `<td class="row-label">${exp.name}</td>`;
+    ENVIRONMENTS.forEach(e => {
+      const data = exp.envRuns[e.name];
+      const rate = matrixRate(data);
+      let label = '—';
+      let tipText = `${exp.name} on ${e.name}: not tested`;
+      if (data) {
+        const [s, f] = data;
+        const p = pct(s, f);
+        label = p + '%';
+        tipText = `${exp.name} on ${e.name}\n${s} passed, ${f} failed (${p}%)`;
+      }
+      html += `<td class="matrix-cell" data-rate="${rate}"
+        onmouseenter="showTip(event, '${tipText.replace(/'/g, "\\'")}')"
+        onmousemove="moveTip(event)"
+        onmouseleave="hideTip()">${label}</td>`;
+    });
+    html += `<td class="row-rate ${rateClass(overall)}">${overall}%</td>`;
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('matrix-table').innerHTML = html;
+}
+renderMatrix();
+
+// ══════════════════════════════════════════════════
+// 3. Dashboard
+// ══════════════════════════════════════════════════
+function renderDashboard() {
+  // Summary stats
+  const totalS = EXPERIMENTS.reduce((a, e) => a + e.runs.successful, 0);
+  const totalF = EXPERIMENTS.reduce((a, e) => a + e.runs.failed, 0);
+  const totalR = totalS + totalF;
+  const overallRate = pct(totalS, totalF);
+  const perfect = EXPERIMENTS.filter(e => e.runs.failed === 0).length;
+
+  document.getElementById('stat-row').innerHTML = `
+    <div class="card stat-card stagger" style="animation-delay:0ms">
+      <div class="stat-value c-primary">${EXPERIMENTS.length}</div>
+      <div class="stat-label">Experiments</div>
+    </div>
+    <div class="card stat-card stagger" style="animation-delay:60ms">
+      <div class="stat-value c-muted">${totalR}</div>
+      <div class="stat-label">Total Runs</div>
+    </div>
+    <div class="card stat-card stagger" style="animation-delay:120ms">
+      <div class="stat-value c-success">${overallRate}%</div>
+      <div class="stat-label">Success Rate</div>
+    </div>
+    <div class="card stat-card stagger" style="animation-delay:180ms">
+      <div class="stat-value c-primary">${perfect}</div>
+      <div class="stat-label">100% Pass</div>
+    </div>`;
+
+  // Bar chart sorted by rate
+  const sorted = [...EXPERIMENTS].sort((a, b) =>
+    pct(b.runs.successful, b.runs.failed) - pct(a.runs.successful, a.runs.failed)
+  );
+  document.getElementById('bar-chart').innerHTML = sorted.map((exp, i) => {
+    const total = exp.runs.successful + exp.runs.failed;
+    const p = pct(exp.runs.successful, exp.runs.failed);
+    const sw = total > 0 ? (exp.runs.successful / total * 100) : 0;
+    const fw = total > 0 ? (exp.runs.failed / total * 100) : 0;
+    return `
+      <div class="bar-row stagger" style="animation-delay:${i * 40}ms">
+        <div class="bar-name">${exp.name}</div>
+        <div class="bar-track"
+          onmouseenter="showTip(event, '${exp.name}: ${exp.runs.successful} passed, ${exp.runs.failed} failed')"
+          onmousemove="moveTip(event)"
+          onmouseleave="hideTip()">
+          <div class="bar-fill-success" style="width:${sw}%"></div>
+          <div class="bar-fill-fail" style="width:${fw}%"></div>
+        </div>
+        <div class="bar-pct ${rateClass(p)}">${p}%</div>
+      </div>`;
+  }).join('');
+
+  // Sidebar: per-environment rates
+  const envStats = ENVIRONMENTS.map(env => {
+    let s = 0, f = 0;
+    EXPERIMENTS.forEach(exp => {
+      const d = exp.envRuns[env.name];
+      if (d) { s += d[0]; f += d[1]; }
+    });
+    return { name: env.name, os: env.os, rate: pct(s, f), total: s + f };
+  }).sort((a, b) => b.rate - a.rate);
+
+  document.getElementById('sidebar-envs').innerHTML = `
+    <div class="sidebar-title">By Environment</div>
+    <div class="sidebar-list">
+      ${envStats.map(e => `
+        <div class="sidebar-item">
+          <span class="label">${e.name}</span>
+          <span class="value ${rateClass(e.rate)}">${e.rate}% (${e.total})</span>
+        </div>`).join('')}
+    </div>`;
+
+  // Sidebar: most recent runs
+  const recent = [...EXPERIMENTS].sort((a, b) => b.lastRun.localeCompare(a.lastRun)).slice(0, 6);
+  document.getElementById('sidebar-recent').innerHTML = `
+    <div class="sidebar-title">Recent Activity</div>
+    <div class="sidebar-list">
+      ${recent.map(e => `
+        <div class="sidebar-item">
+          <span class="label">${e.name}</span>
+          <span class="value">${e.lastRun}</span>
+        </div>`).join('')}
+    </div>`;
+}
+renderDashboard();
+
+// ══════════════════════════════════════════════════
+// 4. Tag Cloud / Treemap
+// ══════════════════════════════════════════════════
+function renderTreemap() {
+  // Collect tags by scope
+  const scopes = { tool: {}, artifact: {}, goal: {} };
+  EXPERIMENTS.forEach(exp => {
+    exp.tags.forEach(t => {
+      const s = tagScope(t);
+      const n = tagName(t);
+      if (scopes[s]) {
+        if (!scopes[s][n]) scopes[s][n] = { count: 0, experiments: [] };
+        scopes[s][n].count++;
+        scopes[s][n].experiments.push(exp.name);
+      }
+    });
+  });
+
+  // Summary
+  const totalTags = Object.values(scopes).reduce((a, s) => a + Object.keys(s).length, 0);
+  document.getElementById('treemap-summary').innerHTML = `
+    <div class="ts-item"><div class="ts-val">${totalTags}</div>&nbsp;unique tags</div>
+    <div class="ts-item"><div class="scope-dot scope-dot-tool"></div>&nbsp;${Object.keys(scopes.tool).length} tools</div>
+    <div class="ts-item"><div class="scope-dot scope-dot-artifact"></div>&nbsp;${Object.keys(scopes.artifact).length} artifacts</div>
+    <div class="ts-item"><div class="scope-dot scope-dot-goal"></div>&nbsp;${Object.keys(scopes.goal).length} goals</div>`;
+
+  // Scope groups with bubbles
+  const container = document.getElementById('treemap-groups');
+  container.innerHTML = '';
+
+  Object.entries(scopes).forEach(([scope, tags]) => {
+    const entries = Object.entries(tags).sort((a, b) => b[1].count - a[1].count);
+    const maxCount = Math.max(...entries.map(e => e[1].count));
+
+    const group = document.createElement('div');
+    group.className = 'card scope-group';
+    group.innerHTML = `
+      <div class="scope-header">
+        <div class="scope-dot scope-dot-${scope}"></div>
+        <div class="scope-name">${scope}</div>
+        <div class="scope-count">${entries.length} tags</div>
+      </div>
+      <div class="bubble-area">
+        ${entries.map(([ name, data ], i) => {
+          // Size: min 56px, max 110px, scaled by count
+          const size = Math.round(56 + (data.count / maxCount) * 54);
+          const tipHtml = `${scope}:${name} — ${data.count} experiment${data.count > 1 ? 's' : ''}\\n${data.experiments.join(', ')}`;
+          return `<div class="bubble bubble-${scope} stagger"
+            style="width:${size}px; height:${size}px; animation-delay:${i * 60}ms"
+            onmouseenter="showTip(event, '${tipHtml.replace(/'/g, "\\'")}')"
+            onmousemove="moveTip(event)"
+            onmouseleave="hideTip()">
+            <span class="bubble-count">${data.count}</span>
+            <span class="bubble-name">${name}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    container.appendChild(group);
+  });
+}
+renderTreemap();
+</script>
+</body>
+</html>
