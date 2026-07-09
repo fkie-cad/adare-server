@@ -13,6 +13,7 @@ const columns: ColumnDef<Run, unknown>[] = [
     cell: ({ getValue }) => <StatusCell status={getValue() as Run['result_status']} />,
     enableSorting: false,
   },
+  { accessorKey: 'run_number', header: '#' },
   { accessorKey: 'experiment', header: 'Experiment' },
   { accessorKey: 'environment', header: 'Environment' },
   { accessorKey: 'ulid', header: 'ULID' },

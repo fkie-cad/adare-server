@@ -1,8 +1,10 @@
 import type { Profile } from '@/types/experiment'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip } from '@/components/ui/tooltip'
 import { ProfileImage } from './profile-image'
 import { cn } from '@/lib/utils'
+import { API_BASE } from '@/api/endpoints'
 
 interface ProfileCardProps {
   profile: Profile
@@ -57,6 +59,31 @@ export function ProfileCard({ profile }: ProfileCardProps) {
         <Separator />
         <div className="p-2">
           <span className="text-lg text-muted-foreground">achievements</span>
+          {profile.achievements.length === 0 ? (
+            <p className="text-sm text-muted-foreground mt-2">No achievements yet</p>
+          ) : (
+            <div className="grid grid-cols-4 gap-3 mt-3">
+              {profile.achievements.map((achievement) => (
+                <Tooltip key={achievement.name} content={achievement.description}>
+                  <div className="flex flex-col items-center gap-1 relative">
+                    <img
+                      src={`${API_BASE}file/achievements/${achievement.iconfile}`}
+                      alt={achievement.name}
+                      className="w-12 h-12"
+                    />
+                    {achievement.count > 1 && (
+                      <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                        {achievement.count}
+                      </span>
+                    )}
+                    <span className="text-xs text-center font-medium leading-tight">
+                      {achievement.name}
+                    </span>
+                  </div>
+                </Tooltip>
+              ))}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

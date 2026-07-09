@@ -7,15 +7,11 @@ from django.utils import timezone
 
 from experiments.models import (
     AbstractTest,
-    CommandEvent,
+    ActionEvent,
     Environment,
     ErrorEvent,
     Experiment,
     ExperimentRun,
-    GuiClickEvent,
-    GuiFindEvent,
-    GuiIdleEvent,
-    GuiKeypressEvent,
     Label,
     OsInfo,
     PostSetupInstallation,
@@ -59,7 +55,7 @@ class TagFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Tag
 
-    name = factory.Sequence(lambda n: f'tag-{n}')
+    value = factory.Sequence(lambda n: f'tag-{n}')
 
 
 class OsInfoFactory(factory.django.DjangoModelFactory):
@@ -273,30 +269,28 @@ class ExperimentRunFactory(factory.django.DjangoModelFactory):
     published_at = factory.LazyFunction(timezone.now)
     timestamp_start = factory.LazyFunction(timezone.now)
     timestamp_end = factory.LazyFunction(timezone.now)
+    content_hash = factory.Sequence(lambda n: f'hash-{n}')
     adarevm_logfile = factory.django.FileField(filename='adarevm.log', data=b'test log content')
-    installations_logfile = factory.django.FileField(filename='installations.log', data=b'test log content')
-    packagedump_logfile = factory.django.FileField(filename='packagedump.log', data=b'test log content')
 
 
 # ---------------------------------------------------------------------------
 # Event factories
 # ---------------------------------------------------------------------------
 
-class CommandEventFactory(factory.django.DjangoModelFactory):
+class ActionEventFactory(factory.django.DjangoModelFactory):
     class Meta:
-        model = CommandEvent
+        model = ActionEvent
 
     ulid = factory.LazyFunction(generate_ulid)
     run = factory.SubFactory(ExperimentRunFactory)
     status = factory.SubFactory(StatusFactory, name='finished')
     category = 'command'
     error = ''
-    group_id = factory.Sequence(lambda n: n)
+    event_group_id = factory.Sequence(lambda n: str(n))
     timestamp = factory.LazyFunction(timezone.now)
-    name = 'test-cmd'
-    command = 'echo hello'
-    returncode = 0
-    stdout = 'hello'
+    action_type = 'command'
+    action_id = 'test-cmd'
+    action_data = '{"command": "echo hello", "returncode": 0, "stdout": "hello"}'
 
 
 class TestEventFactory(factory.django.DjangoModelFactory):
@@ -308,7 +302,7 @@ class TestEventFactory(factory.django.DjangoModelFactory):
     status = factory.SubFactory(StatusFactory, name='finished')
     category = 'test'
     error = ''
-    group_id = factory.Sequence(lambda n: n)
+    event_group_id = factory.Sequence(lambda n: str(n))
     timestamp = factory.LazyFunction(timezone.now)
     abstracttest = factory.SubFactory(AbstractTestFactory)
     result = factory.SubFactory(ResultFactory)
@@ -323,71 +317,10 @@ class ErrorEventFactory(factory.django.DjangoModelFactory):
     status = factory.SubFactory(StatusFactory, name='finished')
     category = 'error'
     error = ''
-    group_id = factory.Sequence(lambda n: n)
+    event_group_id = factory.Sequence(lambda n: str(n))
     timestamp = factory.LazyFunction(timezone.now)
     error_name = 'TestError'
     error_msg = 'Something went wrong'
-
-
-class GuiFindEventFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = GuiFindEvent
-
-    ulid = factory.LazyFunction(generate_ulid)
-    run = factory.SubFactory(ExperimentRunFactory)
-    status = factory.SubFactory(StatusFactory, name='finished')
-    category = 'gui:find'
-    error = ''
-    group_id = factory.Sequence(lambda n: n)
-    timestamp = factory.LazyFunction(timezone.now)
-    text = True
-    objective = 'Find button'
-    success = 1
-    positions = ''
-
-
-class GuiClickEventFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = GuiClickEvent
-
-    ulid = factory.LazyFunction(generate_ulid)
-    run = factory.SubFactory(ExperimentRunFactory)
-    status = factory.SubFactory(StatusFactory, name='finished')
-    category = 'gui:click'
-    error = ''
-    group_id = factory.Sequence(lambda n: n)
-    timestamp = factory.LazyFunction(timezone.now)
-    clicktype = 'single'
-    modifiers = ''
-    target = 'button'
-
-
-class GuiKeypressEventFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = GuiKeypressEvent
-
-    ulid = factory.LazyFunction(generate_ulid)
-    run = factory.SubFactory(ExperimentRunFactory)
-    status = factory.SubFactory(StatusFactory, name='finished')
-    category = 'gui:keypress'
-    error = ''
-    group_id = factory.Sequence(lambda n: n)
-    timestamp = factory.LazyFunction(timezone.now)
-    keys = 'enter'
-
-
-class GuiIdleEventFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = GuiIdleEvent
-
-    ulid = factory.LazyFunction(generate_ulid)
-    run = factory.SubFactory(ExperimentRunFactory)
-    status = factory.SubFactory(StatusFactory, name='finished')
-    category = 'gui:idle'
-    error = ''
-    group_id = factory.Sequence(lambda n: n)
-    timestamp = factory.LazyFunction(timezone.now)
-    seconds = 5
 
 
 # ---------------------------------------------------------------------------

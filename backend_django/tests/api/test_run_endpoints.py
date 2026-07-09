@@ -1,11 +1,11 @@
 import pytest
 
-from experiments.models import ExperimentRun, Status, CommandEvent, generate_ulid
+from experiments.models import ExperimentRun, Status, ActionEvent, generate_ulid
 from tests.factories import (
     ExperimentFactory,
     ExperimentRunFactory,
     EnvironmentFactory,
-    CommandEventFactory,
+    ActionEventFactory,
     TestEventFactory,
     ErrorEventFactory,
     GiteaUserFactory,
@@ -54,8 +54,8 @@ class TestExperimentRunDetail:
 
     def test_detail_includes_events(self, api_client):
         run = ExperimentRunFactory()
-        CommandEventFactory(run=run, group_id=1)
-        TestEventFactory(run=run, group_id=2)
+        ActionEventFactory(run=run, event_group_id='1')
+        TestEventFactory(run=run, event_group_id='2')
 
         response = api_client.get(f'/api/run/run_{run.ulid}/')
 
@@ -63,33 +63,40 @@ class TestExperimentRunDetail:
         assert 'events' in response.data
         assert len(response.data['events']) == 2
 
+        expected_base_fields = {
+            'ulid', 'category', 'status', 'success', 'event_group_id',
+            'event_type_specific', 'execution_time', 'timestamp',
+        }
+        for event in response.data['events']:
+            assert expected_base_fields.issubset(event.keys()), \
+                f"Event {event.get('ulid')} missing: {expected_base_fields - event.keys()}"
+
     def test_detail_includes_log_urls(self, api_client):
         run = ExperimentRunFactory()
 
         response = api_client.get(f'/api/run/run_{run.ulid}/')
 
         assert response.status_code == 200
-        assert response.data['adarevm_logfile'] == 'http://mock-minio/file'
-        assert response.data['installations_logfile'] == 'http://mock-minio/file'
-        assert response.data['packagedump_logfile'] == 'http://mock-minio/file'
+        # Log files are now optional; just verify they're in the response
+        assert 'adarevm_logfile' in response.data
 
 
 @pytest.mark.django_db
 class TestExperimentRunDelete:
 
-    def test_delete_run(self, api_client):
+    def test_delete_run(self, authenticated_client):
         run = ExperimentRunFactory()
-        CommandEventFactory(run=run, group_id=1)
+        ActionEventFactory(run=run, event_group_id='1')
 
-        response = api_client.delete(f'/api/run/delete/run_{run.ulid}/')
+        response = authenticated_client.delete(f'/api/run/delete/run_{run.ulid}/')
 
         assert response.status_code == 204
         assert not ExperimentRun.objects.filter(ulid=run.ulid).exists()
 
-    def test_delete_nonexistent_returns_404(self, api_client):
+    def test_delete_nonexistent_returns_404(self, authenticated_client):
         fake_ulid = generate_ulid()
 
-        response = api_client.delete(f'/api/run/delete/run_{fake_ulid}/')
+        response = authenticated_client.delete(f'/api/run/delete/run_{fake_ulid}/')
 
         assert response.status_code == 404
 

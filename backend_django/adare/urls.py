@@ -44,11 +44,6 @@ urlpatterns = [
     # get the profile of a user by username
     path('api/user/<str:username>/profile/', users_views.PublicProfileView.as_view()),
 
-    # ### scenario urls ###
-    # get all scenarios (paginated, filtered, sorted)
-    # path('api/scenario/', experiment_frontend_views.ScenarioListView.as_view()),
-    # path('api/scenario/filteroptions/', experiment_frontend_views.ScenarioFilterOptionsView.as_view()),
-
     # ### experiment urls ###
     # get all experiments (paginated, filtered, sorted)
     path('api/experiment/', experiment_frontend_views.ExperimentListView.as_view()),
@@ -70,8 +65,7 @@ urlpatterns = [
     # # get a single experiment run by uuid
     path('api/run/run_<str:ulid>/', experiment_frontend_views.ExperimentRunRetrieveView.as_view()),
     # #
-    # path('api/experimentrun/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
-    # # check if an experiment run is published to the webapp
+    # check if an experiment run is published to the webapp
     path('api/run/check/', experiment_frontend_views.ExperimentRunCheckView.as_view()),
     path('api/run/delete/run_<str:ulid>/', experiment_frontend_views.ExperimentRunDeleteView.as_view()),
     path('api/run/publish/', experiment_frontend_views.ExperimentRunPublishView.as_view()),
@@ -100,16 +94,11 @@ urlpatterns = [
     # #
     path('api/request/filteroptions/', experiment_frontend_views.RequestFilterOptionsView.as_view()),
 
-    # ### protected file access urls ###
-    # path('api/file/avatar/<str:username>/thumbnail/<str:size>/', files_views.AvatarThumbnailFileView.as_view()),
-    # path('api/file/logfile/<str:experimentrun_uuid>/', files_views.LogFileView.as_view()),
-    # path('api/file/actionfile/<str:experiment_uuid>/', files_views.ActionFileView.as_view()),
-    # path('api/file/testsetfile/<str:experiment_uuid>/', files_views.TestsetFileView.as_view()),
-    # path('api/file/achievements/<str:achievement_name>/', files_views.AchievementIconView.as_view()),
-
     # ### statistics urls ###
     path('api/stats/', experiment_frontend_views.StatisticView.as_view()),
-    path('api/statistics/', experiment_frontend_views.StatisticView.as_view()),
+
+    # ### achievement icon urls ###
+    path('api/file/achievements/<str:achievement_name>/', files_views.AchievementIconView.as_view()),
 
     # ### gitea webhook url ###
     # !!!! NEVER EXPOSE THIS URL TO THE PUBLIC INTERNET !!!!

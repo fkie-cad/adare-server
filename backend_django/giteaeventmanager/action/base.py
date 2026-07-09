@@ -13,8 +13,6 @@ import requests
 
 import logging
 log = logging.getLogger(__name__)
-# set log level to also show debug messages
-log.setLevel(logging.DEBUG)
 
 
 class AbstractPullRequest(ABC):

@@ -50,3 +50,7 @@
   pk: 13
   fields:
       name: test_failed
+- model: experiments.status
+  pk: 14
+  fields:
+    name: pause

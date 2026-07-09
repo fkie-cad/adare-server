@@ -53,38 +53,26 @@ export interface RunCount {
 export const categories = [
   'error',
   'command',
+  'action',
   'test',
-  'gui:find',
-  'gui:idle',
-  'gui:keypress',
-  'gui:click',
 ] as const
 
 export interface BaseEvent {
-  status: Status
   ulid: string
-  category: (typeof categories)[number]
+  category: string
+  status: Status
   error: string
-  group_id: number
   timestamp: string
-}
-
-export interface ErrorEvent extends BaseEvent {
-  category: 'error'
-  error_name: string
-  error_msg: string
-}
-
-export interface CommandEvent extends BaseEvent {
-  category: 'command'
-  name: string
-  command: string
-  return_code: number
-  stdout: string
+  success: boolean | null
+  event_group_id: string
+  event_type_specific: string
+  execution_time: number | null
+  duration?: number
 }
 
 export interface Result {
   status: Status
+  details?: string
 }
 
 export interface TestEvent extends BaseEvent {
@@ -93,66 +81,35 @@ export interface TestEvent extends BaseEvent {
   abstracttest: AbstractTest
 }
 
-export interface GuiFindEvent extends BaseEvent {
-  category: 'gui:find'
-  text: boolean
-  objective: string
-  success: boolean
-  positions: string
+export interface ErrorEvent extends BaseEvent {
+  category: 'error'
+  error_name: string
+  error_msg: string
 }
 
-export interface GuiClickEvent extends BaseEvent {
-  category: 'gui:click'
-  clicktype: string
-  modifiers: string
-  target: string
+export interface ActionEvent extends BaseEvent {
+  category: 'action' | 'command'
+  action_type: string
+  action_id: string
+  action_data: string
 }
 
-export interface GuiIdleEvent extends BaseEvent {
-  category: 'gui:idle'
-  seconds: number
-}
-
-export interface GuiKeypressEvent extends BaseEvent {
-  category: 'gui:keypress'
-  keys: string
-}
-
-export type Event =
-  | CommandEvent
-  | TestEvent
-  | GuiFindEvent
-  | GuiIdleEvent
-  | GuiKeypressEvent
-  | GuiClickEvent
-  | ErrorEvent
-
-export function isGuiIdleEvent(event: Event): event is GuiIdleEvent {
-  return event.category === 'gui:idle'
-}
-
-export function isGuiKeypressEvent(event: Event): event is GuiKeypressEvent {
-  return event.category === 'gui:keypress'
-}
-
-export function isGuiClickEvent(event: Event): event is GuiClickEvent {
-  return event.category === 'gui:click'
-}
-
-export function isGuiFindEvent(event: Event): event is GuiFindEvent {
-  return event.category === 'gui:find'
-}
+export type Event = TestEvent | ErrorEvent | ActionEvent
 
 export function isTestEvent(event: Event): event is TestEvent {
   return event.category === 'test'
 }
 
-export function isCommandEvent(event: Event): event is CommandEvent {
-  return event.category === 'command'
-}
-
 export function isErrorEvent(event: Event): event is ErrorEvent {
   return event.category === 'error'
+}
+
+export function isActionEvent(event: Event): event is ActionEvent {
+  return event.category === 'action' || event.category === 'command'
+}
+
+export function isCommandEvent(event: Event): event is ActionEvent {
+  return isActionEvent(event) && event.action_type === 'command'
 }
 
 export interface AbstractParameter {
@@ -183,6 +140,7 @@ export interface AbstractTest {
 
 export interface Run {
   ulid: string
+  run_number: number
   experiment: string
   environment: string
   published_by: string
@@ -193,10 +151,10 @@ export interface Run {
   result_status: Status
   events: Event[]
   duration: number
-  adarevm_logfile: string
-  installations_logfile: string
-  packagedump_logfile: string
-  networkdrives_logfile: string
+  adarevm_logfile?: string | null
+  installations_logfile?: string | null
+  packagedump_logfile?: string | null
+  networkdrives_logfile?: string | null
 }
 
 export interface Environment {

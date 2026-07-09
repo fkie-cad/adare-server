@@ -4,7 +4,7 @@ Submit views - Proxy endpoints for creating Gitea PRs from the frontend.
 These views receive uploaded files and create branches/PRs in the shared
 Gitea repository using the server's credentials.
 """
-from datetime import datetime
+from django.utils import timezone
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -123,7 +123,7 @@ def _submit_files(entity_type: str, name: str, files: dict[str, bytes], username
     owner = settings.GITEA_EXPERIMENTS_REPO_OWNER
     repo = settings.GITEA_EXPERIMENTS_REPO
 
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
     branch_name = f'submit/{entity_type}/{name}-{timestamp}'
 
     if not create_branch(owner, repo, branch_name):

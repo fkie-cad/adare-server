@@ -11,8 +11,6 @@ from giteaeventmanager.exception import TaskFailure, NotUsedException
 
 import logging
 log = logging.getLogger(__name__)
-# set log level to also show debug messages
-log.setLevel(logging.DEBUG)
 
 
 @shared_task

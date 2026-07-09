@@ -24,7 +24,13 @@ def update_teams(username: str):
     # get user
     user = User.objects.get(username=username)
     # get teams from gitea
-    token = user.socialaccount_set.first().socialtoken_set.first().token
+    social_account = user.socialaccount_set.first()
+    if not social_account:
+        raise TaskFailure(f'No social account found for user {username}')
+    social_token = social_account.socialtoken_set.first()
+    if not social_token:
+        raise TaskFailure(f'No social token found for user {username}')
+    token = social_token.token
     if not token:
         log.error(f'could not get token for user {username}')
         raise TaskFailure(f'could not get token for user {username}')

@@ -10,13 +10,11 @@ from django.utils import timezone
 
 from experiments.models import (
     AbstractTest,
-    CommandEvent,
+    ActionEvent,
     Environment,
     ErrorEvent,
     Experiment,
     ExperimentRun,
-    GuiClickEvent,
-    GuiFindEvent,
     Label,
     OsInfo,
     PostSetupInstallation,
@@ -296,11 +294,12 @@ class Command(BaseCommand):
                 testfunction=self.testfunctions[tf_name],
                 defaults={
                     'description': desc,
-                    'tool': self.tools[tool_name] if tool_name else None,
                 },
             )
             if created:
                 at.parameters.set(entries)
+                if tool_name:
+                    at.tools.add(self.tools[tool_name])
             self.abstract_tests[at_name] = at
         self.stdout.write(f'  AbstractTests: {len(self.abstract_tests)}')
 
@@ -485,30 +484,31 @@ class Command(BaseCommand):
         self.stdout.write(f'  ExperimentRuns: {len(self.runs)}')
 
     def _create_events_for_run(self, run, result_status, exp_name, status_map):
+        import json
         ts = run.timestamp_start + timedelta(minutes=1)
         group = 0
 
-        # CommandEvent: setup
-        if not CommandEvent.objects.filter(run=run, group_id=0).exists():
-            CommandEvent.objects.create(
-                run=run, group_id=0, timestamp=ts,
-                category='setup', status=status_map['finished'],
-                name='setup-environment',
-                command=f'vagrant up {exp_name}',
-                returncode=0, stdout='Environment ready.',
+        # ActionEvent: setup command
+        if not ActionEvent.objects.filter(run=run, event_group_id='0').exists():
+            ActionEvent.objects.create(
+                run=run, event_group_id='0', timestamp=ts,
+                category='command', status=status_map['finished'],
+                action_type='command', action_id='setup-environment',
+                action_data=json.dumps({'command': f'vagrant up {exp_name}', 'returncode': 0, 'stdout': 'Environment ready.'}),
+                success=True,
             )
 
-        # CommandEvent: execute
+        # ActionEvent: execute command
         group = 1
         ts = ts + timedelta(minutes=3)
-        if not CommandEvent.objects.filter(run=run, group_id=1).exists():
-            CommandEvent.objects.create(
-                run=run, group_id=1, timestamp=ts,
-                category='execution', status=status_map['finished'],
-                name='run-tests',
-                command=f'pytest /tests/{exp_name}/',
-                returncode=0 if result_status == 'success' else 1,
-                stdout='Tests completed.' if result_status == 'success' else 'FAILED',
+        if not ActionEvent.objects.filter(run=run, event_group_id='1').exists():
+            rc = 0 if result_status == 'success' else 1
+            ActionEvent.objects.create(
+                run=run, event_group_id='1', timestamp=ts,
+                category='command', status=status_map['finished'],
+                action_type='command', action_id='run-tests',
+                action_data=json.dumps({'command': f'pytest /tests/{exp_name}/', 'returncode': rc, 'stdout': 'Tests completed.' if result_status == 'success' else 'FAILED'}),
+                success=(result_status == 'success'),
             )
 
         # TestEvent for each abstract test
@@ -522,9 +522,10 @@ class Command(BaseCommand):
                     defaults={'details': f'Test {at.name}: {result_status}'},
                 )
                 TestEvent.objects.create(
-                    run=run, group_id=group, timestamp=ts,
+                    run=run, event_group_id=str(group), timestamp=ts,
                     category='test', status=test_status,
                     abstracttest=at, result=result,
+                    success=(result_status == 'success'),
                 )
                 group += 1
                 ts = ts + timedelta(seconds=30)
@@ -533,31 +534,34 @@ class Command(BaseCommand):
         if result_status == 'failed':
             if not ErrorEvent.objects.filter(run=run).exists():
                 ErrorEvent.objects.create(
-                    run=run, group_id=group, timestamp=ts,
+                    run=run, event_group_id=str(group), timestamp=ts,
                     category='error', status=status_map['error'],
                     error_name='AssertionError',
                     error_msg=f'Test assertion failed in {exp_name}',
+                    success=False,
                 )
                 group += 1
 
-        # GUI events for gui experiments
+        # Action events for gui experiments
         if 'gui' in exp_name:
             ts = ts + timedelta(seconds=10)
-            if not GuiFindEvent.objects.filter(run=run).exists():
-                GuiFindEvent.objects.create(
-                    run=run, group_id=group, timestamp=ts,
-                    category='gui', status=status_map['finished'],
-                    text=True, objective='Find application window',
-                    success=1, positions='100,200',
+            if not ActionEvent.objects.filter(run=run, action_type='find').exists():
+                ActionEvent.objects.create(
+                    run=run, event_group_id=str(group), timestamp=ts,
+                    category='action', status=status_map['finished'],
+                    action_type='find', action_id='find-window',
+                    action_data=json.dumps({'objective': 'Find application window', 'positions': '100,200'}),
+                    success=True,
                 )
                 group += 1
             ts = ts + timedelta(seconds=5)
-            if not GuiClickEvent.objects.filter(run=run).exists():
-                GuiClickEvent.objects.create(
-                    run=run, group_id=group, timestamp=ts,
-                    category='gui', status=status_map['finished'],
-                    clicktype='single', modifiers='',
-                    target='Analyze Button',
+            if not ActionEvent.objects.filter(run=run, action_type='click').exists():
+                ActionEvent.objects.create(
+                    run=run, event_group_id=str(group), timestamp=ts,
+                    category='action', status=status_map['finished'],
+                    action_type='click', action_id='click-analyze',
+                    action_data=json.dumps({'target': 'Analyze Button', 'clicktype': 'single'}),
+                    success=True,
                 )
 
     # ── Requests ────────────────────────────────────────────────────────

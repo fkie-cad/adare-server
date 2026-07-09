@@ -1,10 +1,8 @@
-from datetime import datetime
-
 import rest_framework.generics as generics
 import rest_framework.status as http_status_codes
 from django.db import transaction
-from django.db.models import Count, Max, Q, Case, When, IntegerField, Sum
-from django.utils.timezone import make_aware
+from django.db.models import Count, Max, Q
+from django.utils import timezone
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -26,16 +24,19 @@ from django.contrib.auth.models import User
 from experiments.models import (
     Experiment, ExperimentRun, Environment, TestfunctionSet, TestFunction,
     Event, Status, Request, Label, Tag, TagScope,
+    TestEvent, ErrorEvent, ActionEvent,
 )
+
+_experiment_run_queryset = ExperimentRun.objects.select_related(
+    'published_by', 'experiment', 'environment', 'status', 'result_status'
+).prefetch_related(
+    'test_events', 'error_events', 'action_events',
+).all()
+
 
 class ExperimentRunListView(generics.ListAPIView):
     serializer_class = ExperimentRunSerializer
-    queryset = ExperimentRun.objects.select_related(
-        'published_by', 'experiment', 'environment', 'status', 'result_status'
-    ).prefetch_related(
-        'command_events', 'test_events', 'error_events',
-        'gui_find_events', 'gui_click_events', 'gui_keypress_events', 'gui_idle_events',
-    ).all()
+    queryset = _experiment_run_queryset
     permission_classes = [AllowAny]
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ExperimentRunFilter
@@ -45,12 +46,7 @@ class ExperimentRunListView(generics.ListAPIView):
 
 class ExperimentRunRetrieveView(generics.RetrieveAPIView):
     serializer_class = ExperimentRunSerializer
-    queryset = ExperimentRun.objects.select_related(
-        'published_by', 'experiment', 'environment', 'status', 'result_status'
-    ).prefetch_related(
-        'command_events', 'test_events', 'error_events',
-        'gui_find_events', 'gui_click_events', 'gui_keypress_events', 'gui_idle_events',
-    ).all()
+    queryset = _experiment_run_queryset
     permission_classes = [AllowAny]
     lookup_field = 'ulid'
 
@@ -314,11 +310,27 @@ class ExperimentCheckView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         """
-        checks if experiment with given sha256 hash is published
+        checks if experiment with given sha256 hash or ULID is published
         """
+        # Support ULID-based lookup alongside sha256hash
+        experiment_ulid = request.query_params.get('ulid')
+        if experiment_ulid:
+            try:
+                experiment = Experiment.objects.get(ulid=experiment_ulid)
+            except Experiment.DoesNotExist:
+                resp_data = {'published': None, 'published_at': None, 'ulid': None, 'request_ulid': None}
+                return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+            resp_data = {
+                'published': experiment.published,
+                'published_at': experiment.published_at,
+                'ulid': experiment.ulid,
+                'request_ulid': None,
+            }
+            return Response(resp_data, status=http_status_codes.HTTP_200_OK)
+
         experiment_sha256hash = request.query_params.get('sha256hash')
         if not experiment_sha256hash:
-            return Response('No sha256 hash given', status=http_status_codes.HTTP_400_BAD_REQUEST)
+            return Response('No sha256 hash or ulid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
         # check if experiment with given sha256 hash exists
         try:
             experiment = Experiment.objects.get(sha256hash=experiment_sha256hash)
@@ -396,12 +408,12 @@ class RequestCheckView(generics.RetrieveAPIView):
             return Response('No request ulid given', status=http_status_codes.HTTP_400_BAD_REQUEST)
         # check if request with given ulid exists
         try:
-            request = Request.objects.get(ulid=request_ulid)
+            request_obj = Request.objects.get(ulid=request_ulid)
         except Request.DoesNotExist:
             return Response(resp_data, status=http_status_codes.HTTP_200_OK)
         resp_data.update({
             'exists': True,
-            'status': request.gitea_pr_status,
+            'status': request_obj.gitea_pr_status,
         })
         return Response(resp_data, status=http_status_codes.HTTP_200_OK)
 
@@ -498,23 +510,15 @@ class EnvironmentFilterOptionsView(generics.RetrieveAPIView):
 
 
 def get_event_by_ulid(ulid: str):
-    # Get all subclasses of Event
-    event_subclasses = Event.__subclasses__()
-
-    # List to store all events
-    all_events = []
-
-    # Query each subclass and combine the results
-    for subclass in event_subclasses:
-        events = subclass.objects.filter(ulid=ulid)
-        all_events.extend(events)
-
-    if len(all_events) == 1:
-        return all_events[0]
+    for model in (TestEvent, ErrorEvent, ActionEvent):
+        try:
+            return model.objects.get(ulid=ulid)
+        except model.DoesNotExist:
+            continue
     return None
 
 class ExperimentRunDeleteView(generics.DestroyAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = ExperimentRunSerializer
     queryset = ExperimentRun.objects.all()
     lookup_field = 'ulid'
@@ -526,61 +530,159 @@ class ExperimentRunPublishView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartJSONParser]
 
+    @staticmethod
+    def _validate_experiment(exp_ulid):
+        """Return (Experiment, None) or (None, error Response)."""
+        if not exp_ulid:
+            return None, Response(
+                {'error': 'missing_field', 'message': 'Missing required field: experiment_ulid'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            experiment = Experiment.objects.get(ulid=exp_ulid)
+        except Experiment.DoesNotExist:
+            return None, Response(
+                {'error': 'experiment_not_found', 'message': f'Experiment {exp_ulid} does not exist.'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+        if not experiment.published:
+            return None, Response(
+                {'error': 'experiment_not_published', 'message': f'Experiment {exp_ulid} is not published.'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+        return experiment, None
+
+    @staticmethod
+    def _validate_environment(env_ulid):
+        """Return (Environment, None) or (None, error Response)."""
+        if not env_ulid:
+            return None, Response(
+                {'error': 'missing_field', 'message': 'Missing required field: environment_ulid'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            environment = Environment.objects.get(ulid=env_ulid)
+        except Environment.DoesNotExist:
+            return None, Response(
+                {'error': 'environment_not_found', 'message': f'Environment {env_ulid} does not exist.'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+        return environment, None
+
+    @staticmethod
+    def _resolve_status(name, field_label):
+        """Return (Status, None) or (None, error Response)."""
+        try:
+            return Status.objects.get(name=name), None
+        except Status.DoesNotExist:
+            return None, Response(
+                {'error': 'validation_error', 'message': f'{field_label} "{name}" not found.'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+
+    @staticmethod
+    def _process_events(data, experiment_run):
+        """Process event list and attach to run. Returns error Response or None."""
+        default_group_counter = 0
+        for event in data.get('events', []):
+            if get_event_by_ulid(event.get('ulid', '')):
+                return Response(
+                    {'error': 'event_validation_error',
+                     'message': f'Event {event["ulid"]} already exists.'},
+                    status=http_status_codes.HTTP_400_BAD_REQUEST,
+                )
+
+            if not event.get('status'):
+                event['status'] = 'finished'
+            if not event.get('event_group_id'):
+                event['event_group_id'] = str(default_group_counter)
+                default_group_counter += 1
+
+            category = event.get('category', '')
+            event_serializer = get_event_serializer(category)(data=event)
+            if not event_serializer.is_valid():
+                return Response(
+                    {'error': 'event_validation_error',
+                     'message': f'Validation failed for event {event.get("ulid", "?")}.',
+                     'details': event_serializer.errors},
+                    status=http_status_codes.HTTP_400_BAD_REQUEST,
+                )
+            event_serializer.validated_data['run'] = experiment_run.ulid
+            event_serializer.validated_data['status'] = event['status']
+            if 'result' in event:
+                event_serializer.validated_data['result'] = event['result']
+            if 'abstract_test_ulid' in event:
+                event_serializer.validated_data['abstracttest'] = event['abstract_test_ulid']
+            event_serializer.save()
+        return None
+
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         files = request.FILES
         data = request.data
 
-        exp_ulid = data['experiment_ulid']
-        env_ulid = data['environment_ulid']
-        run_ulid = data['ulid']
+        run_ulid = data.get('ulid')
+        content_hash = data.get('content_hash', '')
 
-        # check if experiment run already exists
+        if not run_ulid:
+            return Response(
+                {'error': 'missing_field', 'message': 'Missing required field: ulid'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+
+        # Idempotent: return existing run if already uploaded
         try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-            return Response(f'Experiment run {run_ulid} already exists',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+            existing_run = ExperimentRun.objects.get(ulid=run_ulid)
+            serializer = ExperimentRunSerializer(existing_run)
+            return Response(serializer.data, status=http_status_codes.HTTP_200_OK)
         except ExperimentRun.DoesNotExist:
             pass
 
+        # Content hash dedup
+        if content_hash:
+            dup = ExperimentRun.objects.filter(content_hash=content_hash).first()
+            if dup:
+                return Response(
+                    {'error': 'content_duplicate', 'message': 'A run with identical content already exists.',
+                     'existing_ulid': dup.ulid},
+                    status=http_status_codes.HTTP_409_CONFLICT,
+                )
 
-        # get experiment for experiment run
-        try:
-            experiment = Experiment.objects.get(ulid=exp_ulid)
-        except Experiment.DoesNotExist:
-            return Response(f'Experiment with ulid {exp_ulid} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # Validate experiment
+        experiment, err = self._validate_experiment(data.get('experiment_ulid'))
+        if err:
+            return err
         data['experiment'] = experiment.ulid
 
-        # check if experiment is published
-        if not experiment.published:
-            return Response(f'Experiment with ulid {experiment.ulid} is not published',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-
-        try:
-            environment = Environment.objects.get(ulid=data['environment_ulid'])
-        except Environment.DoesNotExist:
-            return Response(f'Environment with ulid {env_ulid} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
+        # Validate environment
+        environment, err = self._validate_environment(data.get('environment_ulid'))
+        if err:
+            return err
         data['environment'] = environment.ulid
 
-        # create or get Status
-        try:
-            status_object = Status.objects.get(id=data['status'])
-        except Status.DoesNotExist:
-            return Response(f'Status with id {data["status"]} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        data['status'] = status_object.id
+        # Resolve statuses
+        status_obj, err = self._resolve_status(data.get('status', ''), 'Status')
+        if err:
+            return err
+        data['status'] = status_obj.id
 
-        try:
-            result_status_object = Status.objects.get(id=data['result_status'])
-        except Status.DoesNotExist:
-            return Response(f'Status with id {data["result_status"]} does not exist',
-                            status=http_status_codes.HTTP_400_BAD_REQUEST)
-        data['result_status'] = result_status_object.id
+        result_status_obj, err = self._resolve_status(data.get('result_status', ''), 'Result status')
+        if err:
+            return err
+        data['result_status'] = result_status_obj.id
 
-        data['published_by'] = request.user.gitea_user.id
-        data['published_at'] = make_aware(datetime.now())
+        # Resolve Gitea user
+        try:
+            data['published_by'] = request.user.gitea_user.id
+        except AttributeError:
+            return Response(
+                {'error': 'gitea_user_not_found', 'message': 'Your account has no linked Gitea user.'},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
+        data['published_at'] = timezone.now()
+        data['content_hash'] = content_hash
+
+        # Attach log files (all optional)
         if vagrantvm_log := files.get('adarevm_log'):
             data['adarevm_logfile'] = vagrantvm_log
         if installations_log := files.get('installations_log'):
@@ -589,30 +691,19 @@ class ExperimentRunPublishView(generics.CreateAPIView):
             data['packagedump_logfile'] = packagedump_log
         if networkdrives_log := files.get('networkdrives_log'):
             data['networkdrives_logfile'] = networkdrives_log
+
         serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response(
+                {'error': 'validation_error', 'message': 'Run validation failed.',
+                 'details': serializer.errors},
+                status=http_status_codes.HTTP_400_BAD_REQUEST,
+            )
         experiment_run = serializer.save()
-        event_object_list = []
-        for event in data['events']:
-            event_object = get_event_by_ulid(event['ulid'])
-            if event_object:
-                return Response(f'Event with ulid {event["ulid"]} already exists', status=http_status_codes.HTTP_400_BAD_REQUEST)
-            event_serializer = get_event_serializer(event['category'])(data=event)
-            if not event_serializer.is_valid():
-                return Response(event_serializer.errors, status=http_status_codes.HTTP_400_BAD_REQUEST)
-            event_serializer.validated_data['run'] = experiment_run.ulid
-            event_serializer.validated_data['status'] = event['status']
-            if 'result' in event.keys():
-                event_serializer.validated_data['result'] = event['result']
-            if 'abstract_test_ulid' in event.keys():
-                event_serializer.validated_data['abstracttest'] = event['abstract_test_ulid']
-            event_object = event_serializer.save()
-            event_object_list.append(event_object.ulid)
-        data['events'] = event_object_list
 
-        # todo: calculate result_status based on events and compare with given result_status if they do not match return error (and delete experiment run)
-        # non_empty_test_events = [event for event in data['events'] if event['category'] == 'test_event' and event['result']]
-
-
+        # Process events
+        event_err = self._process_events(data, experiment_run)
+        if event_err:
+            return event_err
 
         return Response(serializer.data, status=http_status_codes.HTTP_201_CREATED)

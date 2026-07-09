@@ -4,13 +4,13 @@ from allauth.socialaccount.models import SocialAccount
 from dj_rest_auth.registration.views import SocialLoginView
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
-import urllib
 from rest_framework import generics
 from rest_framework import permissions
 from users.models import Profile
 from django.conf import settings
+from django.http import Http404
 import urllib.parse
-from users.serializers import ProfileSerializer, PublicProfileSerializer
+from users.serializers import ProfileSerializer
 from users import tasks
 from rest_framework import views, status
 from rest_framework.response import Response
@@ -88,7 +88,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
 
     def get_object(self):
-        return self.request.user.profile
+        return Profile.objects.prefetch_related('achievements__definition').get(user=self.request.user)
 
     @method_decorator(csrf_protect, 'dispatch')
     def update(self, request, *args, **kwargs):
@@ -97,13 +97,15 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 class PublicProfileView(generics.RetrieveAPIView):
     permission_classes = (permissions.AllowAny,)
-    serializer_class = PublicProfileSerializer
+    serializer_class = ProfileSerializer
 
     def get_object(self):
         try:
-            return Profile.objects.get(user__username=self.kwargs['username'])
+            return Profile.objects.prefetch_related('achievements__definition').get(
+                user__username=self.kwargs['username']
+            )
         except Profile.DoesNotExist:
-            return Response({'error': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
+            raise Http404('User not found')
 
 
 class CSRFView(views.APIView):

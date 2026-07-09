@@ -80,20 +80,17 @@ class Event(models.Model):
 
     status = models.ForeignKey(Status, on_delete=models.PROTECT)
     error = models.CharField(max_length=2000, blank=True)
-    group_id = models.IntegerField(db_index=True)
+
+    success = models.BooleanField(null=True, blank=True)
+    event_group_id = models.CharField(max_length=100, blank=True, default='')
+    event_type_specific = models.CharField(max_length=100, blank=True, default='')
+    execution_time = models.IntegerField(null=True, blank=True)
+    parent_event = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
 
     timestamp = models.DateTimeField(db_index=True)
 
     class Meta:
         abstract = True
-
-
-class CommandEvent(Event):
-    run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='command_events')
-    name = models.CharField(max_length=100)
-    command = models.CharField(max_length=2000)
-    returncode = models.IntegerField()
-    stdout = models.TextField(blank=True)
 
 
 class TestEvent(Event):
@@ -104,33 +101,15 @@ class TestEvent(Event):
 
 class ErrorEvent(Event):
     run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='error_events')
-    error_name = models.CharField(max_length=100)
-    error_msg = models.CharField(max_length=2000)
+    error_name = models.CharField(max_length=100, blank=True, default='')
+    error_msg = models.CharField(max_length=2000, blank=True, default='')
 
 
-class GuiFindEvent(Event):
-    run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='gui_find_events')
-    text = models.BooleanField()
-    objective = models.CharField(max_length=1000)
-    success = models.IntegerField()
-    positions = models.CharField(max_length=1200, blank=True)
-
-
-class GuiClickEvent(Event):
-    run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='gui_click_events')
-    clicktype = models.CharField(max_length=100)
-    modifiers = models.CharField(max_length=200, blank=True)
-    target = models.CharField(max_length=1000)
-
-
-class GuiKeypressEvent(Event):
-    run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='gui_keypress_events')
-    keys = models.CharField(max_length=1000)
-
-
-class GuiIdleEvent(Event):
-    run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='gui_idle_events')
-    seconds = models.IntegerField()
+class ActionEvent(Event):
+    run = models.ForeignKey('ExperimentRun', on_delete=models.CASCADE, related_name='action_events')
+    action_type = models.CharField(max_length=100, blank=True, default='')
+    action_id = models.CharField(max_length=100, blank=True, default='')
+    action_data = models.TextField(blank=True, default='')
 
 
 class Requirement(models.Model):
@@ -197,15 +176,17 @@ class AbstractTest(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
+    repetitions = models.IntegerField(default=1)
     testfunction = models.ForeignKey(TestFunction, on_delete=models.CASCADE)
     parameters = models.ManyToManyField(TestParameterEntry)
-    tool = models.ForeignKey(Tool, on_delete=models.PROTECT, null=True, blank=True)
+    tools = models.ManyToManyField(Tool, blank=True)
 
     def __str__(self):
         return str(self.name)
 
 
 class OsInfo(models.Model):
+    platform = models.CharField(max_length=50, blank=True, default='')
     os = models.CharField(max_length=50)
     distribution = models.CharField(max_length=50)
     version = models.CharField(max_length=50, blank=True, null=True)
@@ -221,6 +202,8 @@ class PostSetupInstallation(models.Model):
     name = models.CharField(max_length=500)
     description = models.CharField(max_length=1000, blank=True)
     command = models.CharField(max_length=2000)
+    shell = models.BooleanField(default=False)
+    cwd = models.CharField(max_length=2000, blank=True, default='')
 
 
 class Environment(models.Model):
@@ -281,6 +264,7 @@ class Experiment(models.Model):
 
 class ExperimentRun(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
+    run_number = models.PositiveIntegerField(db_index=True, editable=False, null=True)
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT)
     published_at = models.DateTimeField()
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='experiment_runs')
@@ -289,11 +273,18 @@ class ExperimentRun(models.Model):
     timestamp_end = models.DateTimeField()
     status = models.ForeignKey(Status, on_delete=models.PROTECT, related_name='status')
     result_status = models.ForeignKey(Status, on_delete=models.PROTECT, related_name='result_status')
+    content_hash = models.CharField(max_length=64, blank=True, default='', db_index=True)
 
-    adarevm_logfile = models.FileField(upload_to='logfiles/')
-    installations_logfile = models.FileField(upload_to='logfiles/')
-    packagedump_logfile = models.FileField(upload_to='logfiles/')
+    adarevm_logfile = models.FileField(upload_to='logfiles/', blank=True, null=True)
+    installations_logfile = models.FileField(upload_to='logfiles/', blank=True, null=True)
+    packagedump_logfile = models.FileField(upload_to='logfiles/', blank=True, null=True)
     networkdrives_logfile = models.FileField(upload_to='logfiles/', blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        # Assign a per-experiment sequential run number on first insert.
+        if self.run_number is None:
+            self.run_number = ExperimentRun.objects.filter(experiment=self.experiment).count() + 1
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.ulid}'
@@ -301,13 +292,9 @@ class ExperimentRun(models.Model):
     @property
     def events(self):
         return list(itertools.chain(
-            self.command_events.all(),
             self.test_events.all(),
             self.error_events.all(),
-            self.gui_find_events.all(),
-            self.gui_click_events.all(),
-            self.gui_keypress_events.all(),
-            self.gui_idle_events.all(),
+            self.action_events.all(),
         ))
 
 

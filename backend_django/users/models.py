@@ -1,7 +1,5 @@
-from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.models import User
 from django.db import models
-from django.contrib.auth.models import User, PermissionsMixin
-from django.utils.timezone import make_aware
 
 
 class Team(models.Model):
@@ -44,59 +42,32 @@ class GiteaUser(models.Model):
         return self.username
 
 
+class AchievementDefinition(models.Model):
+    slug = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=200)
+    description = models.CharField(max_length=1000)
+    icon = models.CharField(max_length=200)
+    threshold = models.IntegerField(default=1)
+    category = models.CharField(max_length=50, default='general')
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'slug']
+
+    def __str__(self):
+        return self.name
 
 
-# class AchievementCategory(models.Model):
-#     name = models.CharField(max_length=100, unique=True)
-#     description = models.CharField(max_length=1000)
-#     iconfile = models.CharField(max_length=1000)
-#
-#     def __str__(self):
-#         return self.name
-#
-#
-# class Achievement(models.Model):
-#     profile = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='achievements')
-#     category = models.ForeignKey('AchievementCategory', on_delete=models.CASCADE, related_name='achievements')
-#     date_earned = models.DateTimeField(auto_now=True)
-#     date_updated = models.DateTimeField(auto_now_add=True)
-#     count = models.IntegerField(default=0)
-#
-#
-# class Profile(models.Model):
-#     user = models.OneToOneField(User, on_delete=models.CASCADE)
-#     avatar = models.ImageField(blank=True, null=True, upload_to='users/avatars/')
-#
-#     def update_achievements(self):
-#         user_request_count = self.user.requests.count()
-#         if user_request_count >= 1:
-#             category = AchievementCategory.objects.get(name='first_request')
-#             achievement, created = Achievement.objects.get_or_create(profile=self, category=category)
-#             if achievement.count != user_request_count:
-#                 # set updated date to now
-#                 achievement.date_updated = make_aware(datetime.now())
-#                 achievement.count = user_request_count
-#                 achievement.save()
-#             achievement.save()
-#
-#         accepted_experiment_count = self.user.requests.filter(status__name='accepted', category_type='experiment').count()
-#         if accepted_experiment_count >= 1:
-#             category = AchievementCategory.objects.get(name='first_accepted_experiment')
-#             achievement, created = Achievement.objects.get_or_create(profile=self, category=category)
-#             if achievement.count != accepted_experiment_count:
-#                 # set updated date to now
-#                 achievement.date_updated = make_aware(datetime.now())
-#                 achievement.count = accepted_experiment_count
-#                 achievement.save()
-#             achievement.save()
-#
-#         accepted_scenario_count = self.user.requests.filter(status__name='accepted', category_type='scenario').count()
-#         if accepted_scenario_count >= 1:
-#             category = AchievementCategory.objects.get(name='first_accepted_scenario')
-#             achievement, created = Achievement.objects.get_or_create(profile=self, category=category)
-#             if achievement.count != accepted_scenario_count:
-#                 # set updated date to now
-#                 achievement.date_updated = make_aware(datetime.now())
-#                 achievement.count = accepted_scenario_count
-#                 achievement.save()
-#             achievement.save()
+class UserAchievement(models.Model):
+    profile = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='achievements')
+    definition = models.ForeignKey(AchievementDefinition, on_delete=models.CASCADE)
+    count = models.IntegerField(default=0)
+    date_earned = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('profile', 'definition')
+        ordering = ['definition__sort_order']
+
+    def __str__(self):
+        return f'{self.profile.user.username} - {self.definition.name}'

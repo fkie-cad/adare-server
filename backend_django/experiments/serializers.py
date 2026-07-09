@@ -7,8 +7,7 @@ from helperfunctions.minio import get_presigned_url
 
 from experiments.models import (
     Tag, TagScope, Status, Result, TestParameter, TestParameterEntry, Event,
-    CommandEvent, TestEvent, ErrorEvent, GuiFindEvent, GuiClickEvent,
-    GuiKeypressEvent, GuiIdleEvent, Requirement, TestfunctionSet,
+    TestEvent, ErrorEvent, ActionEvent, Requirement, TestfunctionSet,
     TestFunction, Tool, AbstractTest, OsInfo, PostSetupInstallation,
     Environment, Experiment, ExperimentRun, Label, Request,
     RequestCreationMessage,
@@ -59,13 +58,20 @@ class PostSetupInstallationSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'command',
+            'shell',
+            'cwd',
         ]
+        extra_kwargs = {
+            'shell': {'required': False},
+            'cwd': {'required': False},
+        }
 
 
 class OsInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = OsInfo
         fields = [
+            'platform',
             'os',
             'distribution',
             'version',
@@ -74,6 +80,7 @@ class OsInfoSerializer(serializers.ModelSerializer):
             'details',
         ]
         extra_kwargs = {
+            'platform': {'required': False},
             'version': {'required': False},
             'language': {'required': False},
             'architecture': {'required': False},
@@ -152,11 +159,14 @@ class ResultSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         status_key = validated_data.pop('status')
-        # get status by primary key
+        # Look up status by name (string) or primary key (int)
         try:
-            status = Status.objects.get(id=status_key)
+            if isinstance(status_key, str):
+                status = Status.objects.get(name=status_key)
+            else:
+                status = Status.objects.get(id=status_key)
         except Status.DoesNotExist:
-            raise Exception('Status not found')
+            raise serializers.ValidationError(f'Status "{status_key}" not found')
         validated_data['status'] = status
         result = Result.objects.create(**validated_data)
         return result
@@ -276,7 +286,7 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
 class AbstractTestSerializer(serializers.ModelSerializer):
     testfunction = TestFunctionSerializer()
     parameters = TestParameterEntrySerializer(many=True)
-    tool = ToolSerializer(required=False, allow_null=True)
+    tools = ToolSerializer(many=True, required=False)
 
     class Meta:
         model = AbstractTest
@@ -284,10 +294,14 @@ class AbstractTestSerializer(serializers.ModelSerializer):
             'ulid',
             'name',
             'description',
+            'repetitions',
             'testfunction',
             'parameters',
-            'tool',
+            'tools',
         ]
+        extra_kwargs = {
+            'repetitions': {'required': False},
+        }
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
@@ -422,13 +436,13 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
     networkdrives_logfile = serializers.SerializerMethodField('get_networkdrives_logfile', read_only=True)
 
     def get_adarevm_logfile(self, obj):
-        return _convert_to_presigned_url(obj.adarevm_logfile.name)
+        return _convert_to_presigned_url(obj.adarevm_logfile.name if obj.adarevm_logfile else None)
 
     def get_installations_logfile(self, obj):
-        return _convert_to_presigned_url(obj.installations_logfile.name)
+        return _convert_to_presigned_url(obj.installations_logfile.name if obj.installations_logfile else None)
 
     def get_packagedump_logfile(self, obj):
-        return _convert_to_presigned_url(obj.packagedump_logfile.name)
+        return _convert_to_presigned_url(obj.packagedump_logfile.name if obj.packagedump_logfile else None)
 
     def get_networkdrives_logfile(self, obj):
         return _convert_to_presigned_url(obj.networkdrives_logfile.name if obj.networkdrives_logfile else None)
@@ -448,19 +462,26 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
             event_serializer = get_event_serializer(event)(event)
             event_deserialized.append(event_serializer.data)
 
+        # Group events by event_group_id, collapsing start/complete pairs
         filtered_events = {}
         for event in event_deserialized:
-            if event['group_id'] not in filtered_events:
-                event['duration'] = -1
-                filtered_events[event['group_id']] = event
+            group_id = event.get('event_group_id', '')
+            if not group_id:
+                # No group — standalone event
+                event['duration'] = event.get('execution_time') or -1
+                filtered_events[event['ulid']] = event
+            elif group_id not in filtered_events:
+                event['duration'] = event.get('execution_time') or -1
+                filtered_events[group_id] = event
             else:
+                # Second event in group — compute duration from timestamps
                 if event['status']['name'] == 'finished':
-                    duration = _duration_seconds(filtered_events[event['group_id']]['timestamp'], event['timestamp'])
+                    duration = _duration_seconds(filtered_events[group_id]['timestamp'], event['timestamp'])
                     event['duration'] = duration
-                    filtered_events[event['group_id']] = event
+                    filtered_events[group_id] = event
                 else:
-                    duration = _duration_seconds(event['timestamp'], filtered_events[event['group_id']]['timestamp'])
-                    filtered_events[event['group_id']]['duration'] = duration
+                    duration = _duration_seconds(event['timestamp'], filtered_events[group_id]['timestamp'])
+                    filtered_events[group_id]['duration'] = duration
         return list(filtered_events.values())
 
     def get_duration(self, obj):
@@ -473,6 +494,7 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
         model = ExperimentRun
         fields = [
             'ulid',
+            'run_number',
             'published_by',
             'published_at',
             'timestamp_start',
@@ -553,7 +575,7 @@ class ExperimentRunCreateSerializer(serializers.ModelSerializer):
             'environment',
             'status',
             'result_status',
-            'experiment',
+            'content_hash',
             'adarevm_logfile',
             'installations_logfile',
             'packagedump_logfile',
@@ -561,46 +583,57 @@ class ExperimentRunCreateSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'experiment': {'validators': []},
+            'installations_logfile': {'required': False},
+            'packagedump_logfile': {'required': False},
+            'adarevm_logfile': {'required': False},
+            'networkdrives_logfile': {'required': False},
+            'content_hash': {'required': False},
         }
 
-class CommandEventSerializer(serializers.ModelSerializer):
+
+class _EventSerializerMixin:
+    """Shared create logic for resolving run and status from validated_data."""
+
+    def _resolve_run_and_status(self, validated_data):
+        run_ulid = validated_data.pop('run')
+        try:
+            validated_data['run'] = ExperimentRun.objects.get(ulid=run_ulid)
+        except ExperimentRun.DoesNotExist:
+            raise serializers.ValidationError('Run not found')
+
+        status_name = validated_data.pop('status')
+        try:
+            validated_data['status'] = Status.objects.get(name=status_name)
+        except Status.DoesNotExist:
+            raise serializers.ValidationError(f'Status "{status_name}" not found')
+
+
+class ActionEventSerializer(_EventSerializerMixin, serializers.ModelSerializer):
     status = StatusSerializer(read_only=True)
 
     class Meta:
-        model = CommandEvent
+        model = ActionEvent
         fields = [
-            'status',
             'ulid',
             'category',
+            'status',
             'error',
-            'group_id',
             'timestamp',
-            # event specific fields
-            'name',
-            'command',
-            'returncode',
-            'stdout',
+            'success',
+            'event_group_id',
+            'event_type_specific',
+            'execution_time',
+            'action_type',
+            'action_id',
+            'action_data',
         ]
 
     def create(self, validated_data):
-        run_ulid = validated_data.pop('run')
-        try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-        except ExperimentRun.DoesNotExist:
-            raise Exception('Run not found')
-        validated_data['run'] = run
+        self._resolve_run_and_status(validated_data)
+        return ActionEvent.objects.create(**validated_data)
 
-        status_id = validated_data.pop('status')
-        try:
-            status = Status.objects.get(id=status_id)
-        except Status.DoesNotExist:
-            raise Exception('Status not found')
-        validated_data['status'] = status
 
-        command_event = CommandEvent.objects.create(**validated_data)
-        return command_event
-
-class TestEventSerializer(serializers.ModelSerializer):
+class TestEventSerializer(_EventSerializerMixin, serializers.ModelSerializer):
     status = StatusSerializer(read_only=True)
     result = ResultSerializer(read_only=True)
     abstracttest = AbstractTestSerializer(read_only=True)
@@ -608,254 +641,86 @@ class TestEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestEvent
         fields = [
-            'status',
             'ulid',
             'category',
+            'status',
             'error',
-            'group_id',
             'timestamp',
-            # event specific fields
+            'success',
+            'event_group_id',
+            'event_type_specific',
+            'execution_time',
             'result',
             'abstracttest',
         ]
 
     def create(self, validated_data):
-        result_data = validated_data.pop('result')
-        # check if dict is empty
+        result_data = validated_data.pop('result', None)
         if result_data:
             try:
-                try:
-                    status = Status.objects.get(id=result_data['status'])
-                except Status.DoesNotExist:
-                    raise Exception('Status not found')
-                result = Result.objects.get(status=status, details=result_data['details'])
+                result_status = Status.objects.get(name=result_data['status'])
+            except Status.DoesNotExist:
+                raise serializers.ValidationError(f'Result status "{result_data["status"]}" not found')
+            try:
+                result = Result.objects.get(status=result_status, details=result_data.get('details', ''))
             except Result.DoesNotExist:
-                result_serializer = ResultSerializer(data=result_data)
-                if not result_serializer.is_valid():
-                    raise Exception(result_serializer.errors)
-                result_serializer.validated_data['status'] = result_data['status']
-                result = result_serializer.save()
+                result = Result.objects.create(status=result_status, details=result_data.get('details', ''))
             validated_data['result'] = result
 
         abstracttest_ulid = validated_data.pop('abstracttest')
         try:
             abstracttest = AbstractTest.objects.get(ulid=abstracttest_ulid)
         except AbstractTest.DoesNotExist:
-            raise Exception('AbstractTest not found')
+            raise serializers.ValidationError(f'AbstractTest "{abstracttest_ulid}" not found')
         validated_data['abstracttest'] = abstracttest
 
-        run_ulid = validated_data.pop('run')
-        try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-        except ExperimentRun.DoesNotExist:
-            raise Exception('Run not found')
-        validated_data['run'] = run
-
-        status_id = validated_data.pop('status')
-        try:
-            status = Status.objects.get(id=status_id)
-        except Status.DoesNotExist:
-            raise Exception('Status not found')
-        validated_data['status'] = status
-
-        test_event = TestEvent.objects.create(**validated_data)
-        return test_event
+        self._resolve_run_and_status(validated_data)
+        return TestEvent.objects.create(**validated_data)
 
 
-class ErrorEventSerializer(serializers.ModelSerializer):
+class ErrorEventSerializer(_EventSerializerMixin, serializers.ModelSerializer):
     status = StatusSerializer(read_only=True)
 
     class Meta:
         model = ErrorEvent
         fields = [
-            'status',
             'ulid',
             'category',
+            'status',
             'error',
-            'group_id',
             'timestamp',
-            # event specific fields
+            'success',
+            'event_group_id',
+            'event_type_specific',
+            'execution_time',
             'error_name',
             'error_msg',
         ]
 
     def create(self, validated_data):
-        run_ulid = validated_data.pop('run')
-        try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-        except ExperimentRun.DoesNotExist:
-            raise Exception('Run not found')
-        validated_data['run'] = run
-
-        status_id = validated_data.pop('status')
-        try:
-            status = Status.objects.get(id=status_id)
-        except Status.DoesNotExist:
-            raise Exception('Status not found')
-        validated_data['status'] = status
-
-        error_event = ErrorEvent.objects.create(**validated_data)
-        return error_event
+        self._resolve_run_and_status(validated_data)
+        return ErrorEvent.objects.create(**validated_data)
 
 
-class GuiFindEventSerializer(serializers.ModelSerializer):
-    status = StatusSerializer(read_only=True)
+_CATEGORY_SERIALIZER_MAP = {
+    'command': ActionEventSerializer,
+    'action': ActionEventSerializer,
+    'test': TestEventSerializer,
+    'error': ErrorEventSerializer,
+}
 
-    class Meta:
-        model = GuiFindEvent
-        fields = [
-            'status',
-            'ulid',
-            'category',
-            'error',
-            'group_id',
-            'timestamp',
-            # event specific fields
-            'text',
-            'objective',
-            'success',
-            'positions',
-        ]
-
-    def create(self, validated_data):
-        run_ulid = validated_data.pop('run')
-        try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-        except ExperimentRun.DoesNotExist:
-            raise Exception('Run not found')
-        validated_data['run'] = run
-
-        status_id = validated_data.pop('status')
-        try:
-            status = Status.objects.get(id=status_id)
-        except Status.DoesNotExist:
-            raise Exception('Status not found')
-        validated_data['status'] = status
-
-        gui_find_event = GuiFindEvent.objects.create(**validated_data)
-        return gui_find_event
-
-
-class GuiClickEventSerializer(serializers.ModelSerializer):
-    status = StatusSerializer(read_only=True)
-
-    class Meta:
-        model = GuiClickEvent
-        fields = [
-            'status',
-            'ulid',
-            'category',
-            'error',
-            'group_id',
-            'timestamp',
-            # event specific fields
-            'clicktype',
-            'modifiers',
-            'target'
-        ]
-
-    def create(self, validated_data):
-        run_ulid = validated_data.pop('run')
-        try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-        except ExperimentRun.DoesNotExist:
-            raise Exception('Run not found')
-        validated_data['run'] = run
-
-        status_id = validated_data.pop('status')
-        try:
-            status = Status.objects.get(id=status_id)
-        except Status.DoesNotExist:
-            raise Exception('Status not found')
-        validated_data['status'] = status
-
-        gui_click_event = GuiClickEvent.objects.create(**validated_data)
-        return gui_click_event
-
-
-class GuiKeypressEventSerializer(serializers.ModelSerializer):
-    status = StatusSerializer(read_only=True)
-
-    class Meta:
-        model = GuiKeypressEvent
-        fields = [
-            'status',
-            'ulid',
-            'category',
-            'error',
-            'group_id',
-            'timestamp',
-            # event specific fields
-            'keys',
-        ]
-
-    def create(self, validated_data):
-        run_ulid = validated_data.pop('run')
-        try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-        except ExperimentRun.DoesNotExist:
-            raise Exception('Run not found')
-        validated_data['run'] = run
-
-        status_id = validated_data.pop('status')
-        try:
-            status = Status.objects.get(id=status_id)
-        except Status.DoesNotExist:
-            raise Exception('Status not found')
-        validated_data['status'] = status
-
-        gui_keypress_event = GuiKeypressEvent.objects.create(**validated_data)
-        return gui_keypress_event
-
-
-class GuiIdleEventSerializer(serializers.ModelSerializer):
-    status = StatusSerializer(read_only=True)
-
-    class Meta:
-        model = GuiIdleEvent
-        fields = [
-            'status',
-            'ulid',
-            'category',
-            'error',
-            'group_id',
-            'timestamp',
-            # event specific fields
-            'seconds',
-        ]
-
-    def create(self, validated_data):
-        run_ulid = validated_data.pop('run')
-        try:
-            run = ExperimentRun.objects.get(ulid=run_ulid)
-        except ExperimentRun.DoesNotExist:
-            raise Exception('Run not found')
-        validated_data['run'] = run
-
-        status_id = validated_data.pop('status')
-        try:
-            status = Status.objects.get(id=status_id)
-        except Status.DoesNotExist:
-            raise Exception('Status not found')
-        validated_data['status'] = status
-
-        gui_idle_event = GuiIdleEvent.objects.create(**validated_data)
-        return gui_idle_event
 
 def get_event_serializer(event):
-    if isinstance(event, CommandEvent):
-        return CommandEventSerializer
-    elif isinstance(event, TestEvent):
+    """Dual-mode: pass a category string or a model instance."""
+    if isinstance(event, str):
+        serializer = _CATEGORY_SERIALIZER_MAP.get(event)
+        if not serializer:
+            raise ValueError(f'Unknown category: {event}')
+        return serializer
+    if isinstance(event, TestEvent):
         return TestEventSerializer
-    elif isinstance(event, ErrorEvent):
+    if isinstance(event, ErrorEvent):
         return ErrorEventSerializer
-    elif isinstance(event, GuiFindEvent):
-        return GuiFindEventSerializer
-    elif isinstance(event, GuiClickEvent):
-        return GuiClickEventSerializer
-    elif isinstance(event, GuiKeypressEvent):
-        return GuiKeypressEventSerializer
-    elif isinstance(event, GuiIdleEvent):
-        return GuiIdleEventSerializer
-    else:
-        raise ValueError(f'Unknown event model: {type(event).__name__}')
+    if isinstance(event, ActionEvent):
+        return ActionEventSerializer
+    raise ValueError(f'Unknown event: {type(event).__name__}')

@@ -1,18 +1,70 @@
-- model: users.achievementcategory
+- model: users.achievementdefinition
   pk: 1
   fields:
-    name: first_request
-    description: First Request
-    iconfile: firstrequest.png
-- model: users.achievementcategory
+    slug: first_experiment
+    name: Pioneer
+    description: Published your first experiment
+    icon: pioneer.png
+    threshold: 1
+    category: experiment
+    sort_order: 0
+- model: users.achievementdefinition
   pk: 2
   fields:
-    name: first_accepted_scenario
-    description: First Accepted Scenario
-    iconfile: firstacceptedscenario.png
-- model: users.achievementcategory
+    slug: experiment_veteran
+    name: Veteran
+    description: Published 10 experiments
+    icon: veteran.png
+    threshold: 10
+    category: experiment
+    sort_order: 1
+- model: users.achievementdefinition
   pk: 3
   fields:
-    name: first_accepted_experiment
-    description: First Accepted Experiment
-    iconfile: firstacceptedexperiment.png
+    slug: first_run
+    name: Ignition
+    description: Published your first experiment run
+    icon: ignition.png
+    threshold: 1
+    category: run
+    sort_order: 2
+- model: users.achievementdefinition
+  pk: 4
+  fields:
+    slug: run_century
+    name: Centurion
+    description: Published 100 experiment runs
+    icon: centurion.png
+    threshold: 100
+    category: run
+    sort_order: 3
+- model: users.achievementdefinition
+  pk: 5
+  fields:
+    slug: first_success
+    name: "Eureka!"
+    description: Your first successful experiment run
+    icon: eureka.png
+    threshold: 1
+    category: run
+    sort_order: 4
+- model: users.achievementdefinition
+  pk: 6
+  fields:
+    slug: experimenter
+    name: Diversifier
+    description: Ran 5 distinct experiments
+    icon: diversifier.png
+    threshold: 5
+    category: run
+    sort_order: 5
+- model: users.achievementdefinition
+  pk: 7
+  fields:
+    slug: multi_environment
+    name: World Traveler
+    description: Ran experiments in 5 different environments
+    icon: worldtraveler.png
+    threshold: 5
+    category: run
+    sort_order: 6

@@ -7,7 +7,7 @@ from django.db import transaction
 from helperfunctions.download import download
 from django.conf import settings
 from giteaeventmanager.auth import GiteaAuthHandle
-from datetime import datetime
+from django.utils import timezone
 from experiments.models import Requirement as RequirementModel, TestfunctionSet, TestFunction, TestParameter, \
     Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo, Tag, TagScope, PostSetupInstallation
 from giteaeventmanager.exception import TaskFailure
@@ -22,8 +22,6 @@ from helperfunctions.hash import hash_file_sha256, combine_hashes
 import logging
 
 log = logging.getLogger(__name__)
-# set log level to also show debug messages
-log.setLevel(logging.DEBUG)
 
 
 class PullRequestPluginInterface(ABC):
@@ -115,7 +113,7 @@ class PullRequestPlugin(PullRequestPluginInterface):
     def _get_tmp_dir(self) -> Path:
         if self.tmp_dir:
             return self.tmp_dir
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
         tmp_dir = Path(f'/tmp/{self.objective}_{timestamp}')
         tmp_dir.mkdir()
         self.tmp_dir = tmp_dir
@@ -125,6 +123,27 @@ class PullRequestPlugin(PullRequestPluginInterface):
         file_obj = getattr(self, file_attribute)
         if file_obj and file_obj.is_file():
             setattr(self, hash_attribute, hash_file_sha256(file_obj))
+
+    @staticmethod
+    def _create_tags_from_list(tags):
+        """Parse tag strings (optionally 'scope:value') into Tag objects."""
+        tag_objects = []
+        if not tags:
+            return tag_objects
+        for tag in tags:
+            if not tag:
+                continue
+            if ':' in tag:
+                scope_name, value = tag.split(':', 1)
+                scope = TagScope.objects.filter(name=scope_name).first()
+                if scope:
+                    obj, _ = Tag.objects.get_or_create(scope=scope, value=value)
+                else:
+                    obj, _ = Tag.objects.get_or_create(scope=None, value=tag)
+            else:
+                obj, _ = Tag.objects.get_or_create(scope=None, value=tag)
+            tag_objects.append(obj)
+        return tag_objects
 
 
 class TestfunctionsetPlugin(PullRequestPlugin):
@@ -376,12 +395,10 @@ class ExperimentPlugin(PullRequestPlugin):
 
         # check if abstract test already exists (todo: make this more efficient by using filter instead of filtering in python)
         abstract_test_obj = None
+        abstract_test_q = AbstractTest.objects.filter(name=test.name, description=test.description,
+                                                      testfunction=testfunction)
         if tool:
-            abstract_test_q = AbstractTest.objects.filter(name=test.name, description=test.description,
-                                                          testfunction=testfunction, tool=tool)
-        else:
-            abstract_test_q = AbstractTest.objects.filter(name=test.name, description=test.description,
-                                                          testfunction=testfunction)
+            abstract_test_q = abstract_test_q.filter(tools=tool)
         # check if all parameter entries are in the abstract test and vice versa by their ids
         parameter_entry_ids_data = [p.id for p in parameter_entries]
         for abstract_test in abstract_test_q.all():
@@ -392,8 +409,11 @@ class ExperimentPlugin(PullRequestPlugin):
 
         # if abstract test does not exist, create it
         if not abstract_test_obj:
-            abstract_test_obj = AbstractTest(name=test.name, description=test.description, testfunction=testfunction,
-                                             tool=tool)
+            abstract_test_obj = AbstractTest(name=test.name, description=test.description, testfunction=testfunction)
+            abstract_test_obj.save()
+
+            if tool:
+                abstract_test_obj.tools.add(tool)
 
             # add parameter entries to abstract test
             for parameter_entry in parameter_entries:
@@ -454,21 +474,7 @@ class ExperimentPlugin(PullRequestPlugin):
         log.info('retrieved abstract tests from testset file')
 
         # create tags
-        tag_objects = []
-        if tags := metadata.get('tags'):
-            for tag in tags:
-                if not tag:
-                    continue
-                if ':' in tag:
-                    scope_name, value = tag.split(':', 1)
-                    scope = TagScope.objects.filter(name=scope_name).first()
-                    if scope:
-                        obj, created = Tag.objects.get_or_create(scope=scope, value=value)
-                    else:
-                        obj, created = Tag.objects.get_or_create(scope=None, value=tag)
-                else:
-                    obj, created = Tag.objects.get_or_create(scope=None, value=tag)
-                tag_objects.append(obj)
+        tag_objects = self._create_tags_from_list(metadata.get('tags'))
 
         # create experiment object
         experiment = Experiment(
@@ -563,21 +569,7 @@ class EnvironmentPlugin(PullRequestPlugin):
         )
 
         # create tags
-        tag_objects = []
-        if tags := environment_data.get('tags'):
-            for tag in tags:
-                if not tag:
-                    continue
-                if ':' in tag:
-                    scope_name, value = tag.split(':', 1)
-                    scope = TagScope.objects.filter(name=scope_name).first()
-                    if scope:
-                        obj, created = Tag.objects.get_or_create(scope=scope, value=value)
-                    else:
-                        obj, created = Tag.objects.get_or_create(scope=None, value=tag)
-                else:
-                    obj, created = Tag.objects.get_or_create(scope=None, value=tag)
-                tag_objects.append(obj)
+        tag_objects = self._create_tags_from_list(environment_data.get('tags'))
 
         # create postsetupinstallation objects
         post_setup_installation_objects = []

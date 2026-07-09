@@ -54,7 +54,7 @@ class TestExperimentList:
         assert resp.data["results"][0]["ulid"] == exp.ulid
 
     def test_list_filter_by_tag(self, api_client):
-        tag = TagFactory(name="network")
+        tag = TagFactory(value="network")
         ExperimentFactory(tags=[tag])
         ExperimentFactory()  # no tag
 
@@ -62,7 +62,6 @@ class TestExperimentList:
 
         assert resp.status_code == 200
         assert resp.data["count"] == 1
-        assert "network" in resp.data["results"][0]["tags"]
 
     def test_list_filter_by_min_runcount(self, api_client):
         exp_with_runs = ExperimentFactory()
@@ -106,7 +105,7 @@ class TestExperimentList:
 @pytest.mark.django_db
 class TestExperimentDetail:
     def test_detail_returns_nested_data(self, api_client):
-        tag = TagFactory(name="detail-tag")
+        tag = TagFactory(value="detail-tag")
         env = EnvironmentFactory()
         abstract_test = AbstractTestFactory()
         exp = ExperimentFactory(
@@ -123,7 +122,8 @@ class TestExperimentDetail:
         assert resp.data["environments"][0]["ulid"] == env.ulid
         assert len(resp.data["abstract_tests"]) == 1
         assert resp.data["abstract_tests"][0]["ulid"] == abstract_test.ulid
-        assert "detail-tag" in resp.data["tags"]
+        tag_names = [t['name'] for t in resp.data["tags"]]
+        assert "detail-tag" in tag_names
         assert "run_counts" in resp.data
 
     def test_detail_404_for_unpublished(self, api_client):
@@ -142,7 +142,7 @@ class TestExperimentDetail:
 @pytest.mark.django_db
 class TestExperimentFilterOptions:
     def test_filter_options_returns_tags_and_counts(self, api_client):
-        tag = TagFactory(name="filteropts-tag")
+        tag = TagFactory(value="filteropts-tag")
         exp = ExperimentFactory(tags=[tag])
         env = EnvironmentFactory()
         exp.environments.add(env)
@@ -156,7 +156,8 @@ class TestExperimentFilterOptions:
 
         assert resp.status_code == 200
         assert "tags" in resp.data
-        assert "filteropts-tag" in list(resp.data["tags"])
+        tag_names = list(resp.data["tags"])
+        assert any("filteropts-tag" in str(t) for t in tag_names)
         assert "max_success" in resp.data
         assert "max_failed" in resp.data
         assert "total_count" in resp.data

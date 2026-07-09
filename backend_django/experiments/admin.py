@@ -2,8 +2,7 @@ from django.contrib import admin
 
 from experiments.models import (
     Tag, TagScope, Status, Result, TestParameter, TestParameterEntry,
-    CommandEvent, TestEvent, ErrorEvent, GuiFindEvent, GuiClickEvent,
-    GuiKeypressEvent, GuiIdleEvent, Requirement, TestfunctionSet,
+    TestEvent, ErrorEvent, ActionEvent, Requirement, TestfunctionSet,
     TestFunction, Tool, AbstractTest, OsInfo, PostSetupInstallation,
     Environment, Experiment, ExperimentRun, Label, Request,
     RequestCreationMessage,
@@ -79,7 +78,7 @@ class ToolAdmin(admin.ModelAdmin):
 class AbstractTestAdmin(admin.ModelAdmin):
     list_display = ['ulid', 'name', 'testfunction']
     search_fields = ['name', 'ulid']
-    raw_id_fields = ['testfunction', 'tool']
+    raw_id_fields = ['testfunction']
 
 
 @admin.register(OsInfo)
@@ -137,14 +136,6 @@ class RequestCreationMessageAdmin(admin.ModelAdmin):
     list_display = ['gitea_pr_number', 'error_message']
 
 
-@admin.register(CommandEvent)
-class CommandEventAdmin(admin.ModelAdmin):
-    list_display = ['ulid', 'name', 'category', 'status', 'timestamp']
-    list_filter = ['status']
-    search_fields = ['ulid', 'name']
-    raw_id_fields = ['run', 'status']
-
-
 @admin.register(TestEvent)
 class TestEventAdmin(admin.ModelAdmin):
     list_display = ['ulid', 'category', 'status', 'timestamp']
@@ -161,29 +152,9 @@ class ErrorEventAdmin(admin.ModelAdmin):
     raw_id_fields = ['run', 'status']
 
 
-@admin.register(GuiFindEvent)
-class GuiFindEventAdmin(admin.ModelAdmin):
-    list_display = ['ulid', 'category', 'status', 'success', 'timestamp']
-    list_filter = ['status']
-    raw_id_fields = ['run', 'status']
-
-
-@admin.register(GuiClickEvent)
-class GuiClickEventAdmin(admin.ModelAdmin):
-    list_display = ['ulid', 'category', 'clicktype', 'status', 'timestamp']
-    list_filter = ['status']
-    raw_id_fields = ['run', 'status']
-
-
-@admin.register(GuiKeypressEvent)
-class GuiKeypressEventAdmin(admin.ModelAdmin):
-    list_display = ['ulid', 'category', 'status', 'timestamp']
-    list_filter = ['status']
-    raw_id_fields = ['run', 'status']
-
-
-@admin.register(GuiIdleEvent)
-class GuiIdleEventAdmin(admin.ModelAdmin):
-    list_display = ['ulid', 'category', 'seconds', 'status', 'timestamp']
-    list_filter = ['status']
+@admin.register(ActionEvent)
+class ActionEventAdmin(admin.ModelAdmin):
+    list_display = ['ulid', 'action_type', 'category', 'status', 'timestamp']
+    list_filter = ['status', 'action_type']
+    search_fields = ['ulid', 'action_type', 'action_id']
     raw_id_fields = ['run', 'status']

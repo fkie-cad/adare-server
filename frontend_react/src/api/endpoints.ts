@@ -21,4 +21,5 @@ export const endpoints = {
   testfunctionSetDownload: (name: string) => `download/testfunction_${name}/`,
   experimentDashboard: 'experiment/dashboard/',
   filterOptions: (endpoint: string) => `${endpoint}/filteroptions/`,
+  achievementIcon: (name: string) => `file/achievements/${name}`,
 } as const

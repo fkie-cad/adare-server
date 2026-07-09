@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ProfileImage } from '@/components/profile/profile-image'
 import { StatusIcon } from '@/components/shared/status-icon'
 import { EventTimeline } from './event-timeline'
-import { isGuiIdleEvent, isTestEvent } from '@/types/experiment'
+import { isActionEvent, isTestEvent } from '@/types/experiment'
 
 interface RunDetailViewProps {
   ulid: string
@@ -45,17 +45,18 @@ export function RunDetailView({ ulid }: RunDetailViewProps) {
   const events = Array.isArray(run.events)
     ? onlyShowTests
       ? run.events.filter((e) => isTestEvent(e))
-      : run.events.filter((e) => !isGuiIdleEvent(e))
+      : run.events.filter((e) => !(isActionEvent(e) && e.action_type === 'idle'))
     : []
 
   return (
     <Card>
       <CardContent className="space-y-6 pt-6">
-        {/* ULID + Published by */}
+        {/* Run number + Published by */}
         <div className="flex justify-between">
           <div>
-            <div className="text-sm text-muted-foreground">ulid</div>
-            <div className="text-2xl">{run.ulid}</div>
+            <div className="text-sm text-muted-foreground">run</div>
+            <div className="text-2xl">#{run.run_number}</div>
+            <div className="text-xs text-muted-foreground">{run.ulid}</div>
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">published by</div>
