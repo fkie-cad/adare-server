@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { PageContainer } from '@/components/layout/page-container'
+import { PageHeader } from '@/components/layout/page-header'
 import { getTagColorClass, getTagScope } from '@/constants/tag-colors'
 
 interface PopularTag {
@@ -75,10 +77,10 @@ export default function HomePage() {
   }
 
   const statCards = [
-    { label: 'Experiments', value: stats?.experiment_count ?? 0, icon: FlaskConical, color: 'text-teal-600' },
-    { label: 'Environments', value: stats?.environment_count ?? 0, icon: Monitor, color: 'text-blue-600' },
-    { label: 'Test Function Sets', value: stats?.testfunction_count ?? 0, icon: Boxes, color: 'text-purple-500' },
-    { label: 'Runs', value: stats?.run_count ?? 0, icon: PlayCircle, color: 'text-indigo-500' },
+    { label: 'Experiments', value: stats?.experiment_count ?? 0, icon: FlaskConical },
+    { label: 'Environments', value: stats?.environment_count ?? 0, icon: Monitor },
+    { label: 'Test Function Sets', value: stats?.testfunction_count ?? 0, icon: Boxes },
+    { label: 'Runs', value: stats?.run_count ?? 0, icon: PlayCircle },
   ]
 
   const searchTargets = [
@@ -88,21 +90,34 @@ export default function HomePage() {
   ]
 
   return (
-    <div className="max-w-7xl mx-auto py-8 space-y-6">
+    <PageContainer className="space-y-6">
+      <PageHeader
+        eyebrow="Instrument"
+        title="Overview"
+        description="Desktop-forensic analysis for reproducible security experiments."
+      />
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.label} className="border">
+          <Card key={stat.label}>
             <CardContent className="pt-4 pb-4">
-              <div className="text-xs uppercase text-muted-foreground tracking-wide">{stat.label}</div>
-              <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+              <div className="flex items-center justify-between">
+                <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                  {stat.label}
+                </div>
+                <stat.icon className="h-4 w-4 text-primary/70" />
+              </div>
+              <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-primary">
+                {stat.value}
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Quick Search */}
-      <Card className="border">
+      <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -132,12 +147,12 @@ export default function HomePage() {
       </Card>
 
       {/* Recent Items */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* Recent Experiments */}
-        <Card className="border">
+        <Card>
           <CardContent className="pt-4 pb-0">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-bold">Recent Experiments</span>
+              <span className="font-display font-semibold">Recent Experiments</span>
               <Link to="/experiment" className="text-sm text-primary hover:underline">
                 View all &rarr;
               </Link>
@@ -177,10 +192,10 @@ export default function HomePage() {
         </Card>
 
         {/* Recent Environments */}
-        <Card className="border">
+        <Card>
           <CardContent className="pt-4 pb-0">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-bold">Recent Environments</span>
+              <span className="font-display font-semibold">Recent Environments</span>
               <Link to="/environment" className="text-sm text-primary hover:underline">
                 View all &rarr;
               </Link>
@@ -222,9 +237,9 @@ export default function HomePage() {
 
       {/* Popular Tags */}
       {popularTags.length > 0 && (
-        <Card className="border">
+        <Card>
           <CardContent className="pt-4 pb-4">
-            <div className="font-bold mb-3">Popular Tags</div>
+            <div className="font-display font-semibold mb-3">Popular Tags</div>
             <div className="flex flex-wrap gap-2">
               {popularTags.map((tag) => (
                 <Link
@@ -235,7 +250,9 @@ export default function HomePage() {
                 >
                   <Badge className={`${getTagColorClass(tag.scope)} cursor-pointer hover:opacity-80`}>
                     {tag.value}
-                    <span className="ml-1.5 bg-white/20 rounded-full px-1.5 text-xs">{tag.count}</span>
+                    <span className="ml-1.5 rounded-full bg-foreground/10 px-1.5 font-mono text-xs tabular-nums">
+                      {tag.count}
+                    </span>
                   </Badge>
                 </Link>
               ))}
@@ -243,6 +260,6 @@ export default function HomePage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageContainer>
   )
 }

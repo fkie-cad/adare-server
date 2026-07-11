@@ -55,8 +55,10 @@ export function RunDetailView({ ulid }: RunDetailViewProps) {
         <div className="flex justify-between">
           <div>
             <div className="text-sm text-muted-foreground">run</div>
-            <div className="text-2xl">#{run.run_number}</div>
-            <div className="text-xs text-muted-foreground">{run.ulid}</div>
+            <div className="font-mono text-2xl font-semibold tabular-nums text-primary">
+              #{run.run_number}
+            </div>
+            <div className="font-mono text-xs tabular-nums text-muted-foreground break-all">{run.ulid}</div>
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">published by</div>
@@ -68,11 +70,11 @@ export function RunDetailView({ ulid }: RunDetailViewProps) {
         <div className="flex justify-between">
           <div>
             <div className="text-sm text-muted-foreground">experiment</div>
-            <div className="text-2xl">{run.experiment}</div>
+            <div className="font-display text-2xl font-semibold tracking-tight">{run.experiment}</div>
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">environment</div>
-            <div className="text-2xl">{run.environment}</div>
+            <div className="font-display text-2xl font-semibold tracking-tight">{run.environment}</div>
           </div>
         </div>
 
@@ -84,7 +86,7 @@ export function RunDetailView({ ulid }: RunDetailViewProps) {
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">duration</div>
-            <div className="text-2xl">{secondsToString(run.duration)}</div>
+            <div className="font-mono text-2xl tabular-nums">{secondsToString(run.duration)}</div>
           </div>
         </div>
 

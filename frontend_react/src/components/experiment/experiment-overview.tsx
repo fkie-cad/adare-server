@@ -47,8 +47,8 @@ export function ExperimentOverview({ name }: ExperimentOverviewProps) {
             <span>name</span>
             <span>ulid</span>
           </div>
-          <div className="flex justify-between items-start text-2xl">
-            <div className="flex items-center gap-1">
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex items-center gap-1 font-display text-2xl font-semibold tracking-tight">
               {experiment.name}
               {giteaUrl && (
                 <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
@@ -58,7 +58,9 @@ export function ExperimentOverview({ name }: ExperimentOverviewProps) {
                 </Button>
               )}
             </div>
-            <span className="text-right">{experiment.ulid}</span>
+            <span className="text-right font-mono text-sm tabular-nums text-muted-foreground break-all">
+              {experiment.ulid}
+            </span>
           </div>
         </div>
 
@@ -77,7 +79,7 @@ export function ExperimentOverview({ name }: ExperimentOverviewProps) {
               <div className="text-sm text-muted-foreground mb-1">tags</div>
               <div className="flex flex-wrap gap-1">
                 {experiment.tags.map((tag) => (
-                  <Badge key={tag.name} className="bg-pink-700 text-white">
+                  <Badge key={tag.name} variant="outline" className="font-mono">
                     #{tag.name}
                   </Badge>
                 ))}
@@ -86,10 +88,10 @@ export function ExperimentOverview({ name }: ExperimentOverviewProps) {
             <div className="text-right">
               <div className="text-sm text-muted-foreground mb-1">run counts</div>
               <div className="flex gap-2 justify-end">
-                <Badge className="bg-green-500 text-white text-lg px-3">
+                <Badge variant="success" className="px-3 font-mono text-lg tabular-nums">
                   {experiment.run_counts.successful}
                 </Badge>
-                <Badge className="bg-red-500 text-white text-lg px-3">
+                <Badge variant="destructive" className="px-3 font-mono text-lg tabular-nums">
                   {experiment.run_counts.failed}
                 </Badge>
               </div>

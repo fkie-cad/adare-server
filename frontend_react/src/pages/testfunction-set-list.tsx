@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { useTestfunctionSets } from '@/api/hooks/use-testfunction-sets'
 import { DataTable } from '@/components/data-table/data-table'
+import { PageContainer } from '@/components/layout/page-container'
 import { DetailsCell } from '@/components/data-table/columns/details-cell'
 import { UserIconCell } from '@/components/data-table/columns/user-icon-cell'
 import { LinkCell } from '@/components/data-table/columns/link-cell'
@@ -16,13 +17,13 @@ const columns: ColumnDef<TestfunctionSet, unknown>[] = [
   },
   { accessorKey: 'name', header: 'Name', enableSorting: true },
   { accessorKey: 'description', header: 'Description' },
-  { accessorKey: 'num_testfunctions', header: '# Functions' },
+  { accessorKey: 'num_testfunctions', header: '# Functions', meta: { mono: true } },
   {
     accessorKey: 'published_by',
     header: 'Published by',
     cell: ({ getValue }) => <UserIconCell username={getValue() as string} />,
   },
-  { accessorKey: 'published_at', header: 'Publish date' },
+  { accessorKey: 'published_at', header: 'Publish date', meta: { mono: true } },
   {
     accessorKey: 'file',
     header: 'File',
@@ -49,6 +50,7 @@ export default function TestfunctionSetListPage() {
   })
 
   return (
+    <PageContainer>
     <DataTable
       title="Testfunction Sets"
       columns={columns}
@@ -62,5 +64,6 @@ export default function TestfunctionSetListPage() {
       searchValue={search}
       onSearchChange={setSearch}
     />
+    </PageContainer>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { useRuns } from '@/api/hooks/use-runs'
 import { DataTable } from '@/components/data-table/data-table'
+import { PageContainer } from '@/components/layout/page-container'
 import { DetailsCell } from '@/components/data-table/columns/details-cell'
 import { StatusCell } from '@/components/data-table/columns/status-cell'
 import type { Run } from '@/types/experiment'
@@ -13,10 +14,10 @@ const columns: ColumnDef<Run, unknown>[] = [
     cell: ({ getValue }) => <StatusCell status={getValue() as Run['result_status']} />,
     enableSorting: false,
   },
-  { accessorKey: 'run_number', header: '#' },
+  { accessorKey: 'run_number', header: '#', meta: { mono: true } },
   { accessorKey: 'experiment', header: 'Experiment' },
   { accessorKey: 'environment', header: 'Environment' },
-  { accessorKey: 'ulid', header: 'ULID' },
+  { accessorKey: 'ulid', header: 'ULID', meta: { mono: true } },
   {
     id: 'details',
     header: 'Details',
@@ -39,7 +40,7 @@ export default function RunListPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <PageContainer className="space-y-4">
       {isError && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           Failed to load experiment runs. Please try again later.
@@ -58,6 +59,6 @@ export default function RunListPage() {
         searchValue={search}
         onSearchChange={setSearch}
       />
-    </div>
+    </PageContainer>
   )
 }

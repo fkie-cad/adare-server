@@ -59,8 +59,8 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
               <span>name</span>
               <span>ulid</span>
             </div>
-            <div className="flex justify-between items-start text-2xl">
-              <div className="flex items-center gap-1">
+            <div className="flex justify-between items-start gap-4">
+              <div className="flex items-center gap-1 font-display text-2xl font-semibold tracking-tight">
                 {environment.name}
                 {environment.file && (
                   <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
@@ -70,7 +70,9 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
                   </Button>
                 )}
               </div>
-              <span className="text-right">{environment.ulid}</span>
+              <span className="text-right font-mono text-sm tabular-nums text-muted-foreground break-all">
+                {environment.ulid}
+              </span>
             </div>
           </div>
 
@@ -126,7 +128,7 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">published at</div>
-              <span>{environment.published_at}</span>
+              <span className="font-mono text-sm tabular-nums">{environment.published_at}</span>
             </div>
           </div>
         </CardContent>
@@ -183,7 +185,7 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-base font-bold">Experiments Using This Environment</h3>
             {relatedExperiments.length > 0 && (
-              <Badge>{relatedExperiments.length}</Badge>
+              <Badge className="font-mono tabular-nums">{relatedExperiments.length}</Badge>
             )}
           </div>
           {relatedExperiments.length > 0 ? (
@@ -215,8 +217,8 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
                       </td>
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
-                          <Badge className="bg-green-500 text-white">{exp.run_counts.successful}</Badge>
-                          <Badge className="bg-red-500 text-white">{exp.run_counts.failed}</Badge>
+                          <Badge variant="success" className="font-mono tabular-nums">{exp.run_counts.successful}</Badge>
+                          <Badge variant="destructive" className="font-mono tabular-nums">{exp.run_counts.failed}</Badge>
                         </div>
                       </td>
                     </tr>

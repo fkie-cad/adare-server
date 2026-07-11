@@ -2,6 +2,7 @@ import { useParams } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useUserProfile } from '@/api/hooks/use-user'
 import { ProfileCard } from '@/components/profile/profile-card'
+import { PageContainer } from '@/components/layout/page-container'
 
 export default function ProfileUserPage() {
   const { username } = useParams({ strict: false }) as { username: string }
@@ -19,5 +20,9 @@ export default function ProfileUserPage() {
     return <p className="text-center py-12">User not found</p>
   }
 
-  return <ProfileCard profile={profile} />
+  return (
+    <PageContainer>
+      <ProfileCard profile={profile} />
+    </PageContainer>
+  )
 }

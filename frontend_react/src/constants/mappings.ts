@@ -24,21 +24,21 @@ export function isValidStatusType(value: string): value is StatusType {
 }
 
 export const statusColorMapping: Record<StatusType, string> = {
-  'not assigned': 'text-blue-500',
-  accepted: 'text-green-500',
-  rejected: 'text-red-500',
-  assigned: 'text-yellow-500',
-  success: 'text-green-600',
-  failed: 'text-red-600',
+  'not assigned': 'text-muted-foreground',
+  accepted: 'text-success',
+  rejected: 'text-destructive',
+  assigned: 'text-warning',
+  success: 'text-success',
+  failed: 'text-destructive',
 }
 
 export const statusBgColorMapping: Record<StatusType, string> = {
-  'not assigned': 'bg-blue-500/15 text-blue-600 dark:text-blue-300',
-  accepted: 'bg-green-500/15 text-green-600 dark:text-green-300',
-  rejected: 'bg-red-500/15 text-red-600 dark:text-red-300',
-  assigned: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-300',
-  success: 'bg-green-500/15 text-green-600 dark:text-green-300',
-  failed: 'bg-red-500/15 text-red-600 dark:text-red-300',
+  'not assigned': 'bg-muted text-muted-foreground',
+  accepted: 'bg-success/15 text-success',
+  rejected: 'bg-destructive/15 text-destructive',
+  assigned: 'bg-warning/15 text-warning',
+  success: 'bg-success/15 text-success',
+  failed: 'bg-destructive/15 text-destructive',
 }
 
 export const statusIconMapping: Record<StatusType, LucideIcon> = {

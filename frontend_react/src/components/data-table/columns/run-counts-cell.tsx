@@ -10,8 +10,8 @@ export function RunCountsCell({ counts }: RunCountsCellProps) {
 
   return (
     <div className="flex gap-1">
-      <Badge className="bg-green-500 text-white">{counts.successful}</Badge>
-      <Badge className="bg-red-500 text-white">{counts.failed}</Badge>
+      <Badge variant="success" className="font-mono tabular-nums">{counts.successful}</Badge>
+      <Badge variant="destructive" className="font-mono tabular-nums">{counts.failed}</Badge>
     </div>
   )
 }

@@ -27,7 +27,10 @@ function renderWithProviders(ui: React.ReactElement) {
 describe('WelcomeCard', () => {
   it('renders the welcome heading', () => {
     renderWithProviders(<WelcomeCard />)
-    expect(screen.getByText('Welcome to ADARE')).toBeInTheDocument()
+    // "ADARE" is a teal <span>, so the heading text spans multiple nodes.
+    expect(
+      screen.getByRole('heading', { name: 'Welcome to ADARE' }),
+    ).toBeInTheDocument()
   })
 
   it('displays stat counts', () => {

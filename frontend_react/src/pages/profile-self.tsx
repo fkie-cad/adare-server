@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useLoggedInUser } from '@/api/hooks/use-user'
 import { ProfileCard } from '@/components/profile/profile-card'
+import { PageContainer } from '@/components/layout/page-container'
 
 export default function ProfileSelfPage() {
   const { data: profile, isLoading } = useLoggedInUser()
@@ -17,5 +18,9 @@ export default function ProfileSelfPage() {
     return <p className="text-center py-12">Not logged in</p>
   }
 
-  return <ProfileCard profile={profile} />
+  return (
+    <PageContainer>
+      <ProfileCard profile={profile} />
+    </PageContainer>
+  )
 }

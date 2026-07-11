@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { useRequests } from '@/api/hooks/use-requests'
 import { DataTable } from '@/components/data-table/data-table'
+import { PageContainer } from '@/components/layout/page-container'
 import { StatusIcon } from '@/components/shared/status-icon'
 import type { Request } from '@/types/experiment'
 
@@ -27,8 +28,8 @@ const columns: ColumnDef<Request, unknown>[] = [
     header: 'Requester',
     cell: ({ getValue }) => (getValue() as Request['requester'])?.username ?? '',
   },
-  { accessorKey: 'creation_date', header: 'Created' },
-  { accessorKey: 'last_change_date', header: 'Last changed' },
+  { accessorKey: 'creation_date', header: 'Created', meta: { mono: true } },
+  { accessorKey: 'last_change_date', header: 'Last changed', meta: { mono: true } },
 ]
 
 export default function RequestListPage() {
@@ -45,6 +46,7 @@ export default function RequestListPage() {
   })
 
   return (
+    <PageContainer>
     <DataTable
       title="Requests"
       columns={columns}
@@ -58,5 +60,6 @@ export default function RequestListPage() {
       searchValue={search}
       onSearchChange={setSearch}
     />
+    </PageContainer>
   )
 }

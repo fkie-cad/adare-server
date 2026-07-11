@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ProfileImage } from '@/components/profile/profile-image'
 import { LinkCell } from '@/components/data-table/columns/link-cell'
+import { PageContainer } from '@/components/layout/page-container'
 
 export default function TestfunctionSetDetailPage() {
   const { name } = useParams({ strict: false }) as { name: string }
@@ -23,25 +24,30 @@ export default function TestfunctionSetDetailPage() {
 
   if (!tfSet) {
     return (
-      <Card>
-        <CardContent className="py-6">
-          <p>Testfunction set not found</p>
-        </CardContent>
-      </Card>
+      <PageContainer className="max-w-4xl">
+        <Card>
+          <CardContent className="py-6">
+            <p>Testfunction set not found</p>
+          </CardContent>
+        </Card>
+      </PageContainer>
     )
   }
 
   return (
+    <PageContainer className="max-w-4xl">
     <Card>
       <CardContent className="space-y-6 pt-6">
         <div className="flex justify-between">
           <div>
             <div className="text-sm text-muted-foreground">name</div>
-            <div className="text-2xl">{tfSet.name}</div>
+            <div className="font-display text-2xl font-semibold tracking-tight">{tfSet.name}</div>
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">functions</div>
-            <div className="text-2xl">{tfSet.num_testfunctions}</div>
+            <div className="font-mono text-2xl font-semibold tabular-nums text-primary">
+              {tfSet.num_testfunctions}
+            </div>
           </div>
         </div>
 
@@ -113,5 +119,6 @@ export default function TestfunctionSetDetailPage() {
         )}
       </CardContent>
     </Card>
+    </PageContainer>
   )
 }

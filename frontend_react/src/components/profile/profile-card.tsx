@@ -11,14 +11,14 @@ interface ProfileCardProps {
 }
 
 const roleColorMapping: Record<string, string> = {
-  Owners: 'bg-foreground text-background border-border',
-  Supervisor: 'bg-pink-700 text-white border-pink-600',
-  admin: 'bg-foreground text-background border-border',
-  supervisor: 'bg-pink-700 text-white border-pink-600',
+  Owners: 'bg-foreground text-background border-transparent',
+  Supervisor: 'bg-primary text-primary-foreground border-transparent',
+  admin: 'bg-foreground text-background border-transparent',
+  supervisor: 'bg-primary text-primary-foreground border-transparent',
 }
 
 function getRoleColor(role: string): string {
-  return roleColorMapping[role] ?? 'bg-amber-400 text-foreground border-amber-300'
+  return roleColorMapping[role] ?? 'bg-muted text-foreground border-border'
 }
 
 export function ProfileCard({ profile }: ProfileCardProps) {

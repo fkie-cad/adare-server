@@ -1,3 +1,14 @@
+import type { RowData } from '@tanstack/react-table'
+
+declare module '@tanstack/react-table' {
+  // Column-level opt-in: renders machine data (ids, numbers, timestamps) as a
+  // tabular-figure mono readout instead of body text.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    mono?: boolean
+  }
+}
+
 export interface FilterEntry {
   field: string
   type: string

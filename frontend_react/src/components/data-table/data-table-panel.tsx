@@ -26,7 +26,7 @@ export function DataTablePanel<TData>({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <h2 className="font-display text-xl font-semibold tracking-tight">{title}</h2>
         {onFilterToggle && (
           <Button
             variant={filterActive ? 'default' : 'outline'}

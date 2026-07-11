@@ -1,15 +1,14 @@
-// Tailwind CSS color classes for scoped tags
-export const scopeColorMap: Record<string, string> = {
-  tool: 'bg-blue-800 text-white',
-  artifact: 'bg-green-800 text-white',
-  goal: 'bg-purple-800 text-white',
-}
+// Tags read as machine metadata: one restrained muted chip, mono figures, and a
+// faint teal edge to mark scoped tags. Scope is carried by the "scope:" prefix in
+// the label, not by a saturated hue per scope.
+const scopedTagColor = 'bg-muted text-foreground font-mono border border-border'
+export const defaultTagColor = 'bg-muted text-muted-foreground font-mono border border-transparent'
 
-export const defaultTagColor = 'bg-muted-foreground text-background'
+const scopedScopes = new Set(['tool', 'artifact', 'goal'])
 
 export function getTagColorClass(scope: string | null | undefined): string {
-  if (scope && scope in scopeColorMap) {
-    return scopeColorMap[scope]
+  if (scope && scopedScopes.has(scope)) {
+    return scopedTagColor
   }
   return defaultTagColor
 }

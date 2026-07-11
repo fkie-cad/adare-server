@@ -36,10 +36,10 @@ export default function SubmitEnvironmentPage() {
   }
 
   return (
-    <div className="flex justify-center py-8">
+    <div className="flex justify-center px-4 py-8">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <h2 className="text-2xl font-bold">Submit Environment</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight">Submit Environment</h2>
         </CardHeader>
         <CardContent>
           {submitEnvironment.data && (

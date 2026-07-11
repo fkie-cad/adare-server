@@ -21,13 +21,13 @@ const columns: ColumnDef<Environment, unknown>[] = [
   },
   { accessorKey: 'name', header: 'Name', enableSorting: true },
   { accessorKey: 'description', header: 'Description' },
-  { accessorKey: 'ulid', header: 'ULID' },
+  { accessorKey: 'ulid', header: 'ULID', meta: { mono: true } },
   {
     accessorKey: 'published_by',
     header: 'Published by',
     cell: ({ getValue }) => <UserIconCell username={getValue() as string} />,
   },
-  { accessorKey: 'published_at', header: 'Publish date' },
+  { accessorKey: 'published_at', header: 'Publish date', meta: { mono: true } },
   {
     accessorKey: 'created_by',
     header: 'Created by',
@@ -77,7 +77,7 @@ export default function EnvironmentListPage() {
   }
 
   return (
-    <div className="flex -mx-4 -mt-4 min-h-[calc(100vh-3.5rem)]">
+    <div className="flex min-h-[calc(100vh-3.5rem)]">
       <FilterSidebar
         open={filterOpen}
         onClose={() => setFilterOpen(false)}

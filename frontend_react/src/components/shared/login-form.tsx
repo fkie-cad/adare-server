@@ -21,7 +21,7 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto mt-8">
+    <Card className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <h3 className="text-3xl font-bold">Sign In</h3>
         <div className="flex justify-center py-4">

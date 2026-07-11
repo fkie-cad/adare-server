@@ -15,7 +15,7 @@ export function MainLayout() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="px-4 py-4">
+      <main>
         <Outlet />
       </main>
     </div>
