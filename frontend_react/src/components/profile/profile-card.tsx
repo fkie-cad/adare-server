@@ -18,7 +18,7 @@ const roleColorMapping: Record<string, string> = {
 }
 
 function getRoleColor(role: string): string {
-  return roleColorMapping[role] ?? 'bg-muted text-foreground border-border'
+  return roleColorMapping[role] ?? 'bg-brand-cyan/15 text-brand-cyan border-transparent'
 }
 
 export function ProfileCard({ profile }: ProfileCardProps) {

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ProfileImage } from '@/components/profile/profile-image'
 import { ParameterCell } from '@/components/data-table/columns/parameter-cell'
 import { TestfunctionCell } from '@/components/data-table/columns/testfunction-cell'
+import { getTagColorClass, getTagScope } from '@/constants/tag-colors'
 import { Loader2 } from 'lucide-react'
 
 interface ExperimentOverviewProps {
@@ -36,7 +37,7 @@ export function ExperimentOverview({ name }: ExperimentOverviewProps) {
     )
   }
 
-  const giteaUrl = experiment.action_file?.split('/').slice(0, -1).join('/')
+  const giteaUrl = experiment.playbook_file?.split('/').slice(0, -1).join('/')
 
   return (
     <Card>
@@ -79,7 +80,7 @@ export function ExperimentOverview({ name }: ExperimentOverviewProps) {
               <div className="text-sm text-muted-foreground mb-1">tags</div>
               <div className="flex flex-wrap gap-1">
                 {experiment.tags.map((tag) => (
-                  <Badge key={tag.name} variant="outline" className="font-mono">
+                  <Badge key={tag.name} className={getTagColorClass(getTagScope(tag.name))}>
                     #{tag.name}
                   </Badge>
                 ))}

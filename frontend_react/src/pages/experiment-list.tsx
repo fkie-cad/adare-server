@@ -49,13 +49,8 @@ const columns: ColumnDef<Experiment, unknown>[] = [
     cell: ({ getValue }) => <RunCountsCell counts={getValue() as Experiment['run_counts']} />,
   },
   {
-    accessorKey: 'action_file',
-    header: 'Action file',
-    cell: ({ getValue }) => <LinkCell url={getValue() as string} tooltip="Open in Gitea" />,
-  },
-  {
-    accessorKey: 'testset_file',
-    header: 'Testset file',
+    accessorKey: 'playbook_file',
+    header: 'Playbook file',
     cell: ({ getValue }) => <LinkCell url={getValue() as string} tooltip="Open in Gitea" />,
   },
   {

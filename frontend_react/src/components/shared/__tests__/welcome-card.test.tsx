@@ -25,12 +25,10 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe('WelcomeCard', () => {
-  it('renders the welcome heading', () => {
+  it('renders the ADARE brand logo', () => {
     renderWithProviders(<WelcomeCard />)
-    // "ADARE" is a teal <span>, so the heading text spans multiple nodes.
-    expect(
-      screen.getByRole('heading', { name: 'Welcome to ADARE' }),
-    ).toBeInTheDocument()
+    // The colorful logo (wordmark baked in) replaces the text heading.
+    expect(screen.getByAltText('ADARE')).toBeInTheDocument()
   })
 
   it('displays stat counts', () => {

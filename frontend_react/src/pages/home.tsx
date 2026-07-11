@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { PageContainer } from '@/components/layout/page-container'
 import { PageHeader } from '@/components/layout/page-header'
 import { getTagColorClass, getTagScope } from '@/constants/tag-colors'
+import { entityAccents } from '@/constants/brand-accents'
 
 interface PopularTag {
   name: string
@@ -77,10 +78,10 @@ export default function HomePage() {
   }
 
   const statCards = [
-    { label: 'Experiments', value: stats?.experiment_count ?? 0, icon: FlaskConical },
-    { label: 'Environments', value: stats?.environment_count ?? 0, icon: Monitor },
-    { label: 'Test Function Sets', value: stats?.testfunction_count ?? 0, icon: Boxes },
-    { label: 'Runs', value: stats?.run_count ?? 0, icon: PlayCircle },
+    { label: 'Experiments', value: stats?.experiment_count ?? 0, icon: FlaskConical, accent: entityAccents.experiment },
+    { label: 'Environments', value: stats?.environment_count ?? 0, icon: Monitor, accent: entityAccents.environment },
+    { label: 'Test Function Sets', value: stats?.testfunction_count ?? 0, icon: Boxes, accent: entityAccents.testfunctionset },
+    { label: 'Runs', value: stats?.run_count ?? 0, icon: PlayCircle, accent: entityAccents.run },
   ]
 
   const searchTargets = [
@@ -100,15 +101,15 @@ export default function HomePage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.label}>
+          <Card key={stat.label} className={`border-t-2 ${stat.accent.border}`}>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between">
                 <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   {stat.label}
                 </div>
-                <stat.icon className="h-4 w-4 text-primary/70" />
+                <stat.icon className={`h-4 w-4 ${stat.accent.icon}`} />
               </div>
-              <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-primary">
+              <div className={`mt-2 font-mono text-3xl font-semibold tabular-nums ${stat.accent.text}`}>
                 {stat.value}
               </div>
             </CardContent>

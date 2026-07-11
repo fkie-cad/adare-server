@@ -48,6 +48,16 @@
   /* ADARE brand color */
   --color-brand: oklch(0.55 0.15 168);             /* same as primary */
 
+  /* Categorical accent system — five logo hues for entity types (cards, icons,
+     tag scopes, chips). Teal --color-primary stays the interactive color.
+     Light-mode values are pulled down from the raw logo samples so icons and
+     large numbers clear AA on white cards; the .dark block brightens them. */
+  --color-brand-cyan: oklch(0.62 0.12 225);        /* #30D8F0 */
+  --color-brand-lime: oklch(0.60 0.15 140);        /* #78D848 */
+  --color-brand-orange: oklch(0.63 0.18 50);       /* #F07800 */
+  --color-brand-magenta: oklch(0.56 0.22 355);     /* #D81878 */
+  --color-brand-purple: oklch(0.55 0.20 320);      /* #A848C0 */
+
   /* Type roles — Inter (sans/default), Space Grotesk (display), JetBrains Mono (machine data) */
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Space Grotesk Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
@@ -93,6 +103,13 @@
   --color-sidebar-border: oklch(0.29 0.008 240);
   --color-sidebar-ring: oklch(0.62 0.14 168);
   --color-brand: oklch(0.62 0.14 168);
+
+  /* Brighter categorical accents so they pop on the dark card and clear AA */
+  --color-brand-cyan: oklch(0.80 0.13 220);
+  --color-brand-lime: oklch(0.83 0.18 135);
+  --color-brand-orange: oklch(0.75 0.16 55);
+  --color-brand-magenta: oklch(0.70 0.21 355);
+  --color-brand-purple: oklch(0.70 0.18 320);
 }
 
 @layer base {

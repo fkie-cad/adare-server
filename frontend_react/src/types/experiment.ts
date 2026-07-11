@@ -180,8 +180,7 @@ export interface Experiment {
   created_by: string
   tags: Tag[]
   run_counts: RunCount
-  action_file: string
-  testset_file: string
+  playbook_file: string
   metadata_file: string
   abstract_tests: AbstractTest[]
 }
