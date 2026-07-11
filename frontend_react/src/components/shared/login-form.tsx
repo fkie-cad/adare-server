@@ -25,7 +25,9 @@ export function LoginForm() {
       <CardHeader className="text-center">
         <h3 className="text-3xl font-bold">Sign In</h3>
         <div className="flex justify-center py-4">
-          <UserCircle className="w-24 h-24 text-muted-foreground" />
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/20">
+            <UserCircle className="h-14 w-14 text-primary" />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
