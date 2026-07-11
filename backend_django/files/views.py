@@ -67,7 +67,7 @@ class LogFileView(generics.RetrieveAPIView):
         return get_response(filepath, disposition=disposition)
 
 
-class ActionFileView(generics.RetrieveAPIView):
+class PlaybookFileView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
 
     def get(self, request, *args, **kwargs):
@@ -75,25 +75,10 @@ class ActionFileView(generics.RetrieveAPIView):
         experiment_uuid = kwargs['experiment_uuid']
         # get experiment
         experiment = Experiment.objects.get(uuid=experiment_uuid)
-        if not experiment.action_file:
+        if not experiment.playbook_file:
             return Response(status=404)
-        # get filepath of actionfile
-        filepath = experiment.action_file.name
-        return get_response(filepath)
-
-
-class TestsetFileView(generics.RetrieveAPIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request, *args, **kwargs):
-        # get experiment id from url
-        experiment_uuid = kwargs['experiment_uuid']
-        # get experiment
-        experiment = Experiment.objects.get(uuid=experiment_uuid)
-        if not experiment.testset_file:
-            return Response(status=404)
-        # get filepath of actionfile
-        filepath = experiment.testset_file.name
+        # get filepath of playbookfile
+        filepath = experiment.playbook_file.name
         return get_response(filepath)
 
 

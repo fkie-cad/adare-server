@@ -2,6 +2,11 @@ from .base import *
 from decouple import config, Csv
 from corsheaders.defaults import default_headers
 
+# Force DEBUG off in production regardless of the environment.
+# base.py reads DEBUG from the env (default False); pinning it here means prod
+# can never leak tracebacks / the URLconf even if the env is misconfigured.
+DEBUG = False
+
 # get the secret key from the environment
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 

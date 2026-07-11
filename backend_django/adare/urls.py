@@ -100,10 +100,11 @@ urlpatterns = [
     # ### achievement icon urls ###
     path('api/file/achievements/<str:achievement_name>/', files_views.AchievementIconView.as_view()),
 
-    # ### gitea webhook url ###
-    # !!!! NEVER EXPOSE THIS URL TO THE PUBLIC INTERNET !!!!
-    path('internal/gitea/webhook/', giteaeventmanager_views.GiteaWebhookView.as_view()),
-    path('internal/gitea/requestcheck/', giteaeventmanager_views.RequestCheckView.as_view()),
+    # ### internal gitea ingestion urls ###
+    # !!!! NEVER EXPOSE THESE URLS TO THE PUBLIC INTERNET !!!! (secret-authed)
+    # ingest: create/update a draft from a PR; finalize: publish on merge / clean up on close
+    path('internal/gitea/ingest/', giteaeventmanager_views.GiteaIngestView.as_view()),
+    path('internal/gitea/finalize/', giteaeventmanager_views.GiteaFinalizeView.as_view()),
 
 ]
 

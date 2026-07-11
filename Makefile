@@ -1,4 +1,4 @@
-.PHONY: up down migrate shell logs seed quasar react deploy deploy-react deploy-quasar deploy-all db-backup deploy-check deploy-migrate deploy-dry-run db-reset-and-init remote-status remote-logs remote-celery-logs deploy-setup help test test-quick test-e2e test-e2e-debug test-e2e-interactive test-e2e-interactive-react test-e2e-interactive-both test-all test-cov react-test
+.PHONY: up down migrate shell logs seed react deploy deploy-react deploy-all db-backup deploy-check deploy-migrate deploy-dry-run db-reset-and-init remote-status remote-logs remote-celery-logs deploy-setup help test test-quick test-e2e test-e2e-debug test-e2e-interactive-react test-all test-cov react-test
 
 COMPOSE = podman compose -f backend_django/docker-compose.yml
 
@@ -23,9 +23,6 @@ logs: ## Follow web container logs
 seed: ## Load sample dev data
 	$(COMPOSE) exec web python manage.py seed_dev_data
 
-quasar: ## Start Quasar dev server
-	cd frontend_quasar && npx quasar dev
-
 react: ## Start React dev server
 	cd frontend_react && npm run dev
 
@@ -35,11 +32,8 @@ deploy: ## Deploy backend to production
 deploy-react: ## Deploy React frontend to production
 	backend_django/deploy/deploy-react.sh
 
-deploy-quasar: ## Deploy Quasar frontend to production
-	backend_django/deploy/deploy-quasar.sh
-
-deploy-all: ## Deploy backend + both frontends to production
-	backend_django/deploy/deploy-backend.sh && backend_django/deploy/deploy-quasar.sh && backend_django/deploy/deploy-react.sh
+deploy-all: ## Deploy backend + React frontend to production
+	backend_django/deploy/deploy-backend.sh && backend_django/deploy/deploy-react.sh
 
 db-backup: ## Backup production database
 	backend_django/deploy/db-backup.sh
@@ -80,25 +74,6 @@ test-e2e: ## Run E2E Gitea flow tests (Layer 2)
 test-e2e-debug: ## Run E2E tests without cleanup
 	$(COMPOSE) exec web python manage.py test_e2e_gitea --skip-cleanup --verbose
 
-test-e2e-interactive: ## Run E2E tests with Quasar frontend for GUI inspection
-	@echo "Starting containers..."
-	@$(COMPOSE) up --build -d
-	@echo "Starting Quasar dev server..."
-	@cd frontend_quasar && npx quasar dev > /dev/null 2>&1 & echo $$! > /tmp/adare-quasar-dev.pid
-	@sleep 3
-	@echo "Quasar dev server running at http://localhost:9000"
-	@echo ""
-	@$(COMPOSE) exec web python manage.py test_e2e_gitea --interactive --verbose; \
-		EXIT_CODE=$$?; \
-		if [ -f /tmp/adare-quasar-dev.pid ]; then \
-			kill $$(cat /tmp/adare-quasar-dev.pid) 2>/dev/null; \
-			rm -f /tmp/adare-quasar-dev.pid; \
-			echo "Quasar dev server stopped."; \
-		fi; \
-		echo "Stopping containers..."; \
-		$(COMPOSE) down; \
-		exit $$EXIT_CODE
-
 react-test: ## Run React frontend tests
 	cd frontend_react && npm test
 
@@ -112,33 +87,6 @@ test-e2e-interactive-react: ## Run E2E tests with React frontend for GUI inspect
 	@echo ""
 	@$(COMPOSE) exec web python manage.py test_e2e_gitea --interactive --verbose; \
 		EXIT_CODE=$$?; \
-		if [ -f /tmp/adare-react-dev.pid ]; then \
-			kill $$(cat /tmp/adare-react-dev.pid) 2>/dev/null; \
-			rm -f /tmp/adare-react-dev.pid; \
-			echo "React dev server stopped."; \
-		fi; \
-		echo "Stopping containers..."; \
-		$(COMPOSE) down; \
-		exit $$EXIT_CODE
-
-test-e2e-interactive-both: ## Run E2E tests with both Quasar and React frontends
-	@echo "Starting containers..."
-	@$(COMPOSE) up --build -d
-	@echo "Starting Quasar dev server..."
-	@cd frontend_quasar && npx quasar dev > /dev/null 2>&1 & echo $$! > /tmp/adare-quasar-dev.pid
-	@echo "Starting React dev server..."
-	@cd frontend_react && npm run dev > /dev/null 2>&1 & echo $$! > /tmp/adare-react-dev.pid
-	@sleep 3
-	@echo "Quasar dev server running at http://localhost:9000"
-	@echo "React dev server running at http://localhost:5173"
-	@echo ""
-	@$(COMPOSE) exec web python manage.py test_e2e_gitea --interactive --verbose; \
-		EXIT_CODE=$$?; \
-		if [ -f /tmp/adare-quasar-dev.pid ]; then \
-			kill $$(cat /tmp/adare-quasar-dev.pid) 2>/dev/null; \
-			rm -f /tmp/adare-quasar-dev.pid; \
-			echo "Quasar dev server stopped."; \
-		fi; \
 		if [ -f /tmp/adare-react-dev.pid ]; then \
 			kill $$(cat /tmp/adare-react-dev.pid) 2>/dev/null; \
 			rm -f /tmp/adare-react-dev.pid; \

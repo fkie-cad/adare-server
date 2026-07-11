@@ -1,6 +1,6 @@
 """
 E2E test management command — exercises the full Gitea-driven lifecycle:
-submit → PR → webhook → merge → publish → run publish → verify → cleanup.
+submit → PR → ingest → merge → finalize/publish → run publish → verify → cleanup.
 
 Usage:
     python manage.py test_e2e_gitea
@@ -49,7 +49,20 @@ class Phase:
 
 
 class Command(BaseCommand):
-    help = 'Run E2E tests against Gitea (requires running Gitea and Celery)'
+    help = 'Run E2E tests against Gitea (requires running Gitea)'
+
+    @staticmethod
+    def _ingest(client, prnumber):
+        """POST the synchronous ingest endpoint (replaces the old webhook + Celery path)."""
+        secret = settings.GITEA_WEBHOOK_SECRET
+        return client.post(f'/internal/gitea/ingest/?prnumber={prnumber}&secret={secret}')
+
+    @staticmethod
+    def _finalize(client, prnumber):
+        """POST the synchronous finalize endpoint (publish on merge / clean up on close)."""
+        secret = settings.GITEA_WEBHOOK_SECRET
+        return client.post(f'/internal/gitea/finalize/?prnumber={prnumber}&secret={secret}')
+
 
     def add_arguments(self, parser):
         parser.add_argument('--skip-cleanup', action='store_true',
@@ -166,32 +179,23 @@ class Command(BaseCommand):
                 pr = gitea.create_pr_testfunction('standard', str(tmpdir))
                 p1.check(pr is not None, 'PR created for testfunction')
 
-                # Fire webhook (opened)
-                payload = gitea.build_webhook_payload(pr, action='opened')
-                resp = client.post('/internal/gitea/webhook/', payload, format='json')
-                p1.check(resp.status_code == 200, f'Webhook opened accepted (HTTP {resp.status_code})')
+                # Ingest the PR synchronously (replaces webhook + Celery)
+                resp = self._ingest(client, pr.number)
+                p1.check(resp.status_code == 200, f'Ingest accepted (HTTP {resp.status_code})')
 
                 # Check Request created
                 from experiments.models import Request as RequestModel
-                time.sleep(1)
                 req_exists = RequestModel.objects.filter(
                     title__icontains='testfunction',
                 ).exists()
                 p1.check(req_exists, 'Request created in DB')
 
-                # Merge PR (wait for Gitea to be ready)
+                # Merge PR, then finalize (publish)
                 time.sleep(2)
                 gitea.merge_pr(pr.number)
                 time.sleep(2)
-
-                # Re-fetch PR to get merged state
-                merged_pr = gitea.repo_api.repo_get_pull_request(
-                    owner=repo_owner, repo=test_repo, index=pr.number,
-                )
-                payload = gitea.build_webhook_payload(merged_pr, action='closed')
-                payload['pull_request']['merged'] = True
-                resp = client.post('/internal/gitea/webhook/', payload, format='json')
-                p1.check(resp.status_code == 200, f'Webhook merged accepted (HTTP {resp.status_code})')
+                resp = self._finalize(client, pr.number)
+                p1.check(resp.status_code == 200, f'Finalize accepted (HTTP {resp.status_code})')
 
                 # Verify published
                 time.sleep(1)
@@ -222,25 +226,17 @@ class Command(BaseCommand):
             pr = gitea.create_pr_environment('testenv', str(FIXTURES_DIR / 'sample_environment.yml'))
             p2.check(pr is not None, 'PR created for environment')
 
-            payload = gitea.build_webhook_payload(pr, action='opened')
-            resp = client.post('/internal/gitea/webhook/', payload, format='json')
-            p2.check(resp.status_code == 200, f'Webhook opened accepted (HTTP {resp.status_code})')
+            resp = self._ingest(client, pr.number)
+            p2.check(resp.status_code == 200, f'Ingest accepted (HTTP {resp.status_code})')
 
-            time.sleep(1)
             req_exists = RequestModel.objects.filter(title__icontains='environment').exists()
             p2.check(req_exists, 'Request created in DB')
 
             time.sleep(2)
             gitea.merge_pr(pr.number)
             time.sleep(2)
-
-            merged_pr = gitea.repo_api.repo_get_pull_request(
-                owner=repo_owner, repo=test_repo, index=pr.number,
-            )
-            payload = gitea.build_webhook_payload(merged_pr, action='closed')
-            payload['pull_request']['merged'] = True
-            resp = client.post('/internal/gitea/webhook/', payload, format='json')
-            p2.check(resp.status_code == 200, f'Webhook merged accepted (HTTP {resp.status_code})')
+            resp = self._finalize(client, pr.number)
+            p2.check(resp.status_code == 200, f'Finalize accepted (HTTP {resp.status_code})')
 
             time.sleep(1)
             from experiments.models import Environment
@@ -269,31 +265,22 @@ class Command(BaseCommand):
             import tempfile, shutil
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpdir = Path(tmpdir)
-                shutil.copy(FIXTURES_DIR / 'sample_action.py', tmpdir / 'action.py')
-                shutil.copy(FIXTURES_DIR / 'sample_testset.yml', tmpdir / 'testset.yml')
+                shutil.copy(FIXTURES_DIR / 'sample_playbook.yml', tmpdir / 'playbook.yml')
                 shutil.copy(FIXTURES_DIR / 'sample_metadata.yml', tmpdir / 'metadata.yml')
 
                 pr = gitea.create_pr_experiment('test-experiment', str(tmpdir))
                 p3.check(pr is not None, 'PR created for experiment')
 
-                payload = gitea.build_webhook_payload(pr, action='opened')
-                resp = client.post('/internal/gitea/webhook/', payload, format='json')
-                p3.check(resp.status_code == 200, f'Webhook opened accepted (HTTP {resp.status_code})')
+                resp = self._ingest(client, pr.number)
+                p3.check(resp.status_code == 200, f'Ingest accepted (HTTP {resp.status_code})')
 
-                time.sleep(1)
                 req_exists = RequestModel.objects.filter(title__icontains='experiment').exists()
                 p3.check(req_exists, 'Request created in DB')
 
                 gitea.merge_pr(pr.number)
-                time.sleep(1)
-
-                merged_pr = gitea.repo_api.repo_get_pull_request(
-                    owner=repo_owner, repo=test_repo, index=pr.number,
-                )
-                payload = gitea.build_webhook_payload(merged_pr, action='closed')
-                payload['pull_request']['merged'] = True
-                resp = client.post('/internal/gitea/webhook/', payload, format='json')
-                p3.check(resp.status_code == 200, f'Webhook merged accepted (HTTP {resp.status_code})')
+                time.sleep(2)
+                resp = self._finalize(client, pr.number)
+                p3.check(resp.status_code == 200, f'Finalize accepted (HTTP {resp.status_code})')
 
                 time.sleep(1)
                 from experiments.models import Experiment

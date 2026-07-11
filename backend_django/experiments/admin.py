@@ -5,7 +5,6 @@ from experiments.models import (
     TestEvent, ErrorEvent, ActionEvent, Requirement, TestfunctionSet,
     TestFunction, Tool, AbstractTest, OsInfo, PostSetupInstallation,
     Environment, Experiment, ExperimentRun, Label, Request,
-    RequestCreationMessage,
 )
 
 
@@ -129,11 +128,6 @@ class RequestAdmin(admin.ModelAdmin):
     list_filter = ['gitea_pr_status', 'action']
     search_fields = ['title', 'ulid']
     raw_id_fields = ['requester', 'objective', 'old_objective']
-
-
-@admin.register(RequestCreationMessage)
-class RequestCreationMessageAdmin(admin.ModelAdmin):
-    list_display = ['gitea_pr_number', 'error_message']
 
 
 @admin.register(TestEvent)

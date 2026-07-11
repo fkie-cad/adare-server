@@ -219,8 +219,7 @@ class ExperimentFactory(factory.django.DjangoModelFactory):
     ulid = factory.LazyFunction(generate_ulid)
     name = factory.Sequence(lambda n: f'test-experiment-{n}')
     sha256hash = factory.Sequence(lambda n: hashlib.sha256(f'exp-{n}'.encode()).hexdigest())
-    action_file = 'http://gitea/api/v1/repos/test/repo/raw/action.py?ref=main'
-    testset_file = 'http://gitea/api/v1/repos/test/repo/raw/testset.yml?ref=main'
+    playbook_file = 'http://gitea/api/v1/repos/test/repo/raw/playbook.yml?ref=main'
     metadata_file = 'http://gitea/api/v1/repos/test/repo/raw/metadata.yml?ref=main'
     published_by = factory.SubFactory(GiteaUserFactory)
     created_by = factory.SelfAttribute('published_by')

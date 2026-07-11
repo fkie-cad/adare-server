@@ -14,11 +14,39 @@ from rest_framework.parsers import MultiPartParser
 from django.conf import settings
 
 from helperfunctions.gitea_write import create_branch, upload_file, create_pull_request
+from giteaeventmanager.service import ingest_pr
+from giteaeventmanager.exception import TaskFailure
 
 import requests as req_lib
 import logging
 
 log = logging.getLogger(__name__)
+
+
+def _submit_and_ingest(entity_type: str, name: str, files: dict, username: str, description: str):
+    """Open the PR, then run the same synchronous ingest the pipeline runs.
+
+    Ingesting in-process (not over HTTP) gives the submitter instant pass/fail
+    and is idempotent, so the pipeline re-running ingest on the same PR is a no-op.
+
+    Returns ``(response_body, status_code)``.
+    """
+    pr = _submit_files(
+        entity_type=entity_type,
+        name=name,
+        files=files,
+        username=username,
+        description=description,
+    )
+    body = {'pr_url': pr['html_url'], 'pr_number': pr['number']}
+    try:
+        body['ingest'] = ingest_pr(pr['number'])
+    except TaskFailure as e:
+        # the PR exists but ingestion failed — tell the submitter immediately
+        log.warning(f'inline ingest failed for {entity_type} pr {pr["number"]}: {e}')
+        body['error'] = str(e)
+        return body, 400
+    return body, 201
 
 
 class SubmitExperimentView(APIView):
@@ -35,7 +63,7 @@ class SubmitExperimentView(APIView):
             return Response({'error': 'playbook, metadata, and name are required'}, status=400)
 
         try:
-            pr = _submit_files(
+            body, status = _submit_and_ingest(
                 entity_type='experiment',
                 name=name,
                 files={
@@ -45,10 +73,7 @@ class SubmitExperimentView(APIView):
                 username=request.user.username,
                 description=description,
             )
-            return Response({
-                'pr_url': pr['html_url'],
-                'pr_number': pr['number'],
-            }, status=201)
+            return Response(body, status=status)
         except (RuntimeError, req_lib.HTTPError, req_lib.ConnectionError) as e:
             log.error(f'Failed to submit experiment: {e}')
             return Response({'error': str(e)}, status=500)
@@ -68,7 +93,7 @@ class SubmitTestfunctionView(APIView):
             return Response({'error': 'testfunction, requirements, and name are required'}, status=400)
 
         try:
-            pr = _submit_files(
+            body, status = _submit_and_ingest(
                 entity_type='testfunction',
                 name=name,
                 files={
@@ -78,10 +103,7 @@ class SubmitTestfunctionView(APIView):
                 username=request.user.username,
                 description=description,
             )
-            return Response({
-                'pr_url': pr['html_url'],
-                'pr_number': pr['number'],
-            }, status=201)
+            return Response(body, status=status)
         except (RuntimeError, req_lib.HTTPError, req_lib.ConnectionError) as e:
             log.error(f'Failed to submit testfunction: {e}')
             return Response({'error': str(e)}, status=500)
@@ -100,7 +122,7 @@ class SubmitEnvironmentView(APIView):
             return Response({'error': 'environment and name are required'}, status=400)
 
         try:
-            pr = _submit_files(
+            body, status = _submit_and_ingest(
                 entity_type='environment',
                 name=name,
                 files={
@@ -109,10 +131,7 @@ class SubmitEnvironmentView(APIView):
                 username=request.user.username,
                 description=description,
             )
-            return Response({
-                'pr_url': pr['html_url'],
-                'pr_number': pr['number'],
-            }, status=201)
+            return Response(body, status=status)
         except (RuntimeError, req_lib.HTTPError, req_lib.ConnectionError) as e:
             log.error(f'Failed to submit environment: {e}')
             return Response({'error': str(e)}, status=500)

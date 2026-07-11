@@ -93,18 +93,6 @@ class TestExperimentCheckView:
 
 
 @pytest.mark.django_db
-class TestRequestCheckView:
-
-    def test_no_ulid_returns_400(self, api_client):
-        response = api_client.get('/api/request/check/', {})
-        # RequestCheckView doesn't exist in urls; it's at /api/run/check/ for runs
-        # The request check is at /internal/gitea/requestcheck/ — skip if 404
-        if response.status_code == 404:
-            pytest.skip('RequestCheckView not available at this endpoint')
-        assert response.status_code == 400
-
-
-@pytest.mark.django_db
 class TestExperimentDashboard:
 
     def test_empty_dashboard(self, api_client):

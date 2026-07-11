@@ -1,3 +1,4 @@
+import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 import requests
@@ -13,8 +14,8 @@ from experiments.models import Requirement as RequirementModel, TestfunctionSet,
 from giteaeventmanager.exception import TaskFailure
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
-from testsetfile.fileformat import FTestsetFile, FTest, FToolTest
-from testsetfile.parser import parse_testsetfile
+from testsetfile.fileformat import FTestsetFile, FTest
+from testsetfile.parser import parse_playbook_tests
 from helperfunctions.yaml import yaml_to_dict
 
 from helperfunctions.hash import hash_file_sha256, combine_hashes
@@ -79,11 +80,14 @@ class PullRequestPlugin(PullRequestPluginInterface):
         pass
 
     def cleanup(self):
-        # delete all files in tmp dir
-        for file in self.tmp_dir.iterdir():
-            file.unlink()
-        if self.tmp_dir and self.tmp_dir.is_dir():
+        # idempotent: safe to call multiple times and when nothing was downloaded
+        if not self.tmp_dir:
+            return
+        if self.tmp_dir.is_dir():
+            for file in self.tmp_dir.iterdir():
+                file.unlink()
             self.tmp_dir.rmdir()
+        self.tmp_dir = None
 
     @abstractmethod
     def hash(self):
@@ -113,11 +117,9 @@ class PullRequestPlugin(PullRequestPluginInterface):
     def _get_tmp_dir(self) -> Path:
         if self.tmp_dir:
             return self.tmp_dir
-        timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
-        tmp_dir = Path(f'/tmp/{self.objective}_{timestamp}')
-        tmp_dir.mkdir()
-        self.tmp_dir = tmp_dir
-        return tmp_dir
+        # unique per instance so concurrent / back-to-back ingests never collide
+        self.tmp_dir = Path(tempfile.mkdtemp(prefix=f'{self.objective}_'))
+        return self.tmp_dir
 
     def _set_file_sha256(self, file_attribute, hash_attribute):
         file_obj = getattr(self, file_attribute)
@@ -306,16 +308,13 @@ class TestfunctionsetPlugin(PullRequestPlugin):
 
 
 class ExperimentPlugin(PullRequestPlugin):
-    action_file: Path = None
-    actionfile_remote_url: str = None
-    action_sha256: str = None
-
-    testset_file: Path = None
-    testset_file_remote_url: str = None
-    testset_sha256: str = None
+    playbook_file: Path = None
+    playbookfile_remote_url: str = None
+    playbook_sha256: str = None
 
     metadata_file: Path = None
     metadata_file_remote_url: str = None
+    metadata_sha256: str = None
 
     def __init__(self, objective: str, object_name: str, last_commit: str):
         super().__init__(objective, object_name, last_commit)
@@ -326,29 +325,17 @@ class ExperimentPlugin(PullRequestPlugin):
         downloaded_files = []
         missing_files = []
 
-        action_path = f'experiments/{self.object_name}/action.py'
-        actionfile_remote_url = f'{settings.GITEA_REPO_API}raw/{action_path}'
-        action_file = self._get_tmp_dir() / 'action.py'
-        success = download(f'{actionfile_remote_url}?ref={self.last_commit}', action_file, quiet=True,
+        playbook_path = f'experiments/{self.object_name}/playbook.yml'
+        playbookfile_remote_url = f'{settings.GITEA_REPO_API}raw/{playbook_path}'
+        playbook_file = self._get_tmp_dir() / 'playbook.yml'
+        success = download(f'{playbookfile_remote_url}?ref={self.last_commit}', playbook_file, quiet=True,
                            response_codes_error=[404], token=token)
         if success:
-            self.action_file = action_file
-            self.actionfile_remote_url = actionfile_remote_url
-            downloaded_files.append(action_file)
+            self.playbook_file = playbook_file
+            self.playbookfile_remote_url = playbookfile_remote_url
+            downloaded_files.append(playbook_file)
         else:
-            missing_files.append(action_file)
-
-        testset_path = f'experiments/{self.object_name}/testset.yml'
-        testset_file_remote_url = f'{settings.GITEA_REPO_API}raw/{testset_path}'
-        testset_file = self._get_tmp_dir() / 'testset.yml'
-        success = download(f'{testset_file_remote_url}?ref={self.last_commit}', testset_file, quiet=True,
-                           response_codes_error=[404], token=token)
-        if success:
-            self.testset_file = testset_file
-            self.testset_file_remote_url = testset_file_remote_url
-            downloaded_files.append(testset_file)
-        else:
-            missing_files.append(testset_file)
+            missing_files.append(playbook_file)
 
         metadata_path = f'experiments/{self.object_name}/metadata.yml'
         metadata_file_remote_url = f'{settings.GITEA_REPO_API}raw/{metadata_path}'
@@ -365,10 +352,10 @@ class ExperimentPlugin(PullRequestPlugin):
         return downloaded_files, missing_files
 
     def hash(self):
-        self._set_file_sha256('action_file', 'action_sha256')
-        self._set_file_sha256('testset_file', 'testset_sha256')
-        if self.action_sha256 and self.testset_sha256:
-            self.sha256 = combine_hashes([self.action_sha256, self.testset_sha256])
+        self._set_file_sha256('playbook_file', 'playbook_sha256')
+        self._set_file_sha256('metadata_file', 'metadata_sha256')
+        if self.playbook_sha256 and self.metadata_sha256:
+            self.sha256 = combine_hashes([self.playbook_sha256, self.metadata_sha256])
 
     def get_object(self):
         return Experiment.objects.filter(name=self.object_name).first()
@@ -434,31 +421,25 @@ class ExperimentPlugin(PullRequestPlugin):
             tool.save()
         return tool
 
-    def __db_create_abstracttests_from_testsetfile(self, testset_file_path: Path):
-        testset: FTestsetFile = parse_testsetfile(testset_file_path)
+    def __db_create_abstracttests_from_playbook(self, playbook_file_path: Path):
+        testset: FTestsetFile = parse_playbook_tests(playbook_file_path, self.object_name)
 
         abstract_tests = []
         for test in testset.tests:
             if isinstance(test, FTest):
                 abstract_test = self.__db_get_abstract_test(test)
                 abstract_tests.append(abstract_test)
-            elif isinstance(test, FToolTest):
-                tool = self.__db_get_tool(test.tool, test.command)
-                for inner_test in test.tests:
-                    abstract_test = self.__db_get_abstract_test(inner_test, tool=tool)
-                    abstract_tests.append(abstract_test)
             else:
                 raise TaskFailure(f'unknown test type {type(test)}')
 
         return abstract_tests
 
     @transaction.atomic
-    def __db_create_experiment(self, metadata_file: Path, testset_file: Path, experiment_name: str,
+    def __db_create_experiment(self, metadata_file: Path, playbook_file: Path, experiment_name: str,
                                experiment_description: str,
-                               user: GiteaUser, experiment_sha256: str, action_file_remote_url: str,
-                               testset_file_remote_url: str,
+                               user: GiteaUser, experiment_sha256: str, playbook_file_remote_url: str,
                                metadata_remote_url: str,
-                               action_sha256: str, testset_sha256: str):
+                               playbook_sha256: str):
 
         # deserialize the metadata file
         metadata = yaml_to_dict(metadata_file)
@@ -469,9 +450,9 @@ class ExperimentPlugin(PullRequestPlugin):
                 raise TaskFailure(f'environment {env} does not exist')
             environments.append(env_instance)
 
-        # deserialize the testset file
-        abstract_tests = self.__db_create_abstracttests_from_testsetfile(testset_file)
-        log.info('retrieved abstract tests from testset file')
+        # deserialize the tests embedded in the playbook file
+        abstract_tests = self.__db_create_abstracttests_from_playbook(playbook_file)
+        log.info('retrieved abstract tests from playbook file')
 
         # create tags
         tag_objects = self._create_tags_from_list(metadata.get('tags'))
@@ -480,8 +461,7 @@ class ExperimentPlugin(PullRequestPlugin):
         experiment = Experiment(
             name=experiment_name,
             description=experiment_description,
-            action_file=action_file_remote_url,
-            testset_file=testset_file_remote_url,
+            playbook_file=playbook_file_remote_url,
             metadata_file=metadata_remote_url,
             bibtex_file=None,
             markdown_file=None,
@@ -489,8 +469,7 @@ class ExperimentPlugin(PullRequestPlugin):
             published_by=user,
 
             sha256hash=experiment_sha256,
-            sha256action=action_sha256,
-            sha256testset=testset_sha256,
+            sha256playbook=playbook_sha256,
         )
         experiment.save()
         experiment.environments.set(environments)
@@ -501,10 +480,9 @@ class ExperimentPlugin(PullRequestPlugin):
         return experiment
 
     def update_object(self, published_by: GiteaUser):
-        experiment = self.__db_create_experiment(self.metadata_file, self.testset_file, self.object_name, "",
-                                                 published_by, self.sha256, self.actionfile_remote_url,
-                                                 self.testset_file_remote_url, self.metadata_file_remote_url,
-                                                 self.action_sha256, self.testset_sha256)
+        experiment = self.__db_create_experiment(self.metadata_file, self.playbook_file, self.object_name, "",
+                                                 published_by, self.sha256, self.playbookfile_remote_url,
+                                                 self.metadata_file_remote_url, self.playbook_sha256)
         return experiment
 
     def check_file_validity(self):

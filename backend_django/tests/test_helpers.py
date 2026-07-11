@@ -107,7 +107,7 @@ class TestGiteaUrlConversion:
 
     def test_convert_internal_to_viewable(self):
         from helperfunctions.gitea import convert_gitea_internal_api_url_to_viewable_url
-        url = 'http://gitea:3000/api/v1/repos/miq/adareTEST/raw/experiments/test/action.py?ref=main'
+        url = 'http://gitea:3000/api/v1/repos/miq/adareTEST/raw/experiments/test/playbook.yml?ref=main'
         result = convert_gitea_internal_api_url_to_viewable_url(url)
         assert 'https://gitea.example.com/' in result
         assert '/src/branch/main/' in result
@@ -115,7 +115,7 @@ class TestGiteaUrlConversion:
 
     def test_convert_internal_to_external(self):
         from helperfunctions.gitea import convert_gitea_internal_api_url_to_external
-        url = 'http://gitea:3000/api/v1/repos/miq/adareTEST/raw/experiments/test/action.py?ref=main'
+        url = 'http://gitea:3000/api/v1/repos/miq/adareTEST/raw/experiments/test/playbook.yml?ref=main'
         result = convert_gitea_internal_api_url_to_external(url)
         assert result.startswith('https://gitea.example.com/')
         assert 'api/v1' in result

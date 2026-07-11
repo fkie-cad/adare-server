@@ -236,6 +236,82 @@ class PROpenedCreate(PullRequest):
         self.cleanup()
 
 
+class PRIngestCreate(PullRequest):
+    """Idempotent create used by the synchronous ingest endpoint.
+
+    Reached by two triggers (client inline submit, Actions pipeline) and safe to
+    re-run for the same PR. Keyed by ``Request.gitea_pr_number``:
+
+    * no request for this PR -> create the draft object (``published=False``) + request
+    * request already exists (re-run / synchronize) -> replace the draft from the new content
+    """
+
+    def check(self):
+        # always download + validate + hash so concrete errors surface as 4xx
+        self._download_and_hash()
+
+        if self._request_exists():
+            # re-ingest of the same PR -> upsert, skip the duplicate guards below
+            return
+
+        # first ingest: guard against unrelated objects colliding by name / content
+        if self.pullrequest_plugin.get_object():
+            raise TaskFailure(f'{self.object_name} already exists')
+        if self.pullrequest_plugin.get_object_by_hash():
+            raise TaskFailure(f'{self.object_name} with same content already exists')
+
+    @transaction.atomic
+    def action(self):
+        if self._request_exists():
+            # drop the previous draft (object + request) and recreate from the new content
+            old_object = self.request.object
+            self.request.delete()
+            if old_object:
+                old_object.delete()
+
+        object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
+        self.request = self._create_pull_request(object_instance)
+        self.cleanup()
+
+
+class PRFinalize(PullRequest):
+    """Finalize a closed PR for the synchronous finalize endpoint.
+
+    * merged -> publish the draft (``published=True`` + published/created audit fields),
+      then delete the request (the published object stays).
+    * closed without merge -> delete the draft object *and* the request (no orphan leak).
+    * no draft for this PR -> no-op (nothing was ingested).
+    """
+
+    def check(self):
+        # tolerant: a close without a prior ingest is a no-op, not an error
+        pass
+
+    @transaction.atomic
+    def action(self) -> dict:
+        pr = self.data["pull_request"]
+        merged = bool(pr.get("merged", False))
+
+        if not self._request_exists():
+            return {"merged": merged, "published": False, "deleted": False, "had_draft": False}
+
+        object_instance = self.request.object
+        if merged:
+            object_instance.published = True
+            object_instance.published_at = self._transform_gitea_date(pr["merged_at"])
+            object_instance.published_by = self._get_user(pr["merged_by"])
+            object_instance.created_by = self._get_user(pr["user"])
+            object_instance.created_at = self._transform_gitea_date(pr["created_at"])
+            object_instance.save()
+            self.request.delete()
+            return {"merged": True, "published": True, "deleted": False, "had_draft": True}
+
+        self.request.delete()
+        if object_instance:
+            object_instance.delete()
+        return {"merged": False, "published": False, "deleted": True, "had_draft": True}
+
+
 class PROpenedModify(PullRequest):
 
     def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
@@ -320,155 +396,6 @@ class PRClosedDelete(PullRequest):
     def action(self):
         self.request.object.delete()
         self.request.delete()
-
-
-class PRSynchronizedCreate(PullRequest):
-
-    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                 object_name: str):
-        super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
-
-    def check(self):
-        if not self._request_exists():
-            log.info(f'request for gitea pr number {self.data["number"]} does not exist')
-        self._download_and_hash()
-
-    @transaction.atomic
-    def action(self):
-        object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
-        if not self._request_exists():
-            self.request = self._create_pull_request(object_instance)
-        self.cleanup()
-
-
-class PRSynchronizedModify(PullRequest):
-
-    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                object_name: str):
-        super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
-
-    def check(self):
-        if not self._request_exists():
-            log.info(f'request for gitea pr number {self.data["number"]} does not exist')
-        self._download_and_hash()
-
-    @transaction.atomic
-    def action(self):
-        object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
-        if not self._request_exists():
-            self.request = self._create_pull_request_modify(object_instance)
-        self.cleanup()
-
-
-class PRSynchronizedDelete(PullRequest):
-        def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                    object_name: str):
-            super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
-
-        def check(self):
-            if not self._request_exists():
-                log.info(f'request for gitea pr number {self.data["number"]} does not exist')
-            self._download_and_hash()
-
-        @transaction.atomic
-        def action(self):
-            object_instance = self.pullrequest_plugin.get_object()
-            if not self._request_exists():
-                self.request = self._create_pull_request(object_instance)
-            self.cleanup()
-
-
-class PRReopenedCreate(PROpenedCreate):
-    """
-    This class is used when a pull request with the action create is reopened.
-    The functionality is the same as for PROpenedCreate.
-    """
-
-    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                    object_name: str):
-            super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
-
-    def check(self):
-        super().check()
-
-    def action(self):
-        super().action()
-
-
-class PREditedCreate(PROpenedCreate):
-    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                    object_name: str):
-            super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
-
-    def check(self):
-        # check if object does already exist
-        object_instance = self.pullrequest_plugin.get_object()
-        if object_instance:
-            raise TaskFailure(f'{self.object_name} already exists')
-
-        # check if object with same content/hash already exists
-        existing_object = self.pullrequest_plugin.get_object_by_hash()
-        if existing_object:
-            raise TaskFailure(f'{self.object_name} with same content already exists')
-
-    def action(self):
-        if self._request_exists():
-            # if request exists, delete it
-            self.request.delete()
-        object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
-        self.request = self._create_pull_request(object_instance)
-        self.cleanup()
-
-
-class PREditedModify(PROpenedModify):
-    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                    object_name: str):
-            super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
-
-    def check(self):
-        # check if (new) object does already exist
-        object_instance = self.pullrequest_plugin.get_object()
-        if object_instance:
-            raise TaskFailure(f'{self.object_name} does not exist')
-
-        # check if object with same content/hash already exists
-        existing_object = self.pullrequest_plugin.get_object_by_hash()
-        if existing_object:
-            raise TaskFailure(f'{self.object_name} with same content already exists - no change happened')
-
-    def action(self):
-        if self._request_exists():
-            # if request exists, delete it
-            self.request.delete()
-        object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
-        self.request = self._create_pull_request_modify(object_instance)
-        self.cleanup()
-
-
-class PREditedDelete(PROpenedDelete):
-    def __init__(self, pullrequest_plugin: PullRequestPlugin, json_data: dict, objective: str, action: str,
-                    object_name: str):
-            super().__init__(pullrequest_plugin, json_data, objective, action, object_name)
-
-    def check(self):
-        object_instance = self.pullrequest_plugin.get_object()
-        if not object_instance:
-            raise TaskFailure(f'{self.object_name} does not exist')
-
-        downloaded_files, missing_files = self._download_and_hash(raise_error_on_missing_files=False)
-        if downloaded_files:
-            # if files are downloaded it means the request is erroneous
-            self.cleanup()
-            raise TaskFailure(
-                f'delete request should delete all related files, but files are present: {[file.as_posix() for file in downloaded_files]}')
-
-    def action(self):
-        if self._request_exists():
-            # if request exists, delete it
-            self.request.delete()
-        # create request
-        object_instance = self.pullrequest_plugin.get_object()
-        self.request = self._create_pull_request(object_instance)
 
 
 class PRAssigned(PullRequest):

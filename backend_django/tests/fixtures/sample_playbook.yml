@@ -1,9 +1,10 @@
----
-- name: Test Experiment Playbook
-  hosts: all
-  become: true
-  tasks:
-    - name: Ensure test file exists
-      file:
-        path: /tmp/test_file.txt
-        state: touch
+name: test-experiment-playbook
+description: Playbook for E2E test experiment
+tests:
+  - name: check-file-exists
+    description: Verify a file exists at the given path
+    function: is_file
+    parameter:
+      path: /tmp/test_file.txt
+actions:
+  - test: check-file-exists

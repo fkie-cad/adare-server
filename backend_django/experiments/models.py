@@ -237,8 +237,7 @@ class Experiment(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
 
-    action_file = models.URLField(max_length=2000, default="")
-    testset_file = models.URLField(max_length=2000, default="")
+    playbook_file = models.URLField(max_length=2000, default="")
     metadata_file = models.URLField(max_length=2000)
     bibtex_file = models.URLField(max_length=2000, blank=True, null=True)
     markdown_file = models.URLField(max_length=2000, blank=True, null=True)
@@ -248,8 +247,7 @@ class Experiment(models.Model):
     tags = models.ManyToManyField(Tag)
 
     sha256hash = models.CharField(max_length=64, unique=True)
-    sha256action = models.CharField(max_length=64, default="")
-    sha256testset = models.CharField(max_length=64, default="")
+    sha256playbook = models.CharField(max_length=64, default="")
 
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_published')
     created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_created',
@@ -348,8 +346,3 @@ class Request(models.Model):
 
     def __str__(self):
         return f'{self.title} - {self.gitea_pr_status}'
-
-
-class RequestCreationMessage(models.Model):
-    gitea_pr_number = models.IntegerField(primary_key=True)
-    error_message = models.CharField(max_length=2000, blank=True)

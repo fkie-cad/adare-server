@@ -10,7 +10,6 @@ from experiments.models import (
     TestEvent, ErrorEvent, ActionEvent, Requirement, TestfunctionSet,
     TestFunction, Tool, AbstractTest, OsInfo, PostSetupInstallation,
     Environment, Experiment, ExperimentRun, Label, Request,
-    RequestCreationMessage,
 )
 
 class TagScopeSerializer(serializers.ModelSerializer):
@@ -324,7 +323,7 @@ class ExperimentMetadataSerializer(serializers.ModelSerializer):
         ]
 
     def get_gitea_url(self, obj):
-        experiment_url_gitea = obj.action_file
+        experiment_url_gitea = obj.playbook_file
         # take parent directory
         experiment_url_gitea = '/'.join(experiment_url_gitea.split('/')[:-1])
         experiment_url_gitea = convert_gitea_internal_api_url_to_viewable_url(experiment_url_gitea)
@@ -352,8 +351,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'name',
             'description',
 
-            'action_file',
-            'testset_file',
+            'playbook_file',
             'metadata_file',
 
             'environments',
@@ -361,8 +359,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'tags',
 
             'sha256hash',
-            'sha256action',
-            'sha256testset',
+            'sha256playbook',
 
             'published',
             'published_by',
@@ -378,10 +375,8 @@ class ExperimentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        if ret['action_file']:
-            ret['action_file'] = convert_gitea_internal_api_url_to_external(ret['action_file'])
-        if ret['testset_file']:
-            ret['testset_file'] = convert_gitea_internal_api_url_to_external(ret['testset_file'])
+        if ret['playbook_file']:
+            ret['playbook_file'] = convert_gitea_internal_api_url_to_external(ret['playbook_file'])
         if ret['metadata_file']:
             ret['metadata_file'] = convert_gitea_internal_api_url_to_external(ret['metadata_file'])
         return ret
@@ -407,8 +402,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
 class ExperimentViewableFilesSerializer(ExperimentSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        ret['action_file'] = convert_gitea_internal_api_url_to_viewable_url(instance.action_file)
-        ret['testset_file'] = convert_gitea_internal_api_url_to_viewable_url(instance.testset_file)
+        ret['playbook_file'] = convert_gitea_internal_api_url_to_viewable_url(instance.playbook_file)
         ret['metadata_file'] = convert_gitea_internal_api_url_to_viewable_url(instance.metadata_file)
         return ret
 
