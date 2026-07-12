@@ -8,6 +8,7 @@ import { UserIconCell } from '@/components/data-table/columns/user-icon-cell'
 import { TagsCell } from '@/components/data-table/columns/tags-cell'
 import { OsInfoCell } from '@/components/data-table/columns/os-info-cell'
 import { LinkCell } from '@/components/data-table/columns/link-cell'
+import { SourceKindCell } from '@/components/data-table/columns/source-kind-cell'
 import { FilterSidebar } from '@/components/data-table/filter-sidebar'
 import { ActiveFilters } from '@/components/data-table/active-filters'
 import type { Environment } from '@/types/experiment'
@@ -21,6 +22,12 @@ const columns: ColumnDef<Environment, unknown>[] = [
   },
   { accessorKey: 'name', header: 'Name', enableSorting: true },
   { accessorKey: 'description', header: 'Description' },
+  {
+    id: 'source_kind',
+    header: 'Source',
+    cell: ({ row }) => <SourceKindCell environment={row.original} />,
+    enableSorting: false,
+  },
   { accessorKey: 'ulid', header: 'ULID', meta: { mono: true } },
   {
     accessorKey: 'published_by',
