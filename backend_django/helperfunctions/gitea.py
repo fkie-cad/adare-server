@@ -1,5 +1,6 @@
 # import settings
 from django.conf import settings
+from urllib.parse import urlsplit, urlunsplit
 import re
 
 
@@ -44,4 +45,20 @@ def convert_gitea_internal_api_url_to_external(url: str):
     url = url.replace(gitea_internal_url, "")
     # add the Gitea URL
     url = f"{gitea_url}{url}"
+    return url
+
+
+def normalize_gitea_avatar_url(url: str):
+    # Gitea builds avatar_url against whatever host the backend fetched the
+    # profile from — in prod that is the internal http://adare:3000, which is
+    # insecure/unreachable on the HTTPS frontend (Mixed Content). Swap scheme +
+    # host for the public Gitea host, keeping the path (which already includes
+    # the /git sub-path). Leaves empty or already-public URLs untouched.
+    if not url:
+        return url
+    internal = urlsplit(settings.GITEA_INTERNAL_URL)   # http://adare:3000/
+    public = urlsplit(settings.GITEA_URL_OUTSIDE)       # https://adare.seclab-bonn.de/git/
+    parts = urlsplit(url)
+    if parts.netloc == internal.netloc:                 # only rewrite the internal host
+        return urlunsplit((public.scheme, public.netloc, parts.path, parts.query, parts.fragment))
     return url

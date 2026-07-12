@@ -12,6 +12,7 @@ from django.http import Http404
 import urllib.parse
 from users.serializers import ProfileSerializer
 from users import tasks
+from helperfunctions.gitea import normalize_gitea_avatar_url
 from rest_framework import views, status
 from rest_framework.response import Response
 from knox.models import AuthToken
@@ -24,7 +25,10 @@ log = logging.getLogger(__name__)
 class GiteaLoginView(SocialLoginView):
     adapter_class = GiteaOAuth2Adapter
     client_class = OAuth2Client
-    callback_url = settings.FRONTEND_URL + '/login/oauth/'
+    # redirect_uri MUST be byte-identical to what frontend use-auth.ts sends to
+    # Gitea at authorize time (`${FRONTEND_URL}login/oauth`, no trailing slash).
+    # Gitea >=1.26 enforces exact matching.
+    callback_url = settings.FRONTEND_URL.rstrip('/') + '/login/oauth'
 
 
     def get_response(self):
@@ -32,7 +36,7 @@ class GiteaLoginView(SocialLoginView):
         user_extra_data = SocialAccount.objects.filter(user=self.request.user).first().extra_data
 
         profile = self.user.profile
-        profile.avatar = user_extra_data.get('avatar_url')
+        profile.avatar = normalize_gitea_avatar_url(user_extra_data.get('avatar_url'))
         profile.save()
 
         #response_data = self.token

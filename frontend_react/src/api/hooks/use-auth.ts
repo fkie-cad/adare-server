@@ -19,7 +19,7 @@ export function useGiteaLogin() {
       return resp.data.url as string
     },
     onSuccess: (url) => {
-      window.open(url, '_blank')
+      window.location.assign(url)
     },
   })
 }

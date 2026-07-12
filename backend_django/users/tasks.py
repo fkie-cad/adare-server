@@ -4,6 +4,7 @@ from users.models import Team, Organization
 from celery import shared_task
 import requests
 from users.models import GiteaUser
+from helperfunctions.gitea import normalize_gitea_avatar_url
 
 
 import logging
@@ -52,14 +53,14 @@ def update_teams(username: str):
                 organization = Organization(gitea_id=team_data['organization']['id'],
                                             name=team_data['organization']['name'],
                                             description=team_data['organization']['description'],
-                                            avatar=team_data['organization']['avatar_url'])
+                                            avatar=normalize_gitea_avatar_url(team_data['organization']['avatar_url']))
                 organization.save()
                 log.info(f'created organization {organization.name}')
             else:
                 # update organization
                 organization.name = team_data['organization']['name']
                 organization.description = team_data['organization']['description']
-                organization.avatar = team_data['organization']['avatar_url']
+                organization.avatar = normalize_gitea_avatar_url(team_data['organization']['avatar_url'])
                 organization.save()
 
             # get or create team
@@ -107,6 +108,6 @@ def update_gitea_user(django_user_id: int, gitea_user_id: int, username: str, em
     else:
         gitea_user.email = email
         gitea_user.username = username
-    gitea_user.avatar = avatar
+    gitea_user.avatar = normalize_gitea_avatar_url(avatar)
     gitea_user.user = user
     gitea_user.save()
