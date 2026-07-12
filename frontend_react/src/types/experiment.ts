@@ -161,6 +161,7 @@ export interface Environment {
   ulid: string
   name: string
   description: string
+  vm: string
   vagrantbox: string
   published_by: string
   created_by: string

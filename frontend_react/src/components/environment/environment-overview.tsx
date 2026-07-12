@@ -114,14 +114,18 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
             </div>
           </div>
 
-          {/* Vagrant box + Published at */}
+          {/* VM source + Published at */}
           <div className="flex justify-between">
             <div>
-              <div className="text-sm text-muted-foreground">vagrant box</div>
+              <div className="text-sm text-muted-foreground">
+                {vagrantCloudUrl ? 'vagrant box' : 'vm'}
+              </div>
               {vagrantCloudUrl ? (
                 <a href={vagrantCloudUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                   {environment.vagrantbox}
                 </a>
+              ) : environment.vm ? (
+                <span className="font-mono text-sm break-all">{environment.vm}</span>
               ) : (
                 <span className="text-muted-foreground">-</span>
               )}

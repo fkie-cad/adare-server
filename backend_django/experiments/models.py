@@ -209,6 +209,9 @@ class PostSetupInstallation(models.Model):
 class Environment(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     name = models.CharField(max_length=100, unique=True)
+    # Modern VM source: path to an OVA disk image (client `EnvironmentMetadata.vm`).
+    vm = models.CharField(max_length=2000, blank=True, default="")
+    # Legacy Vagrant source (owner/box); still valid, the frontend cloud link depends on it.
     vagrantbox = models.CharField(max_length=2000, default="")
     description = models.CharField(max_length=1000, blank=True, null=True)
     os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)

@@ -103,12 +103,39 @@ class TestIngest:
         with patch.object(service, '_fetch_pull_request', return_value=_pr(number=7)):
             service.ingest_pr(7)
             first_ulid = Experiment.objects.get(name='test-experiment').ulid
-            service.ingest_pr(7)  # re-run (synchronize)
+            service.ingest_pr(7)  # re-run (synchronize) with identical content
 
         assert Request.objects.filter(gitea_pr_number=7).count() == 1
         assert Experiment.objects.filter(name='test-experiment').count() == 1
-        # the draft was replaced, not duplicated
-        assert Experiment.objects.get(name='test-experiment').ulid != first_ulid
+        # unchanged content -> the draft is preserved, ULID stays stable (no DB churn)
+        assert Experiment.objects.get(name='test-experiment').ulid == first_ulid
+
+    def test_reingest_changed_content_replaces_draft(self):
+        with patch.object(service, '_fetch_pull_request', return_value=_pr(number=7)):
+            service.ingest_pr(7)
+            first = Experiment.objects.get(name='test-experiment')
+            first_ulid = first.ulid
+            first_hash = first.sha256hash
+
+        # a second ingest whose playbook content differs -> the draft is replaced
+        changed_playbook = PLAYBOOK.replace('/tmp/test_file.txt', '/tmp/other_file.txt')
+
+        def _dl(url, dest, **kwargs):
+            if 'playbook.yml' in url:
+                Path(dest).write_text(changed_playbook)
+                return True
+            return _fake_download(url, dest, **kwargs)
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_dl), \
+             patch.object(service, '_fetch_pull_request', return_value=_pr(number=7)):
+            service.ingest_pr(7)
+
+        assert Request.objects.filter(gitea_pr_number=7).count() == 1
+        assert Experiment.objects.filter(name='test-experiment').count() == 1
+        replaced = Experiment.objects.get(name='test-experiment')
+        # content changed -> new draft (new ULID, new content hash)
+        assert replaced.ulid != first_ulid
+        assert replaced.sha256hash != first_hash
 
     def test_unknown_environment_raises(self):
         pr = _pr(number=8)
@@ -132,6 +159,117 @@ class TestIngest:
         with patch.object(service, '_fetch_pull_request', return_value=_pr(number=9)):
             with pytest.raises(TaskFailure, match='is_file'):
                 service.ingest_pr(9)
+
+
+ENV_VM = (
+    'vm: "/media/adare/AdareVMs/Adare-Ubuntu2204.ova"\n'
+    'os:\n'
+    '  os: Linux\n'
+    '  platform: linux\n'
+    '  distribution: Ubuntu\n'
+    '  version: "22.04"\n'
+    'postsetupinstallations:\n'
+    '  - name: jinja2\n'
+    '    command: pip3 install jinja2\n'
+    '    description: templating\n'
+    'tags:\n'
+    '  - test\n'
+)
+ENV_VAGRANT = (
+    'vagrantbox: generic/ubuntu2204\n'
+    'os:\n'
+    '  os: Linux\n'
+    '  platform: linux\n'
+    '  distribution: Ubuntu\n'
+    '  version: "22.04"\n'
+)
+ENV_NO_SOURCE = (
+    'os:\n'
+    '  os: Linux\n'
+    '  platform: linux\n'
+    '  distribution: Ubuntu\n'
+)
+ENV_RECIPE_ONLY = (
+    'recipe:\n'
+    '  profile: ubuntu-24.04\n'
+    '  iso: /isos/ubuntu.iso\n'
+    '  iso_sha256: abc123\n'
+    'os:\n'
+    '  os: Linux\n'
+    '  platform: linux\n'
+    '  distribution: Ubuntu\n'
+)
+
+
+def _env_pr(number, name, merged=False, state='open'):
+    """A Gitea PR whose title routes to the EnvironmentPlugin."""
+    pr = _pr(number=number, name=name, merged=merged, state=state)
+    pr['title'] = f'[environment create] {name}'
+    pr['head']['ref'] = f'submit/environment/{name}'
+    return pr
+
+
+def _env_download(content):
+    def _dl(url, dest, **kwargs):
+        if 'environments/' in url:
+            Path(dest).write_text(content)
+            return True
+        return False
+    return _dl
+
+
+@pytest.mark.django_db
+class TestEnvironmentIngest:
+    """Environment PRs route through the EnvironmentPlugin (vm / legacy vagrantbox)."""
+
+    def test_vm_path_creates_environment(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=20, name='vmenv')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(20)
+
+        env = Environment.objects.get(name='vmenv')
+        assert env.vm == '/media/adare/AdareVMs/Adare-Ubuntu2204.ova'
+        assert env.vagrantbox == ''
+        assert env.os_info.platform == 'linux'
+        # postsetupinstallations must ingest without error (regression: tuple bug)
+        assert env.post_setup_installations.count() == 1
+        assert env.post_setup_installations.first().name == 'jinja2'
+
+    def test_legacy_vagrantbox_path_creates_environment(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=21, name='boxenv')
+
+        class _Resp:
+            status_code = 200
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VAGRANT)), \
+             patch('giteaeventmanager.action.plugin.requests.get', return_value=_Resp()), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(21)
+
+        env = Environment.objects.get(name='boxenv')
+        assert env.vagrantbox == 'generic/ubuntu2204'
+        assert env.vm == ''
+
+    def test_missing_source_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=22, name='badenv')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_NO_SOURCE)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='VM source'):
+                service.ingest_pr(22)
+        assert not Environment.objects.filter(name='badenv').exists()
+
+    def test_recipe_only_raises_taskfailure(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=23, name='recipeenv')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_RECIPE_ONLY)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='recipe'):
+                service.ingest_pr(23)
+        assert not Environment.objects.filter(name='recipeenv').exists()
 
 
 @pytest.mark.django_db

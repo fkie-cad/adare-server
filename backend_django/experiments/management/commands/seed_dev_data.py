@@ -149,25 +149,30 @@ class Command(BaseCommand):
     # ── Environments ────────────────────────────────────────────────────
     def _create_environments(self):
         gu = self.gitea_users['devuser']
+        # (name, vm OVA path, vagrantbox, description, os_key, tags, installations).
+        # Modern envs carry a `vm` OVA path; a couple keep the legacy `vagrantbox`
+        # source (empty `vm`) so both storage paths stay exercised.
         env_defs = [
-            ('ubuntu-desktop', 'ubuntu/jammy64', 'Ubuntu 22.04 desktop',
-             'Ubuntu-22.04', ['platform:Linux'], ['forensic-tools']),
-            ('ubuntu-server', 'ubuntu/jammy64', 'Ubuntu 22.04 server',
-             'Ubuntu-22.04', ['platform:Linux'], ['network-tools']),
-            ('debian-forensics', 'debian/bookworm64', 'Debian 12 forensics workstation',
-             'Debian-12', ['platform:Linux', 'beta'], ['forensic-tools', 'volatility']),
-            ('win10-workstation', 'gusztavvargadr/windows-10', 'Windows 10 workstation',
+            ('ubuntu-desktop', '/media/adare/AdareVMs/Adare-Ubuntu2204-Desktop.ova', '',
+             'Ubuntu 22.04 desktop', 'Ubuntu-22.04', ['platform:Linux'], ['forensic-tools']),
+            ('ubuntu-server', '/media/adare/AdareVMs/Adare-Ubuntu2204-Server.ova', '',
+             'Ubuntu 22.04 server', 'Ubuntu-22.04', ['platform:Linux'], ['network-tools']),
+            ('debian-forensics', '/media/adare/AdareVMs/Adare-Debian12-Forensics.ova', '',
+             'Debian 12 forensics workstation', 'Debian-12', ['platform:Linux', 'beta'],
+             ['forensic-tools', 'volatility']),
+            ('win10-workstation', '', 'gusztavvargadr/windows-10', 'Windows 10 workstation',
              'Windows-10 21H2', ['platform:Windows'], []),
-            ('win11-workstation', 'gusztavvargadr/windows-11', 'Windows 11 workstation',
-             'Windows-11 23H2', ['platform:Windows'], []),
-            ('debian-minimal', 'debian/bookworm64', 'Debian 12 minimal',
+            ('win11-workstation', '/media/adare/AdareVMs/Adare-Win11-Workstation.ova', '',
+             'Windows 11 workstation', 'Windows-11 23H2', ['platform:Windows'], []),
+            ('debian-minimal', '', 'debian/bookworm64', 'Debian 12 minimal',
              'Debian-12', ['platform:Linux'], []),
         ]
         self.environments = {}
-        for name, box, desc, os_key, tag_names, inst_names in env_defs:
+        for name, vm, box, desc, os_key, tag_names, inst_names in env_defs:
             env, created = Environment.objects.get_or_create(
                 name=name,
                 defaults={
+                    'vm': vm,
                     'vagrantbox': box,
                     'description': desc,
                     'os_info': self.os_infos[os_key],

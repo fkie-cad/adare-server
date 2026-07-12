@@ -1,11 +1,11 @@
-name: testenv
-vagrantbox: generic/ubuntu2204
-description: Test environment for automated testing
+vm: "/media/adare/AdareVMs/Adare-Ubuntu2204.ova"
 os:
   os: Linux
+  platform: linux
   distribution: Ubuntu
   version: "22.04"
   language: en_US
   architecture: x86_64
+description: Test environment for automated testing
 tags:
   - test

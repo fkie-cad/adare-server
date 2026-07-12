@@ -524,26 +524,35 @@ class EnvironmentPlugin(PullRequestPlugin):
 
     @transaction.atomic
     def __db_create_environment(self, published_by: GiteaUser):
-        # deserialize the environment file
+        # deserialize the environment file (already schema-checked by check_file_validity)
         environment_data = yaml_to_dict(self.environment_file)
 
-        # check if vagrant box exists in vagrant cloud
-        if '/' not in environment_data['vagrantbox']:
-            raise TaskFailure(f'vagrant box {environment_data["vagrantbox"]} has not the format owner/box')
-        owner, box = environment_data['vagrantbox'].split('/')
-        url = f'https://vagrantcloud.com/api/v2/box/{owner}/{box}'
-        response = requests.get(url)
-        if response.status_code != 200:
-            raise TaskFailure(f'vagrant box {environment_data["vagrantbox"]} does not exist in vagrant cloud')
+        # Select the VM source. Legacy `vagrantbox` (owner/box) is verified against
+        # Vagrant Cloud; the modern `vm` source is an OVA path stored as-is.
+        vagrantbox = environment_data.get('vagrantbox') or ''
+        vm = environment_data.get('vm') or ''
+        if vagrantbox:
+            if '/' not in vagrantbox:
+                raise TaskFailure(f'vagrant box {vagrantbox} has not the format owner/box')
+            owner, box = vagrantbox.split('/', 1)
+            url = f'https://vagrantcloud.com/api/v2/box/{owner}/{box}'
+            try:
+                response = requests.get(url, timeout=10)
+            except requests.RequestException as e:
+                raise TaskFailure(f'could not reach vagrant cloud to verify box {vagrantbox}: {e}') from e
+            if response.status_code != 200:
+                raise TaskFailure(f'vagrant box {vagrantbox} does not exist in vagrant cloud')
 
-        # create os_info object
-        os_info, created = OsInfo.objects.get_or_create(
-            os=environment_data['os']['os'],
-            distribution=environment_data['os']['distribution'],
-            version=environment_data['os']['version'],
-            language=environment_data['os']['language'] if 'language' in environment_data['os'] else None,
-            architecture=environment_data['os']['architecture'] if 'architecture' in environment_data['os'] else None,
-            details=environment_data['os']['details'] if 'details' in environment_data['os'] else None,
+        # create os_info object (os/platform/distribution validated; rest optional)
+        os_data = environment_data.get('os') or {}
+        os_info, _ = OsInfo.objects.get_or_create(
+            os=os_data.get('os'),
+            distribution=os_data.get('distribution'),
+            platform=os_data.get('platform') or '',
+            version=os_data.get('version'),
+            language=os_data.get('language'),
+            architecture=os_data.get('architecture'),
+            details=os_data.get('details'),
         )
 
         # create tags
@@ -551,20 +560,27 @@ class EnvironmentPlugin(PullRequestPlugin):
 
         # create postsetupinstallation objects
         post_setup_installation_objects = []
-        if installations := environment_data.get('postsetupinstallations'):
-            for installation in installations:
-                post_setup_installation_objects.append(PostSetupInstallation.objects.get_or_create(
-                    name=installation['name'],
-                    command=installation['command'],
-                    description=installation['description'] if 'description' in installation else None,
-                ))
+        for installation in environment_data.get('postsetupinstallations') or []:
+            name = installation.get('name')
+            command = installation.get('command')
+            if not name or not command:
+                raise TaskFailure("each postsetupinstallation requires 'name' and 'command'")
+            obj, _ = PostSetupInstallation.objects.get_or_create(
+                name=name,
+                command=command,
+                description=installation.get('description') or '',
+                shell=bool(installation.get('shell', False)),
+                cwd=installation.get('cwd') or '',
+            )
+            post_setup_installation_objects.append(obj)
 
-        # create environment object
+        # create environment object; the filename stem is authoritative for the name
         environment = Environment(
             name=self.object_name,
-            vagrantbox=environment_data['vagrantbox'],
+            vm=vm,
+            vagrantbox=vagrantbox,
             file=self.environment_file_remote_url,
-            description=environment_data['description'] if 'description' in environment_data else None,
+            description=environment_data.get('description') or '',
             os_info=os_info,
             sha256hash=self.sha256,
             published_by=published_by,
@@ -579,8 +595,40 @@ class EnvironmentPlugin(PullRequestPlugin):
         return environment
 
     def check_file_validity(self):
-        # todo: implement check if file is valid (use code as in adare)
+        """Validate the environment file against the client's EnvironmentMetadata rules.
+
+        The filename stem (``self.object_name``) is authoritative for the
+        environment name, so any in-file ``name`` is ignored (matching the adare
+        client, ``adare/adare/adare/types/environment.py``). Any failure is raised
+        as ``TaskFailure`` so the ingest view returns a clean 400, not a 500.
+        """
         environment_data = yaml_to_dict(self.environment_file)
-        if environment_data['name'] != self.object_name:
+
+        has_vm = bool(environment_data.get('vm'))
+        has_vagrantbox = bool(environment_data.get('vagrantbox'))
+        has_recipe = bool(environment_data.get('recipe'))
+
+        # recipe-only environments are not yet storable on the server
+        if has_recipe and not has_vm and not has_vagrantbox:
             raise TaskFailure(
-                f'environment file name {environment_data["name"]} does not match object name {self.object_name}')
+                "recipe-only environments are not yet supported by the server; "
+                "provide a 'vm' (OVA path) or legacy 'vagrantbox' source "
+                "(recipe/hypervisor ingestion is a planned follow-up)")
+        # require exactly one VM source
+        if has_vm and has_vagrantbox:
+            raise TaskFailure(
+                "environment file must specify exactly one VM source, "
+                "but found both 'vm' and 'vagrantbox'")
+        if not has_vm and not has_vagrantbox:
+            raise TaskFailure(
+                "environment file must specify a VM source: one of 'vm' (OVA path) "
+                "or legacy 'vagrantbox'")
+
+        # The Environment model requires an os_info relation, so a storable
+        # environment must carry an 'os' block with the mandatory OsInfo keys.
+        os_block = environment_data.get('os')
+        if not isinstance(os_block, dict):
+            raise TaskFailure("environment file is missing the required 'os' block")
+        for key in ('os', 'platform', 'distribution'):
+            if not os_block.get(key):
+                raise TaskFailure(f"environment 'os' block is missing required key '{key}'")

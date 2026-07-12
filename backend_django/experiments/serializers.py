@@ -122,6 +122,7 @@ class EnvironmentSerializer(serializers.ModelSerializer):
         fields = [
             'name',
             'ulid',
+            'vm',
             'vagrantbox',
             'vagrantbox_cloud_url',
             'description',

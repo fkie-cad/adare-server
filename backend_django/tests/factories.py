@@ -126,6 +126,7 @@ class EnvironmentFactory(factory.django.DjangoModelFactory):
 
     ulid = factory.LazyFunction(generate_ulid)
     name = factory.Sequence(lambda n: f'test-env-{n}')
+    vm = '/media/adare/AdareVMs/Adare-Ubuntu2204.ova'
     vagrantbox = 'generic/ubuntu2204'
     os_info = factory.SubFactory(OsInfoFactory)
     file = 'http://gitea/api/v1/repos/test/repo/raw/env.yml?ref=main'
