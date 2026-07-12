@@ -273,6 +273,75 @@ class TestEnvironmentIngest:
 
 
 @pytest.mark.django_db
+class TestNameCollisionSafetyNet:
+    """Server-side read-only reconciliation when a create PR collides by name.
+
+    The client normally reuses an open PR (so re-ingest hits the same-PR upsert),
+    but a stray duplicate PR can still reach the server. These cases exercise the
+    name-collision branch without any write back to Gitea.
+    """
+
+    def _ingest_env(self, number, name):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(number, name)):
+            service.ingest_pr(number)
+
+    def test_stale_draft_reconciled(self):
+        """A draft left by a closed/merged PR is reconciled; the new PR ingests 200."""
+        from experiments.models import Environment
+        self._ingest_env(40, 'stale-env')
+        assert Request.objects.filter(gitea_pr_number=40).exists()
+
+        # PR 40 is now closed (finalize never ran -> the draft leaked). Re-upload as PR 41.
+        def _fetch(number):
+            if number == 40:
+                return _env_pr(40, 'stale-env', state='closed')
+            return _env_pr(41, 'stale-env', state='open')
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', side_effect=_fetch):
+            service.ingest_pr(41)
+
+        assert not Request.objects.filter(gitea_pr_number=40).exists()
+        assert Request.objects.filter(gitea_pr_number=41).exists()
+        assert Environment.objects.filter(name='stale-env').count() == 1
+
+    def test_open_pr_duplicate_rejected(self):
+        """A second, still-open PR for the same name is rejected with the #M hint."""
+        from experiments.models import Environment
+        self._ingest_env(50, 'dup-env')
+
+        def _fetch(number):
+            if number == 50:
+                return _env_pr(50, 'dup-env', state='open')
+            return _env_pr(51, 'dup-env', state='open')
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', side_effect=_fetch):
+            with pytest.raises(TaskFailure, match='#50'):
+                service.ingest_pr(51)
+
+        assert not Request.objects.filter(gitea_pr_number=51).exists()
+        assert Request.objects.filter(gitea_pr_number=50).exists()
+        assert Environment.objects.filter(name='dup-env').count() == 1
+
+    def test_published_name_collision_rejected(self):
+        """Colliding with an already-published object points at the modify path."""
+        from experiments.models import Environment
+        self._ingest_env(60, 'pub-env')
+        env = Environment.objects.get(name='pub-env')
+        env.published = True
+        env.save()
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(61, 'pub-env')):
+            with pytest.raises(TaskFailure, match='already published'):
+                service.ingest_pr(61)
+
+        assert not Request.objects.filter(gitea_pr_number=61).exists()
+
+
+@pytest.mark.django_db
 class TestFinalize:
 
     def _ingest(self, number):

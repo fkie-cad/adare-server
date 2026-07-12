@@ -246,6 +246,55 @@ class PRIngestCreate(PullRequest):
     * request already exists (re-run / synchronize) -> replace the draft from the new content
     """
 
+    # draft (name collision) scheduled for reconciliation in action(); set in check()
+    _stale_object = None
+    _stale_request: Request = None
+
+    def _find_owning_request(self, obj) -> Request:
+        """Find the Request that owns ``obj`` via its generic foreign key (or None)."""
+        from django.contrib.contenttypes.models import ContentType
+        content_type = ContentType.objects.get_for_model(type(obj))
+        return Request.objects.filter(objective=content_type, object_id=obj.pk).first()
+
+    def _resolve_name_collision(self, obj) -> Request:
+        """An object with this name already exists. Decide what it means.
+
+        Read-only w.r.t. Gitea (the server token intentionally cannot write):
+
+        * published object -> reject; the caller should open a *modify* PR.
+        * unpublished draft owned by a *still-open* PR -> genuine concurrent
+          duplicate; reject and point at that PR.
+        * unpublished draft whose owning PR is closed/merged/absent -> a stale
+          draft (finalize never ran); return the owning Request so ``action()``
+          can reconcile it away and recreate under the new PR.
+
+        Returns the stale ``Request`` to reconcile (may be ``None`` for an orphan
+        draft with no owning request), or raises ``TaskFailure``.
+        """
+        if getattr(obj, 'published', False):
+            raise TaskFailure(
+                f'{self.object_name} is already published — submit a modify PR, not a create.')
+
+        owning_request = self._find_owning_request(obj)
+        if owning_request is None:
+            # orphan draft with no owning request -> stale, nothing to fetch
+            return None
+
+        other_pr = owning_request.gitea_pr_number
+        from giteaeventmanager.service import _fetch_pull_request
+        try:
+            pr = _fetch_pull_request(other_pr)
+        except TaskFailure:
+            # owning PR is gone / unfetchable -> stale draft, reconcile it
+            return owning_request
+
+        if pr.get('state') == 'open' and not pr.get('merged'):
+            raise TaskFailure(
+                f'{self.object_name} is already proposed by open pull request '
+                f'#{other_pr}; update that PR instead of opening a new one.')
+        # closed / merged owning PR -> stale draft, reconcile it
+        return owning_request
+
     def check(self):
         # always download + validate + hash so concrete errors surface as 4xx
         self._download_and_hash()
@@ -254,20 +303,39 @@ class PRIngestCreate(PullRequest):
             # re-ingest of the same PR -> upsert, skip the duplicate guards below
             return
 
-        # first ingest: guard against unrelated objects colliding by name / content
-        if self.pullrequest_plugin.get_object():
-            raise TaskFailure(f'{self.object_name} already exists')
-        if self.pullrequest_plugin.get_object_by_hash():
+        # first ingest: an object with this name may already exist
+        self._stale_object = None
+        self._stale_request = None
+        existing_by_name = self.pullrequest_plugin.get_object()
+        if existing_by_name:
+            # raises on published / open-dup; returns the stale Request to reconcile
+            self._stale_request = self._resolve_name_collision(existing_by_name)
+            self._stale_object = existing_by_name
+
+        # same-content guard, ignoring the stale draft we are about to reconcile
+        existing_by_hash = self.pullrequest_plugin.get_object_by_hash()
+        if existing_by_hash and existing_by_hash != self._stale_object:
             raise TaskFailure(f'{self.object_name} with same content already exists')
 
     @transaction.atomic
     def action(self):
         if self._request_exists():
-            # drop the previous draft (object + request) and recreate from the new content
+            existing = self.request.object
+            if existing and existing.sha256hash == self.pullrequest_plugin.sha256:
+                # content unchanged -> keep the draft (stable ULID), no DB churn
+                self.cleanup()
+                return
+            # content changed -> drop the previous draft and recreate from the new content
             old_object = self.request.object
             self.request.delete()
             if old_object:
                 old_object.delete()
+        else:
+            # reconcile a stale draft from a dead PR (determined in check())
+            if self._stale_request is not None:
+                self._stale_request.delete()
+            if self._stale_object is not None:
+                self._stale_object.delete()
 
         object_instance = self.pullrequest_plugin.update_object(self._get_pr_requester())
         self.request = self._create_pull_request(object_instance)
