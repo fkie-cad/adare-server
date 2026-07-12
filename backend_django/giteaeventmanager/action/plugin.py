@@ -1,6 +1,8 @@
+import re
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
+from urllib.parse import urlparse
 import requests
 from users.models import GiteaUser
 from django.db import transaction
@@ -10,7 +12,8 @@ from django.conf import settings
 from giteaeventmanager.auth import GiteaAuthHandle
 from django.utils import timezone
 from experiments.models import Requirement as RequirementModel, TestfunctionSet, TestFunction, TestParameter, \
-    Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo, Tag, TagScope, PostSetupInstallation
+    Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo, Tag, TagScope, PostSetupInstallation, \
+    Recipe
 from giteaeventmanager.exception import TaskFailure
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
@@ -23,6 +26,12 @@ from helperfunctions.hash import hash_file_sha256, combine_hashes
 import logging
 
 log = logging.getLogger(__name__)
+
+# sha256 as emitted for `recipe.iso_sha256` / `vm_sha256`: 64 lowercase hex chars
+# (validated case-insensitively, matching the client's hash_file_sha256 output).
+SHA256_HEX_RE = re.compile(r'^[0-9a-fA-F]{64}$')
+# Plausible baked-VM disk extensions accepted for a published `vm` URL.
+BAKED_VM_EXTENSIONS = ('.ova', '.qcow2', '.vmdk', '.vdi', '.img')
 
 
 class PullRequestPluginInterface(ABC):
@@ -528,9 +537,14 @@ class EnvironmentPlugin(PullRequestPlugin):
         environment_data = yaml_to_dict(self.environment_file)
 
         # Select the VM source. Legacy `vagrantbox` (owner/box) is verified against
-        # Vagrant Cloud; the modern `vm` source is an OVA path stored as-is.
+        # Vagrant Cloud; the modern `vm` source is either an OVA path (local, reference-only)
+        # or a published http(s) URL (verified reachable below); `recipe` is a built-on-load
+        # ('tutorial') source with no VM to check. check_file_validity guarantees exactly one
+        # of these three is present.
         vagrantbox = environment_data.get('vagrantbox') or ''
         vm = environment_data.get('vm') or ''
+        vm_sha256 = environment_data.get('vm_sha256') or ''
+        recipe_block = environment_data.get('recipe') or {}
         if vagrantbox:
             if '/' not in vagrantbox:
                 raise TaskFailure(f'vagrant box {vagrantbox} has not the format owner/box')
@@ -542,6 +556,16 @@ class EnvironmentPlugin(PullRequestPlugin):
                 raise TaskFailure(f'could not reach vagrant cloud to verify box {vagrantbox}: {e}') from e
             if response.status_code != 200:
                 raise TaskFailure(f'vagrant box {vagrantbox} does not exist in vagrant cloud')
+        elif vm:
+            # A bare local path (vm_type path) is reference-only and not publishable;
+            # check_file_validity already rejected non-http(s) vm at validity time, but
+            # only a published URL reaches here for a create.
+            try:
+                response = requests.head(vm, timeout=10, allow_redirects=True)
+            except requests.RequestException as e:
+                raise TaskFailure(f'could not reach baked VM URL {vm}: {e}') from e
+            if response.status_code >= 400:
+                raise TaskFailure(f'baked VM URL {vm} is unreachable (status {response.status_code})')
 
         # create os_info object (os/platform/distribution validated; rest optional)
         os_data = environment_data.get('os') or {}
@@ -574,11 +598,30 @@ class EnvironmentPlugin(PullRequestPlugin):
             )
             post_setup_installation_objects.append(obj)
 
+        # create the recipe object (env-specific: always a fresh row, never shared)
+        recipe = None
+        if recipe_block:
+            params = recipe_block.get('params') or {}
+            disk_size = params.get('disk_size')
+            recipe = Recipe.objects.create(
+                profile=recipe_block.get('profile'),
+                iso=recipe_block.get('iso'),
+                iso_sha256=recipe_block.get('iso_sha256'),
+                template=recipe_block.get('template') or '',
+                setup_level=params.get('setup_level'),
+                disk_size='' if disk_size is None else str(disk_size),
+                ram_mb=params.get('ram_mb'),
+                cpus=params.get('cpus'),
+                arch=params.get('arch') or '',
+            )
+
         # create environment object; the filename stem is authoritative for the name
         environment = Environment(
             name=self.object_name,
             vm=vm,
+            vm_sha256=vm_sha256,
             vagrantbox=vagrantbox,
+            recipe=recipe,
             file=self.environment_file_remote_url,
             description=environment_data.get('description') or '',
             os_info=os_info,
@@ -608,21 +651,41 @@ class EnvironmentPlugin(PullRequestPlugin):
         has_vagrantbox = bool(environment_data.get('vagrantbox'))
         has_recipe = bool(environment_data.get('recipe'))
 
-        # recipe-only environments are not yet storable on the server
-        if has_recipe and not has_vm and not has_vagrantbox:
+        # require exactly one source
+        num_sources = sum((has_vm, has_vagrantbox, has_recipe))
+        if num_sources > 1:
             raise TaskFailure(
-                "recipe-only environments are not yet supported by the server; "
-                "provide a 'vm' (OVA path) or legacy 'vagrantbox' source "
-                "(recipe/hypervisor ingestion is a planned follow-up)")
-        # require exactly one VM source
-        if has_vm and has_vagrantbox:
+                "environment file must specify exactly one VM source, but found "
+                "more than one of 'vm', 'vagrantbox' and 'recipe'")
+        if num_sources == 0:
             raise TaskFailure(
-                "environment file must specify exactly one VM source, "
-                "but found both 'vm' and 'vagrantbox'")
-        if not has_vm and not has_vagrantbox:
-            raise TaskFailure(
-                "environment file must specify a VM source: one of 'vm' (OVA path) "
-                "or legacy 'vagrantbox'")
+                "environment file must specify a VM source: one of 'vm' (OVA path), "
+                "'recipe' (built-on-load), or legacy 'vagrantbox'")
+
+        if has_recipe:
+            recipe_block = environment_data.get('recipe') or {}
+            if not isinstance(recipe_block, dict):
+                raise TaskFailure("environment 'recipe' block must be a mapping")
+            for key in ('profile', 'iso', 'iso_sha256'):
+                if not recipe_block.get(key):
+                    raise TaskFailure(f"environment 'recipe' block is missing required key '{key}'")
+            iso_sha256 = recipe_block.get('iso_sha256')
+            if not SHA256_HEX_RE.match(iso_sha256):
+                raise TaskFailure(f"recipe 'iso_sha256' is not a valid sha256 hex digest: {iso_sha256!r}")
+
+        if has_vm:
+            vm = environment_data.get('vm')
+            parsed_vm = urlparse(vm)
+            if parsed_vm.scheme not in ('http', 'https'):
+                raise TaskFailure(
+                    f"'vm' must be an http(s) URL to publish a baked environment (got {vm!r}); "
+                    "host the disk image and provide its URL")
+            if not parsed_vm.path.lower().endswith(BAKED_VM_EXTENSIONS):
+                raise TaskFailure(
+                    f"'vm' URL must end in a plausible disk extension {BAKED_VM_EXTENSIONS} (got {vm!r})")
+            vm_sha256 = environment_data.get('vm_sha256')
+            if not vm_sha256 or not SHA256_HEX_RE.match(vm_sha256):
+                raise TaskFailure(f"'vm_sha256' is required for a baked 'vm' URL and must be a valid sha256 hex digest: {vm_sha256!r}")
 
         # The Environment model requires an os_info relation, so a storable
         # environment must carry an 'os' block with the mandatory OsInfo keys.
