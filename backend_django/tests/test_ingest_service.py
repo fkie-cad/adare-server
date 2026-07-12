@@ -455,6 +455,61 @@ class TestEnvironmentIngest:
                 service.ingest_pr(34)
         assert not Environment.objects.filter(name='recipe-bad-setup-level').exists()
 
+    # -- regression: author-controlled fields must be length-checked against
+    #    the Recipe/Environment CharField columns before any DB write, since
+    #    Recipe.objects.create()/Environment.save() skip full_clean() and an
+    #    over-long value would otherwise only fail as a raw Postgres DataError
+    #    (a 500), not TaskFailure. --
+
+    def test_recipe_iso_too_long_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=35, name='recipe-long-iso')
+        long_iso_recipe = ENV_RECIPE_ONLY.replace('/isos/ubuntu.iso', '/isos/' + 'a' * 2000 + '.iso')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(long_iso_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='iso'):
+                service.ingest_pr(35)
+        assert not Environment.objects.filter(name='recipe-long-iso').exists()
+
+    def test_recipe_profile_too_long_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=36, name='recipe-long-profile')
+        long_profile_recipe = ENV_RECIPE_ONLY.replace('ubuntu-24.04', 'a' * 201, 1)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(long_profile_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='profile'):
+                service.ingest_pr(36)
+        assert not Environment.objects.filter(name='recipe-long-profile').exists()
+
+    def test_vm_url_too_long_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=37, name='baked-long-vm')
+        long_vm = 'https://host.example/' + ('a' * 2000) + '.ova'
+        long_vm_env = ENV_BAKED_URL.replace('https://host.example/foo.ova', long_vm)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(long_vm_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='vm'):
+                service.ingest_pr(37)
+        assert not Environment.objects.filter(name='baked-long-vm').exists()
+
+    def test_empty_yaml_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=38, name='empty-yaml-env')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download('')), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='mapping'):
+                service.ingest_pr(38)
+        assert not Environment.objects.filter(name='empty-yaml-env').exists()
+
+    def test_non_dict_yaml_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=39, name='list-yaml-env')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download('[]\n')), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='mapping'):
+                service.ingest_pr(39)
+        assert not Environment.objects.filter(name='list-yaml-env').exists()
+
 
 @pytest.mark.django_db
 class TestNameCollisionSafetyNet:

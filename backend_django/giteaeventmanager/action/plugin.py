@@ -646,6 +646,8 @@ class EnvironmentPlugin(PullRequestPlugin):
         as ``TaskFailure`` so the ingest view returns a clean 400, not a 500.
         """
         environment_data = yaml_to_dict(self.environment_file)
+        if not isinstance(environment_data, dict):
+            raise TaskFailure("environment file must be a YAML mapping")
 
         has_vm = bool(environment_data.get('vm'))
         has_vagrantbox = bool(environment_data.get('vagrantbox'))
@@ -669,11 +671,37 @@ class EnvironmentPlugin(PullRequestPlugin):
             for key in ('profile', 'iso', 'iso_sha256'):
                 if not recipe_block.get(key):
                     raise TaskFailure(f"environment 'recipe' block is missing required key '{key}'")
+
+            # profile/iso/template: type + length must match the Recipe model
+            # columns, since Recipe.objects.create() skips full_clean() and an
+            # over-long value would otherwise only fail at the Postgres INSERT.
+            profile = recipe_block.get('profile')
+            if not isinstance(profile, str):
+                raise TaskFailure(f"recipe 'profile' must be a string (got {profile!r})")
+            profile_max = Recipe._meta.get_field('profile').max_length
+            if len(profile) > profile_max:
+                raise TaskFailure(f"recipe 'profile' exceeds the maximum length of {profile_max} characters")
+
+            iso = recipe_block.get('iso')
+            if not isinstance(iso, str):
+                raise TaskFailure(f"recipe 'iso' must be a string (got {iso!r})")
+            iso_max = Recipe._meta.get_field('iso').max_length
+            if len(iso) > iso_max:
+                raise TaskFailure(f"recipe 'iso' exceeds the maximum length of {iso_max} characters")
+
             iso_sha256 = recipe_block.get('iso_sha256')
             if not isinstance(iso_sha256, str):
                 raise TaskFailure(f"recipe 'iso_sha256' must be a 64-hex string (got {iso_sha256!r})")
             if not SHA256_HEX_RE.match(iso_sha256):
                 raise TaskFailure(f"recipe 'iso_sha256' is not a valid sha256 hex digest: {iso_sha256!r}")
+
+            template = recipe_block.get('template')
+            if template:
+                if not isinstance(template, str):
+                    raise TaskFailure(f"recipe 'template' must be a string (got {template!r})")
+                template_max = Recipe._meta.get_field('template').max_length
+                if len(template) > template_max:
+                    raise TaskFailure(f"recipe 'template' exceeds the maximum length of {template_max} characters")
 
             params = recipe_block.get('params') or {}
             if not isinstance(params, dict):
@@ -683,10 +711,29 @@ class EnvironmentPlugin(PullRequestPlugin):
                 if value is not None and not (isinstance(value, int) and not isinstance(value, bool)):
                     raise TaskFailure(f"recipe params.{int_key} must be an integer (got {value!r})")
 
+            # disk_size is coerced to str(...) before storage (see __db_create_environment);
+            # check the length of that same coercion here.
+            disk_size = params.get('disk_size')
+            if disk_size is not None:
+                disk_size_max = Recipe._meta.get_field('disk_size').max_length
+                if len(str(disk_size)) > disk_size_max:
+                    raise TaskFailure(f"recipe params.disk_size exceeds the maximum length of {disk_size_max} characters")
+
+            arch = params.get('arch')
+            if arch:
+                if not isinstance(arch, str):
+                    raise TaskFailure(f"recipe params.arch must be a string (got {arch!r})")
+                arch_max = Recipe._meta.get_field('arch').max_length
+                if len(arch) > arch_max:
+                    raise TaskFailure(f"recipe params.arch exceeds the maximum length of {arch_max} characters")
+
         if has_vm:
             vm = environment_data.get('vm')
             if not isinstance(vm, str):
                 raise TaskFailure(f"'vm' must be a string URL (got {vm!r})")
+            vm_max = Environment._meta.get_field('vm').max_length
+            if len(vm) > vm_max:
+                raise TaskFailure(f"'vm' exceeds the maximum length of {vm_max} characters")
             parsed_vm = urlparse(vm)
             if parsed_vm.scheme not in ('http', 'https'):
                 raise TaskFailure(
