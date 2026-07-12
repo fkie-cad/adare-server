@@ -670,11 +670,23 @@ class EnvironmentPlugin(PullRequestPlugin):
                 if not recipe_block.get(key):
                     raise TaskFailure(f"environment 'recipe' block is missing required key '{key}'")
             iso_sha256 = recipe_block.get('iso_sha256')
+            if not isinstance(iso_sha256, str):
+                raise TaskFailure(f"recipe 'iso_sha256' must be a 64-hex string (got {iso_sha256!r})")
             if not SHA256_HEX_RE.match(iso_sha256):
                 raise TaskFailure(f"recipe 'iso_sha256' is not a valid sha256 hex digest: {iso_sha256!r}")
 
+            params = recipe_block.get('params') or {}
+            if not isinstance(params, dict):
+                raise TaskFailure("recipe 'params' must be a mapping")
+            for int_key in ('setup_level', 'ram_mb', 'cpus'):
+                value = params.get(int_key)
+                if value is not None and not (isinstance(value, int) and not isinstance(value, bool)):
+                    raise TaskFailure(f"recipe params.{int_key} must be an integer (got {value!r})")
+
         if has_vm:
             vm = environment_data.get('vm')
+            if not isinstance(vm, str):
+                raise TaskFailure(f"'vm' must be a string URL (got {vm!r})")
             parsed_vm = urlparse(vm)
             if parsed_vm.scheme not in ('http', 'https'):
                 raise TaskFailure(
@@ -684,7 +696,11 @@ class EnvironmentPlugin(PullRequestPlugin):
                 raise TaskFailure(
                     f"'vm' URL must end in a plausible disk extension {BAKED_VM_EXTENSIONS} (got {vm!r})")
             vm_sha256 = environment_data.get('vm_sha256')
-            if not vm_sha256 or not SHA256_HEX_RE.match(vm_sha256):
+            if not vm_sha256:
+                raise TaskFailure(f"'vm_sha256' is required for a baked 'vm' URL and must be a valid sha256 hex digest: {vm_sha256!r}")
+            if not isinstance(vm_sha256, str):
+                raise TaskFailure(f"'vm_sha256' must be a 64-hex string (got {vm_sha256!r})")
+            if not SHA256_HEX_RE.match(vm_sha256):
                 raise TaskFailure(f"'vm_sha256' is required for a baked 'vm' URL and must be a valid sha256 hex digest: {vm_sha256!r}")
 
         # The Environment model requires an os_info relation, so a storable

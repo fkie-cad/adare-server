@@ -404,6 +404,57 @@ class TestEnvironmentIngest:
                 service.ingest_pr(30)
         assert not Environment.objects.filter(name='baked-404').exists()
 
+    # -- regression: author-controlled YAML scalars must never reach urlparse()/
+    #    re.match() unguarded (those raise AttributeError/TypeError -> 500, not
+    #    a clean TaskFailure/400). --
+
+    def test_numeric_vm_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=31, name='baked-numeric-vm')
+        numeric_vm_env = (
+            'vm: 12345\n'
+            'os:\n'
+            '  os: Linux\n'
+            '  platform: linux\n'
+            '  distribution: Ubuntu\n'
+        )
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(numeric_vm_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='vm'):
+                service.ingest_pr(31)
+        assert not Environment.objects.filter(name='baked-numeric-vm').exists()
+
+    def test_numeric_vm_sha256_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=32, name='baked-numeric-hash')
+        # an unquoted all-digit 64-char scalar parses as a YAML int, not a str
+        numeric_hash_env = ENV_BAKED_URL.replace(BAKED_VM_SHA256, '1' * 64)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(numeric_hash_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='vm_sha256'):
+                service.ingest_pr(32)
+        assert not Environment.objects.filter(name='baked-numeric-hash').exists()
+
+    def test_numeric_recipe_iso_sha256_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=33, name='recipe-numeric-hash')
+        numeric_hash_recipe = ENV_RECIPE_ONLY.replace(RECIPE_ISO_SHA256, '1' * 64)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(numeric_hash_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='iso_sha256'):
+                service.ingest_pr(33)
+        assert not Environment.objects.filter(name='recipe-numeric-hash').exists()
+
+    def test_recipe_non_int_setup_level_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=34, name='recipe-bad-setup-level')
+        bad_params_recipe = ENV_RECIPE_ONLY.replace('setup_level: 1\n', 'setup_level: "one"\n')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_params_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='setup_level'):
+                service.ingest_pr(34)
+        assert not Environment.objects.filter(name='recipe-bad-setup-level').exists()
+
 
 @pytest.mark.django_db
 class TestNameCollisionSafetyNet:
