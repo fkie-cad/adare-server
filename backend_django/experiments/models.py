@@ -206,13 +206,38 @@ class PostSetupInstallation(models.Model):
     cwd = models.CharField(max_length=2000, blank=True, default='')
 
 
+class Recipe(models.Model):
+    """Built-on-load ('tutorial') environment source: an ISO + setup params.
+
+    Mirrors the client's `recipe:` YAML block (see CONTRACT.md). One row per
+    Environment (env-specific, never shared like OsInfo/PostSetupInstallation).
+    """
+    profile = models.CharField(max_length=200)
+    iso = models.CharField(max_length=2000)
+    iso_sha256 = models.CharField(max_length=64)
+    template = models.CharField(max_length=200, blank=True, default='')
+    setup_level = models.IntegerField(null=True, blank=True)
+    disk_size = models.CharField(max_length=50, blank=True, default='')
+    ram_mb = models.IntegerField(null=True, blank=True)
+    cpus = models.IntegerField(null=True, blank=True)
+    arch = models.CharField(max_length=50, blank=True, default='')
+
+    def __str__(self):
+        return f'{self.profile} ({self.iso})'
+
+
 class Environment(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     name = models.CharField(max_length=100, unique=True)
-    # Modern VM source: path to an OVA disk image (client `EnvironmentMetadata.vm`).
+    # Modern VM source: path to an OVA disk image (client `EnvironmentMetadata.vm`),
+    # or an http(s) URL for a published baked env.
     vm = models.CharField(max_length=2000, blank=True, default="")
+    # sha256 of the baked disk image; required when `vm` is a published URL.
+    vm_sha256 = models.CharField(max_length=64, blank=True, default="")
     # Legacy Vagrant source (owner/box); still valid, the frontend cloud link depends on it.
     vagrantbox = models.CharField(max_length=2000, default="")
+    # Built-on-load ('tutorial') source: ISO + setup params, mutually exclusive with vm/vagrantbox.
+    recipe = models.OneToOneField(Recipe, null=True, blank=True, on_delete=models.PROTECT)
     description = models.CharField(max_length=1000, blank=True, null=True)
     os_info = models.ForeignKey(OsInfo, on_delete=models.PROTECT)
     post_setup_installations = models.ManyToManyField(PostSetupInstallation)
