@@ -12,6 +12,7 @@ from django.utils import timezone
 from experiments.models import Requirement as RequirementModel, TestfunctionSet, TestFunction, TestParameter, \
     Experiment, Tool, AbstractTest, TestParameterEntry, Environment, OsInfo, Tag, TagScope, PostSetupInstallation
 from giteaeventmanager.exception import TaskFailure
+from giteaeventmanager.errorcodes import SubmitErrorCode
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
 from testsetfile.fileformat import FTestsetFile, FTest
@@ -199,7 +200,10 @@ class TestfunctionsetPlugin(PullRequestPlugin):
             self.sha256 = combine_hashes([self.tfset_sha256, self.tfreq_sha256])
 
     def get_object(self):
-        return TestfunctionSet.objects.filter(name=self.object_name).first()
+        # published-aware: a modify PR keeps the live object published while its
+        # proposed draft coexists under the same name, so prefer the published row.
+        qs = TestfunctionSet.objects.filter(name=self.object_name)
+        return qs.filter(published=True).first() or qs.first()
 
     def get_object_by_hash(self):
         if not self.sha256:
@@ -209,7 +213,8 @@ class TestfunctionsetPlugin(PullRequestPlugin):
     def check_file_validity(self):
         valid = check_if_requirements_file_is_valid(self.tfreq_file)
         if not valid:
-            raise TaskFailure(f'invalid requirements file {self.tfreq_file.as_posix()}')
+            raise TaskFailure(f'invalid requirements file {self.tfreq_file.as_posix()}',
+                              code=SubmitErrorCode.INVALID_CONTENT)
 
     def __db_update_requirements(self, requirements: list[Requirement]) -> list[RequirementModel]:
         requirement_objects = []
@@ -287,9 +292,11 @@ class TestfunctionsetPlugin(PullRequestPlugin):
 
                     testfunctions.append(testfunction_obj)
                 else:
-                    raise TaskFailure(f'parameter class for testfunction class {t_func_class.name} is missing')
+                    raise TaskFailure(f'parameter class for testfunction class {t_func_class.name} is missing',
+                                      code=SubmitErrorCode.INVALID_CONTENT)
             else:
-                raise TaskFailure(f'testfunction class {t_func_class.name} is missing the mandatory params attribute')
+                raise TaskFailure(f'testfunction class {t_func_class.name} is missing the mandatory params attribute',
+                                  code=SubmitErrorCode.INVALID_CONTENT)
         return testfunctions
 
     @transaction.atomic
@@ -358,7 +365,9 @@ class ExperimentPlugin(PullRequestPlugin):
             self.sha256 = combine_hashes([self.playbook_sha256, self.metadata_sha256])
 
     def get_object(self):
-        return Experiment.objects.filter(name=self.object_name).first()
+        # published-aware (see TestfunctionsetPlugin.get_object)
+        qs = Experiment.objects.filter(name=self.object_name)
+        return qs.filter(published=True).first() or qs.first()
 
     def get_object_by_hash(self):
         return Experiment.objects.filter(sha256hash=self.sha256).first()
@@ -366,7 +375,8 @@ class ExperimentPlugin(PullRequestPlugin):
     def __db_get_abstract_test(self, test: FTest, tool: Tool = None) -> AbstractTest or None:
         testfunction = TestFunction.objects.filter(name=test.type).first()
         if not testfunction:
-            raise TaskFailure(f'test function {test.type} does not exist')
+            raise TaskFailure(f'test function {test.type} does not exist',
+                              code=SubmitErrorCode.UNKNOWN_DEPENDENCY)
 
         parameter_entries = []
         for p_key, p_val in test.params.items():
@@ -430,7 +440,7 @@ class ExperimentPlugin(PullRequestPlugin):
                 abstract_test = self.__db_get_abstract_test(test)
                 abstract_tests.append(abstract_test)
             else:
-                raise TaskFailure(f'unknown test type {type(test)}')
+                raise TaskFailure(f'unknown test type {type(test)}', code=SubmitErrorCode.INVALID_CONTENT)
 
         return abstract_tests
 
@@ -445,9 +455,12 @@ class ExperimentPlugin(PullRequestPlugin):
         metadata = yaml_to_dict(metadata_file)
         environments = []
         for env in metadata['environments']:
-            env_instance = Environment.objects.filter(name=env).first()
+            # prefer the published environment; a modify PR may have a draft under the same name
+            env_qs = Environment.objects.filter(name=env)
+            env_instance = env_qs.filter(published=True).first() or env_qs.first()
             if not env_instance:
-                raise TaskFailure(f'environment {env} does not exist')
+                raise TaskFailure(f'environment {env} does not exist',
+                                  code=SubmitErrorCode.UNKNOWN_DEPENDENCY)
             environments.append(env_instance)
 
         # deserialize the tests embedded in the playbook file
@@ -517,7 +530,9 @@ class EnvironmentPlugin(PullRequestPlugin):
         self._set_file_sha256('environment_file', 'sha256')
 
     def get_object(self):
-        return Environment.objects.filter(name=self.object_name).first()
+        # published-aware (see TestfunctionsetPlugin.get_object)
+        qs = Environment.objects.filter(name=self.object_name)
+        return qs.filter(published=True).first() or qs.first()
 
     def get_object_by_hash(self):
         return Environment.objects.filter(sha256hash=self.sha256).first()
@@ -533,15 +548,18 @@ class EnvironmentPlugin(PullRequestPlugin):
         vm = environment_data.get('vm') or ''
         if vagrantbox:
             if '/' not in vagrantbox:
-                raise TaskFailure(f'vagrant box {vagrantbox} has not the format owner/box')
+                raise TaskFailure(f'vagrant box {vagrantbox} has not the format owner/box',
+                                  code=SubmitErrorCode.INVALID_CONTENT)
             owner, box = vagrantbox.split('/', 1)
             url = f'https://vagrantcloud.com/api/v2/box/{owner}/{box}'
             try:
                 response = requests.get(url, timeout=10)
             except requests.RequestException as e:
-                raise TaskFailure(f'could not reach vagrant cloud to verify box {vagrantbox}: {e}') from e
+                raise TaskFailure(f'could not reach vagrant cloud to verify box {vagrantbox}: {e}',
+                                  code=SubmitErrorCode.UPSTREAM_UNAVAILABLE) from e
             if response.status_code != 200:
-                raise TaskFailure(f'vagrant box {vagrantbox} does not exist in vagrant cloud')
+                raise TaskFailure(f'vagrant box {vagrantbox} does not exist in vagrant cloud',
+                                  code=SubmitErrorCode.UNKNOWN_DEPENDENCY)
 
         # create os_info object (os/platform/distribution validated; rest optional)
         os_data = environment_data.get('os') or {}
@@ -564,7 +582,8 @@ class EnvironmentPlugin(PullRequestPlugin):
             name = installation.get('name')
             command = installation.get('command')
             if not name or not command:
-                raise TaskFailure("each postsetupinstallation requires 'name' and 'command'")
+                raise TaskFailure("each postsetupinstallation requires 'name' and 'command'",
+                                  code=SubmitErrorCode.INVALID_CONTENT)
             obj, _ = PostSetupInstallation.objects.get_or_create(
                 name=name,
                 command=command,
@@ -613,22 +632,27 @@ class EnvironmentPlugin(PullRequestPlugin):
             raise TaskFailure(
                 "recipe-only environments are not yet supported by the server; "
                 "provide a 'vm' (OVA path) or legacy 'vagrantbox' source "
-                "(recipe/hypervisor ingestion is a planned follow-up)")
+                "(recipe/hypervisor ingestion is a planned follow-up)",
+                code=SubmitErrorCode.INVALID_CONTENT)
         # require exactly one VM source
         if has_vm and has_vagrantbox:
             raise TaskFailure(
                 "environment file must specify exactly one VM source, "
-                "but found both 'vm' and 'vagrantbox'")
+                "but found both 'vm' and 'vagrantbox'",
+                code=SubmitErrorCode.INVALID_CONTENT)
         if not has_vm and not has_vagrantbox:
             raise TaskFailure(
                 "environment file must specify a VM source: one of 'vm' (OVA path) "
-                "or legacy 'vagrantbox'")
+                "or legacy 'vagrantbox'",
+                code=SubmitErrorCode.INVALID_CONTENT)
 
         # The Environment model requires an os_info relation, so a storable
         # environment must carry an 'os' block with the mandatory OsInfo keys.
         os_block = environment_data.get('os')
         if not isinstance(os_block, dict):
-            raise TaskFailure("environment file is missing the required 'os' block")
+            raise TaskFailure("environment file is missing the required 'os' block",
+                              code=SubmitErrorCode.INVALID_CONTENT)
         for key in ('os', 'platform', 'distribution'):
             if not os_block.get(key):
-                raise TaskFailure(f"environment 'os' block is missing required key '{key}'")
+                raise TaskFailure(f"environment 'os' block is missing required key '{key}'",
+                                  code=SubmitErrorCode.INVALID_CONTENT)

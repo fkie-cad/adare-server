@@ -144,3 +144,91 @@ class TestSubmitInlineIngest:
         assert "nope" in resp.data["error"]
         # the PR was still created, so surface it
         assert resp.data["pr_number"] == 2
+
+
+@pytest.mark.django_db
+class TestSubmitModifyRemoveDev:
+    """Dev-mode routing must accept modify/remove and skip file requirements for remove."""
+
+    def test_dev_modify_accepts_single_file(self, authenticated_client):
+        resp = authenticated_client.post(
+            SUBMIT_EXPERIMENT_URL,
+            {"playbook": _make_file("playbook.yml"), "name": "my-experiment", "action": "modify"},
+            format="multipart",
+        )
+        assert resp.status_code == 201
+        assert resp.data["pr_url"] == "#dev"
+
+    def test_dev_remove_needs_no_files(self, authenticated_client):
+        resp = authenticated_client.post(
+            SUBMIT_ENVIRONMENT_URL,
+            {"name": "my-environment", "action": "remove"},
+            format="multipart",
+        )
+        assert resp.status_code == 201
+        assert resp.data["pr_url"] == "#dev"
+
+    def test_dev_invalid_action_returns_400(self, authenticated_client):
+        resp = authenticated_client.post(
+            SUBMIT_EXPERIMENT_URL,
+            {"name": "my-experiment", "action": "bogus"},
+            format="multipart",
+        )
+        assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestSubmitModifyRemoveProduction:
+    """The production view must thread action + deletions through to _submit_files."""
+
+    def _authed(self, url, data, gitea_user):
+        request = APIRequestFactory().post(url, data, format="multipart")
+        force_authenticate(request, user=gitea_user.user)
+        return request
+
+    def test_modify_uploads_only_changed_file(self, gitea_user):
+        request = self._authed(
+            SUBMIT_EXPERIMENT_URL,
+            {"playbook": _make_file("playbook.yml"), "name": "my-exp", "action": "modify"},
+            gitea_user,
+        )
+        fake_pr = {"html_url": "http://gitea/pr/6", "number": 6}
+        with patch.object(submit_views, "_submit_files", return_value=fake_pr) as sf, \
+             patch.object(submit_views, "ingest_pr", return_value={"experiment_ulid": "x"}):
+            resp = submit_views.SubmitExperimentView.as_view()(request)
+
+        assert resp.status_code == 201
+        kwargs = sf.call_args.kwargs
+        assert kwargs["action"] == "modify"
+        assert "experiments/my-exp/playbook.yml" in kwargs["files"]
+        assert "experiments/my-exp/metadata.yml" not in kwargs["files"]
+        assert kwargs["deletions"] is None
+
+    def test_remove_passes_repo_paths_as_deletions(self, gitea_user):
+        request = self._authed(
+            SUBMIT_ENVIRONMENT_URL,
+            {"name": "my-env", "action": "remove"},
+            gitea_user,
+        )
+        fake_pr = {"html_url": "http://gitea/pr/7", "number": 7}
+        with patch.object(submit_views, "_submit_files", return_value=fake_pr) as sf, \
+             patch.object(submit_views, "ingest_pr",
+                          return_value={"object_ulid": "x", "name": "my-env", "sha256hash": "h"}):
+            resp = submit_views.SubmitEnvironmentView.as_view()(request)
+
+        assert resp.status_code == 201
+        kwargs = sf.call_args.kwargs
+        assert kwargs["action"] == "remove"
+        assert kwargs["files"] == {}
+        assert kwargs["deletions"] == ["environments/my-env.yml"]
+
+    def test_modify_without_any_file_returns_400(self, gitea_user):
+        request = self._authed(
+            SUBMIT_EXPERIMENT_URL,
+            {"name": "my-exp", "action": "modify"},
+            gitea_user,
+        )
+        with patch.object(submit_views, "_submit_files") as sf:
+            resp = submit_views.SubmitExperimentView.as_view()(request)
+        assert resp.status_code == 400
+        sf.assert_not_called()

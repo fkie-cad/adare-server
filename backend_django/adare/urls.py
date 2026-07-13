@@ -108,6 +108,13 @@ urlpatterns = [
 
 ]
 
+# Pre-submit classification is name-based and Gitea-write-free, so it is safe and
+# available in both modes (unlike the mode-split submit endpoints below).
+import experiments.submit_views as submit_views
+urlpatterns += [
+    path('api/submit/precheck/', submit_views.SubmitPrecheckView.as_view()),
+]
+
 if MODE == 'development':
     import experiments.dev_views as dev_views
     urlpatterns += [

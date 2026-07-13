@@ -5,6 +5,7 @@ import { useUserProfile } from '@/api/hooks/use-user'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ProfileImage } from '@/components/profile/profile-image'
+import { EntityActions } from '@/components/entity-actions'
 import { LinkCell } from '@/components/data-table/columns/link-cell'
 import { PageContainer } from '@/components/layout/page-container'
 
@@ -38,6 +39,14 @@ export default function TestfunctionSetDetailPage() {
     <PageContainer className="max-w-4xl">
     <Card>
       <CardContent className="space-y-6 pt-6">
+        <div className="flex justify-end">
+          <EntityActions
+            entity="testfunction"
+            name={tfSet.name}
+            editTo="/testfunctionset/$name/edit"
+          />
+        </div>
+
         <div className="flex justify-between">
           <div>
             <div className="text-sm text-muted-foreground">name</div>

@@ -223,6 +223,11 @@ FRONTEND_URL = config("FRONTEND_URL")
 GITEA_EXPERIMENTS_REPO = config('GITEA_EXPERIMENTS_REPO', default='adareTEST')
 GITEA_EXPERIMENTS_REPO_OWNER = config('GITEA_EXPERIMENTS_REPO_OWNER', default='miq')
 GITEA_REPO_API = f'{GITEA_API}repos/{GITEA_EXPERIMENTS_REPO_OWNER}/{GITEA_EXPERIMENTS_REPO}/'
+
+# Auto-close terminal-duplicate submit PRs (already-published / open-duplicate)
+# with an explanatory comment on the async ingest path. Flag-guarded so it can
+# be disabled without a code change.
+AUTO_CLOSE_TERMINAL_DUPLICATES = config('AUTO_CLOSE_TERMINAL_DUPLICATES', default=True, cast=bool)
 GITEA_API_USER = config("GITEA_API_USER")
 GITEA_API_PASSWORD = config("GITEA_API_PASSWORD")
 

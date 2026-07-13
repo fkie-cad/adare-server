@@ -125,7 +125,9 @@ class Requirement(models.Model):
 
 class TestfunctionSet(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
-    name = models.CharField(max_length=100, unique=True)
+    # not unique: a modify PR draft (published=False) may coexist with the
+    # published object under the same name; sha256hash enforces content uniqueness.
+    name = models.CharField(max_length=100)
     description = models.CharField(max_length=1000, blank=True)
     requirements = models.ManyToManyField(Requirement)
     tags = models.ManyToManyField(Tag, blank=True)
@@ -208,7 +210,9 @@ class PostSetupInstallation(models.Model):
 
 class Environment(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
-    name = models.CharField(max_length=100, unique=True)
+    # not unique: a modify PR draft (published=False) may coexist with the
+    # published object under the same name; sha256hash enforces content uniqueness.
+    name = models.CharField(max_length=100)
     # Modern VM source: path to an OVA disk image (client `EnvironmentMetadata.vm`).
     vm = models.CharField(max_length=2000, blank=True, default="")
     # Legacy Vagrant source (owner/box); still valid, the frontend cloud link depends on it.

@@ -7,6 +7,15 @@ interface SubmitResult {
   pr_number: number
 }
 
+export type SubmitAction = 'create' | 'modify' | 'remove'
+
+async function postForm(endpoint: string, formData: FormData): Promise<SubmitResult> {
+  const { data } = await api.post<SubmitResult>(endpoint, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
 export function useSubmitExperiment() {
   return useMutation({
     mutationFn: async ({
@@ -14,21 +23,21 @@ export function useSubmitExperiment() {
       playbook,
       metadata,
       description,
+      action = 'create',
     }: {
       name: string
-      playbook: File
-      metadata: File
+      playbook?: File
+      metadata?: File
       description?: string
+      action?: SubmitAction
     }) => {
       const formData = new FormData()
       formData.append('name', name)
-      formData.append('playbook', playbook)
-      formData.append('metadata', metadata)
+      formData.append('action', action)
+      if (playbook) formData.append('playbook', playbook)
+      if (metadata) formData.append('metadata', metadata)
       if (description) formData.append('description', description)
-      const { data } = await api.post<SubmitResult>(endpoints.submitExperiment, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      return data
+      return postForm(endpoints.submitExperiment, formData)
     },
   })
 }
@@ -40,21 +49,21 @@ export function useSubmitTestfunction() {
       testfunction,
       requirements,
       description,
+      action = 'create',
     }: {
       name: string
-      testfunction: File
-      requirements: File
+      testfunction?: File
+      requirements?: File
       description?: string
+      action?: SubmitAction
     }) => {
       const formData = new FormData()
       formData.append('name', name)
-      formData.append('testfunction', testfunction)
-      formData.append('requirements', requirements)
+      formData.append('action', action)
+      if (testfunction) formData.append('testfunction', testfunction)
+      if (requirements) formData.append('requirements', requirements)
       if (description) formData.append('description', description)
-      const { data } = await api.post<SubmitResult>(endpoints.submitTestfunction, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      return data
+      return postForm(endpoints.submitTestfunction, formData)
     },
   })
 }
@@ -65,19 +74,19 @@ export function useSubmitEnvironment() {
       name,
       environment,
       description,
+      action = 'create',
     }: {
       name: string
-      environment: File
+      environment?: File
       description?: string
+      action?: SubmitAction
     }) => {
       const formData = new FormData()
       formData.append('name', name)
-      formData.append('environment', environment)
+      formData.append('action', action)
+      if (environment) formData.append('environment', environment)
       if (description) formData.append('description', description)
-      const { data } = await api.post<SubmitResult>(endpoints.submitEnvironment, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      return data
+      return postForm(endpoints.submitEnvironment, formData)
     },
   })
 }

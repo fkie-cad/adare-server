@@ -6,6 +6,7 @@ import pytest
 
 from giteaeventmanager import service
 from giteaeventmanager.action.base import PullRequest
+from giteaeventmanager.errorcodes import SubmitErrorCode
 from giteaeventmanager.exception import TaskFailure
 from experiments.models import Experiment, Request
 from tests.factories import (
@@ -287,7 +288,7 @@ class TestNameCollisionSafetyNet:
             service.ingest_pr(number)
 
     def test_stale_draft_reconciled(self):
-        """A draft left by a closed/merged PR is reconciled; the new PR ingests 200."""
+        """A draft left by a closed/merged PR is reconciled; the new PR ingests 200 (no auto-close)."""
         from experiments.models import Environment
         self._ingest_env(40, 'stale-env')
         assert Request.objects.filter(gitea_pr_number=40).exists()
@@ -298,16 +299,21 @@ class TestNameCollisionSafetyNet:
                 return _env_pr(40, 'stale-env', state='closed')
             return _env_pr(41, 'stale-env', state='open')
 
-        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+        with patch('helperfunctions.gitea_write.comment_on_pull_request') as comment, \
+             patch('helperfunctions.gitea_write.close_pull_request') as close, \
+             patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
              patch.object(service, '_fetch_pull_request', side_effect=_fetch):
             service.ingest_pr(41)
 
         assert not Request.objects.filter(gitea_pr_number=40).exists()
         assert Request.objects.filter(gitea_pr_number=41).exists()
         assert Environment.objects.filter(name='stale-env').count() == 1
+        # a stale draft is not a terminal duplicate -> never auto-closed
+        comment.assert_not_called()
+        close.assert_not_called()
 
-    def test_open_pr_duplicate_rejected(self):
-        """A second, still-open PR for the same name is rejected with the #M hint."""
+    def test_open_pr_duplicate_rejected_and_autoclosed(self):
+        """A second, still-open PR for the same name is rejected, coded, and the newer PR auto-closed."""
         from experiments.models import Environment
         self._ingest_env(50, 'dup-env')
 
@@ -316,29 +322,63 @@ class TestNameCollisionSafetyNet:
                 return _env_pr(50, 'dup-env', state='open')
             return _env_pr(51, 'dup-env', state='open')
 
-        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+        with patch('helperfunctions.gitea_write.comment_on_pull_request') as comment, \
+             patch('helperfunctions.gitea_write.close_pull_request') as close, \
+             patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
              patch.object(service, '_fetch_pull_request', side_effect=_fetch):
-            with pytest.raises(TaskFailure, match='#50'):
+            with pytest.raises(TaskFailure, match='#50') as exc:
                 service.ingest_pr(51)
 
+        assert exc.value.code == SubmitErrorCode.OPEN_DUPLICATE
         assert not Request.objects.filter(gitea_pr_number=51).exists()
         assert Request.objects.filter(gitea_pr_number=50).exists()
         assert Environment.objects.filter(name='dup-env').count() == 1
+        # the *newer* duplicate (#51) is closed; the owning PR (#50) is never touched
+        close.assert_called_once()
+        assert close.call_args.args[-1] == 51
+        comment.assert_called_once()
+        assert comment.call_args.args[2] == 51  # (owner, repo, number, body)
 
-    def test_published_name_collision_rejected(self):
-        """Colliding with an already-published object points at the modify path."""
+    def test_published_name_collision_rejected_and_autoclosed(self):
+        """Colliding with an already-published object is coded ALREADY_PUBLISHED and auto-closed."""
         from experiments.models import Environment
         self._ingest_env(60, 'pub-env')
         env = Environment.objects.get(name='pub-env')
         env.published = True
         env.save()
 
-        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+        with patch('helperfunctions.gitea_write.comment_on_pull_request') as comment, \
+             patch('helperfunctions.gitea_write.close_pull_request') as close, \
+             patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
              patch.object(service, '_fetch_pull_request', return_value=_env_pr(61, 'pub-env')):
-            with pytest.raises(TaskFailure, match='already published'):
+            with pytest.raises(TaskFailure, match='already published') as exc:
                 service.ingest_pr(61)
 
+        assert exc.value.code == SubmitErrorCode.ALREADY_PUBLISHED
         assert not Request.objects.filter(gitea_pr_number=61).exists()
+        close.assert_called_once()
+        assert close.call_args.args[-1] == 61
+        comment.assert_called_once()
+
+    def test_autoclose_disabled_by_setting(self, settings):
+        """With AUTO_CLOSE_TERMINAL_DUPLICATES off, still reject+code but never touch Gitea."""
+        from experiments.models import Environment
+        settings.AUTO_CLOSE_TERMINAL_DUPLICATES = False
+        self._ingest_env(62, 'flag-env')
+        env = Environment.objects.get(name='flag-env')
+        env.published = True
+        env.save()
+
+        with patch('helperfunctions.gitea_write.comment_on_pull_request') as comment, \
+             patch('helperfunctions.gitea_write.close_pull_request') as close, \
+             patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(63, 'flag-env')):
+            with pytest.raises(TaskFailure, match='already published') as exc:
+                service.ingest_pr(63)
+
+        assert exc.value.code == SubmitErrorCode.ALREADY_PUBLISHED
+        comment.assert_not_called()
+        close.assert_not_called()
 
 
 @pytest.mark.django_db
@@ -376,3 +416,430 @@ class TestFinalize:
             result = service.finalize_pr(13)
         assert result['had_draft'] is False
         assert result['merged'] is False
+
+
+# --- modify / remove -------------------------------------------------------
+
+CHANGED_PLAYBOOK = PLAYBOOK.replace('/tmp/test_file.txt', '/tmp/changed_file.txt')
+
+
+def _modify_pr(number, name='test-experiment', merged=False, state='open'):
+    pr = _pr(number=number, name=name, merged=merged, state=state)
+    pr['title'] = f'[experiment modify] {name}'
+    return pr
+
+
+def _remove_pr(number, name='test-experiment', merged=False, state='open'):
+    pr = _pr(number=number, name=name, merged=merged, state=state)
+    pr['title'] = f'[experiment remove] {name}'
+    return pr
+
+
+def _changed_download(url, dest, **kwargs):
+    if 'playbook.yml' in url:
+        Path(dest).write_text(CHANGED_PLAYBOOK)
+        return True
+    return _fake_download(url, dest, **kwargs)
+
+
+def _no_files_download(url, dest, **kwargs):
+    # nothing on the branch -> simulate the remove PR having deleted the files
+    return False
+
+
+@pytest.mark.django_db
+class TestModifyIngest:
+    """Modify authors a proposed draft that coexists with the still-published object."""
+
+    def _publish_original(self, number, name='test-experiment'):
+        with patch.object(service, '_fetch_pull_request', return_value=_pr(number=number, name=name)):
+            service.ingest_pr(number)
+        with patch.object(service, '_fetch_pull_request',
+                          return_value=_pr(number=number, name=name, merged=True, state='closed')):
+            service.finalize_pr(number)
+        return Experiment.objects.get(name=name)
+
+    def test_modify_creates_draft_keeps_published(self):
+        original = self._publish_original(70)
+        assert original.published is True
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_changed_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_modify_pr(71)):
+            service.ingest_pr(71)
+
+        exps = Experiment.objects.filter(name='test-experiment')
+        assert exps.count() == 2
+        draft = exps.get(published=False)
+        published = exps.get(published=True)
+        assert published.ulid == original.ulid
+
+        req = Request.objects.get(gitea_pr_number=71)
+        assert req.action == 'modify'
+        assert req.object == draft
+        assert req.old_object == published
+
+    def test_modify_nonexistent_rejected(self):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_changed_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_modify_pr(72, name='ghost')):
+            with pytest.raises(TaskFailure, match='does not exist'):
+                service.ingest_pr(72)
+        assert not Request.objects.filter(gitea_pr_number=72).exists()
+
+    def test_modify_same_content_rejected(self):
+        self._publish_original(73)
+        # a modify whose content matches the published object is a no-op
+        with patch.object(service, '_fetch_pull_request', return_value=_modify_pr(74)):
+            with pytest.raises(TaskFailure, match='same content'):
+                service.ingest_pr(74)
+        assert not Request.objects.filter(gitea_pr_number=74).exists()
+
+    def test_modify_merge_publishes_new_deletes_old(self):
+        original = self._publish_original(75)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_changed_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_modify_pr(76)):
+            service.ingest_pr(76)
+        draft = Experiment.objects.get(name='test-experiment', published=False)
+
+        with patch.object(service, '_fetch_pull_request',
+                          return_value=_modify_pr(76, merged=True, state='closed')):
+            result = service.finalize_pr(76)
+
+        assert result['merged'] is True and result['published'] is True
+        assert not Experiment.objects.filter(ulid=original.ulid).exists()
+        remaining = Experiment.objects.get(name='test-experiment')
+        assert remaining.ulid == draft.ulid
+        assert remaining.published is True
+        assert remaining.published_at is not None
+        assert not Request.objects.filter(gitea_pr_number=76).exists()
+
+    def test_modify_close_keeps_old_deletes_draft(self):
+        original = self._publish_original(77)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_changed_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_modify_pr(78)):
+            service.ingest_pr(78)
+
+        with patch.object(service, '_fetch_pull_request',
+                          return_value=_modify_pr(78, merged=False, state='closed')):
+            result = service.finalize_pr(78)
+
+        assert result['merged'] is False and result['deleted'] is True
+        remaining = Experiment.objects.filter(name='test-experiment')
+        assert remaining.count() == 1
+        assert remaining.first().ulid == original.ulid
+        assert remaining.first().published is True
+        assert not Request.objects.filter(gitea_pr_number=78).exists()
+
+    def test_modify_reingest_replaces_draft_keeps_old_object(self):
+        original = self._publish_original(79)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_changed_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_modify_pr(80)):
+            service.ingest_pr(80)
+        first_draft = Experiment.objects.get(name='test-experiment', published=False)
+
+        # re-ingest the same PR with different content -> draft replaced, old_object intact
+        other_playbook = PLAYBOOK.replace('/tmp/test_file.txt', '/tmp/third_file.txt')
+
+        def _dl(url, dest, **kwargs):
+            if 'playbook.yml' in url:
+                Path(dest).write_text(other_playbook)
+                return True
+            return _fake_download(url, dest, **kwargs)
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_dl), \
+             patch.object(service, '_fetch_pull_request', return_value=_modify_pr(80)):
+            service.ingest_pr(80)
+
+        assert Request.objects.filter(gitea_pr_number=80).count() == 1
+        assert Experiment.objects.filter(name='test-experiment').count() == 2
+        req = Request.objects.get(gitea_pr_number=80)
+        assert req.object.published is False
+        assert req.object.ulid != first_draft.ulid
+        assert req.old_object == original
+
+
+@pytest.mark.django_db
+class TestRemoveIngest:
+    """Remove records a request against the still-published object; merge deletes it."""
+
+    def _publish_original(self, number, name='test-experiment'):
+        with patch.object(service, '_fetch_pull_request', return_value=_pr(number=number, name=name)):
+            service.ingest_pr(number)
+        with patch.object(service, '_fetch_pull_request',
+                          return_value=_pr(number=number, name=name, merged=True, state='closed')):
+            service.finalize_pr(number)
+        return Experiment.objects.get(name=name)
+
+    def test_remove_records_request_keeps_object(self):
+        self._publish_original(81)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_no_files_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_remove_pr(82)):
+            service.ingest_pr(82)
+
+        exp = Experiment.objects.get(name='test-experiment')
+        assert exp.published is True
+        req = Request.objects.get(gitea_pr_number=82)
+        assert req.action == 'remove'
+        assert req.object == exp
+
+    def test_remove_with_files_present_rejected(self):
+        self._publish_original(83)
+        # files still on the branch -> the delete PR is malformed
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_fake_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_remove_pr(84)):
+            with pytest.raises(TaskFailure, match='still present'):
+                service.ingest_pr(84)
+        assert not Request.objects.filter(gitea_pr_number=84).exists()
+
+    def test_remove_nonexistent_rejected(self):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_no_files_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_remove_pr(85, name='ghost')):
+            with pytest.raises(TaskFailure, match='does not exist'):
+                service.ingest_pr(85)
+
+    def test_remove_merge_deletes_object(self):
+        self._publish_original(86)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_no_files_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_remove_pr(87)):
+            service.ingest_pr(87)
+
+        with patch.object(service, '_fetch_pull_request',
+                          return_value=_remove_pr(87, merged=True, state='closed')):
+            result = service.finalize_pr(87)
+
+        assert result['merged'] is True and result['deleted'] is True
+        assert not Experiment.objects.filter(name='test-experiment').exists()
+        assert not Request.objects.filter(gitea_pr_number=87).exists()
+
+    def test_remove_close_keeps_object(self):
+        self._publish_original(88)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_no_files_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_remove_pr(89)):
+            service.ingest_pr(89)
+
+        with patch.object(service, '_fetch_pull_request',
+                          return_value=_remove_pr(89, merged=False, state='closed')):
+            result = service.finalize_pr(89)
+
+        assert result['merged'] is False and result['deleted'] is False
+        assert Experiment.objects.filter(name='test-experiment').exists()
+        assert not Request.objects.filter(gitea_pr_number=89).exists()
+
+
+def _env_modify_pr(number, name, merged=False, state='open'):
+    pr = _env_pr(number, name, merged=merged, state=state)
+    pr['title'] = f'[environment modify] {name}'
+    return pr
+
+
+@pytest.mark.django_db
+class TestEnvironmentModify:
+    """Environments have a (formerly unique) name; modify must let a draft coexist."""
+
+    def _publish_env(self, number, name):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(number, name)):
+            service.ingest_pr(number)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request',
+                          return_value=_env_pr(number, name, merged=True, state='closed')):
+            service.finalize_pr(number)
+
+    def test_modify_allows_two_same_name_rows(self):
+        from experiments.models import Environment
+        self._publish_env(90, 'modenv')
+        assert Environment.objects.get(name='modenv').published is True
+
+        changed_env = ENV_VM.replace('Adare-Ubuntu2204.ova', 'Adare-Ubuntu2404.ova')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(changed_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_modify_pr(91, 'modenv')):
+            service.ingest_pr(91)
+
+        # the relaxed unique constraint lets the draft coexist with the published env
+        assert Environment.objects.filter(name='modenv').count() == 2
+        req = Request.objects.get(gitea_pr_number=91)
+        assert req.action == 'modify'
+        assert req.old_object.published is True
+        assert req.object.published is False
+
+        # merge -> new published, old gone, single row again
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(changed_env)), \
+             patch.object(service, '_fetch_pull_request',
+                          return_value=_env_modify_pr(91, 'modenv', merged=True, state='closed')):
+            service.finalize_pr(91)
+
+        remaining = Environment.objects.filter(name='modenv')
+        assert remaining.count() == 1
+        assert remaining.first().published is True
+        assert remaining.first().vm.endswith('Adare-Ubuntu2404.ova')
+
+
+# --- error codes -----------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestErrorCodes:
+    """Every ingest failure carries a machine-readable SubmitErrorCode."""
+
+    def test_unknown_environment_is_unknown_dependency(self):
+        bad_metadata = 'environments:\n  - does-not-exist\ntags: []\n'
+
+        def _dl(url, dest, **kwargs):
+            if 'metadata.yml' in url:
+                Path(dest).write_text(bad_metadata)
+                return True
+            return _fake_download(url, dest, **kwargs)
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_dl), \
+             patch.object(service, '_fetch_pull_request', return_value=_pr(number=100)):
+            with pytest.raises(TaskFailure) as exc:
+                service.ingest_pr(100)
+        assert exc.value.code == SubmitErrorCode.UNKNOWN_DEPENDENCY
+
+    def test_missing_vm_source_is_invalid_content(self):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_NO_SOURCE)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(101, 'badenv2')):
+            with pytest.raises(TaskFailure) as exc:
+                service.ingest_pr(101)
+        assert exc.value.code == SubmitErrorCode.INVALID_CONTENT
+
+    def test_recipe_only_is_invalid_content(self):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_RECIPE_ONLY)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(102, 'recipeenv2')):
+            with pytest.raises(TaskFailure) as exc:
+                service.ingest_pr(102)
+        assert exc.value.code == SubmitErrorCode.INVALID_CONTENT
+
+    def test_modify_nonexistent_is_not_found(self):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_changed_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_modify_pr(103, name='ghost2')):
+            with pytest.raises(TaskFailure) as exc:
+                service.ingest_pr(103)
+        assert exc.value.code == SubmitErrorCode.NOT_FOUND
+
+    def test_remove_nonexistent_is_not_found(self):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_no_files_download), \
+             patch.object(service, '_fetch_pull_request', return_value=_remove_pr(104, name='ghost3')):
+            with pytest.raises(TaskFailure) as exc:
+                service.ingest_pr(104)
+        assert exc.value.code == SubmitErrorCode.NOT_FOUND
+
+    def test_unparseable_title_is_parse_error(self):
+        pr = _pr(number=105)
+        pr['title'] = 'not a valid title'
+        with patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure) as exc:
+                service.ingest_pr(105)
+        assert exc.value.code == SubmitErrorCode.PARSE_ERROR
+
+    def test_fetch_failure_is_upstream_unavailable(self):
+        class _Resp:
+            status_code = 502
+            text = 'bad gateway'
+
+        with patch('giteaeventmanager.service.GiteaAuthHandle.get_token', return_value='tok'), \
+             patch('giteaeventmanager.service.requests.get', return_value=_Resp()):
+            with pytest.raises(TaskFailure) as exc:
+                service._fetch_pull_request(106)
+        assert exc.value.code == SubmitErrorCode.UPSTREAM_UNAVAILABLE
+
+    def test_content_duplicate_is_coded_and_not_autoclosed(self):
+        with patch.object(service, '_fetch_pull_request', return_value=_pr(number=107, name='dupcontent')):
+            service.ingest_pr(107)
+        with patch('helperfunctions.gitea_write.comment_on_pull_request') as comment, \
+             patch('helperfunctions.gitea_write.close_pull_request') as close, \
+             patch.object(service, '_fetch_pull_request', return_value=_pr(number=108, name='dupcontent2')):
+            with pytest.raises(TaskFailure) as exc:
+                service.ingest_pr(108)
+        assert exc.value.code == SubmitErrorCode.CONTENT_DUPLICATE
+        # content duplicate is fixable, not terminal -> never auto-closed
+        comment.assert_not_called()
+        close.assert_not_called()
+
+
+# --- pre-submit classification --------------------------------------------
+
+
+@pytest.mark.django_db
+class TestClassifySubmission:
+    """Name-based classification used by the CLI/React pre-check (no Gitea calls)."""
+
+    def test_unknown_name_is_ok(self):
+        assert service.classify_submission('environment', 'nope-env')['code'] == SubmitErrorCode.OK
+
+    def test_published_is_already_published(self):
+        from experiments.models import Environment
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(110, 'classpub')):
+            service.ingest_pr(110)
+        env = Environment.objects.get(name='classpub')
+        env.published = True
+        env.save()
+
+        result = service.classify_submission('environment', 'classpub')
+        assert result['code'] == SubmitErrorCode.ALREADY_PUBLISHED
+
+    def test_open_draft_is_open_duplicate(self):
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(111, 'classdraft')):
+            service.ingest_pr(111)
+
+        result = service.classify_submission('environment', 'classdraft')
+        assert result['code'] == SubmitErrorCode.OPEN_DUPLICATE
+        assert result['pr_number'] == 111
+
+    def test_unknown_entity_type_raises_parse_error(self):
+        with pytest.raises(TaskFailure) as exc:
+            service.classify_submission('bogus', 'x')
+        assert exc.value.code == SubmitErrorCode.PARSE_ERROR
+
+
+# --- React proxy: pre-check before PR + reuse open PR ----------------------
+
+
+@pytest.mark.django_db
+class TestSubmitViews:
+    """submit_views pre-checks a create *before* opening a PR and reuses an open PR."""
+
+    def test_create_published_returns_409_without_opening_pr(self):
+        import experiments.submit_views as submit_views
+        from experiments.models import Environment
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch.object(service, '_fetch_pull_request', return_value=_env_pr(120, 'viewpub')):
+            service.ingest_pr(120)
+        env = Environment.objects.get(name='viewpub')
+        env.published = True
+        env.save()
+
+        with patch('experiments.submit_views.create_branch') as create_branch, \
+             patch('experiments.submit_views.create_pull_request') as create_pr, \
+             patch('experiments.submit_views.find_open_pull_request') as find_pr, \
+             patch('experiments.submit_views.ingest_pr') as ingest:
+            body, status = submit_views._submit_and_ingest(
+                entity_type='environment', name='viewpub',
+                files={'environments/viewpub.yml': b'x'}, username='u', description='')
+
+        assert status == 409
+        assert body['code'] == SubmitErrorCode.ALREADY_PUBLISHED
+        create_branch.assert_not_called()
+        create_pr.assert_not_called()
+        find_pr.assert_not_called()
+        ingest.assert_not_called()
+
+    def test_submit_files_reuses_open_create_pr(self):
+        import experiments.submit_views as submit_views
+        existing = {'number': 200, 'html_url': 'http://gitea/pr/200',
+                    'head': {'ref': 'submit/environment/reuse-me-20240101'}}
+        with patch('experiments.submit_views.find_open_pull_request', return_value=existing), \
+             patch('experiments.submit_views.create_branch') as create_branch, \
+             patch('experiments.submit_views.create_pull_request') as create_pr, \
+             patch('experiments.submit_views.upload_file', return_value=True) as upload:
+            pr = submit_views._submit_files(
+                entity_type='environment', name='reuse-me',
+                files={'environments/reuse-me.yml': b'data'}, username='u', action='create')
+
+        assert pr is existing
+        create_branch.assert_not_called()
+        create_pr.assert_not_called()
+        upload.assert_called_once()
+        # uploaded onto the reused PR's branch, not a fresh timestamped one
+        assert upload.call_args.args[4] == 'submit/environment/reuse-me-20240101'

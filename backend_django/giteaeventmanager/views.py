@@ -50,7 +50,8 @@ class GiteaIngestView(views.APIView):
             result = ingest_pr(prnumber)
         except TaskFailure as e:
             log.warning(f'ingest failed for pr {prnumber}: {e}')
-            return Response(data={"error": str(e)}, status=http_status_codes.HTTP_400_BAD_REQUEST)
+            return Response(data={"error": str(e), "code": e.code},
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
         return Response(data=result, status=http_status_codes.HTTP_200_OK)
 
 
@@ -68,5 +69,6 @@ class GiteaFinalizeView(views.APIView):
             result = finalize_pr(prnumber)
         except TaskFailure as e:
             log.warning(f'finalize failed for pr {prnumber}: {e}')
-            return Response(data={"error": str(e)}, status=http_status_codes.HTTP_400_BAD_REQUEST)
+            return Response(data={"error": str(e), "code": e.code},
+                            status=http_status_codes.HTTP_400_BAD_REQUEST)
         return Response(data=result, status=http_status_codes.HTTP_200_OK)

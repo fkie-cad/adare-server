@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ProfileImage } from '@/components/profile/profile-image'
+import { EntityActions } from '@/components/entity-actions'
 import { getTagColorClass, getTagScope } from '@/constants/tag-colors'
 
 interface EnvironmentOverviewProps {
@@ -53,6 +54,15 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
       {/* Header card */}
       <Card>
         <CardContent className="space-y-6 pt-6">
+          {/* Edit / Delete actions */}
+          <div className="flex justify-end">
+            <EntityActions
+              entity="environment"
+              name={environment.name}
+              editTo="/environment/$name/edit"
+            />
+          </div>
+
           {/* Name + ULID */}
           <div>
             <div className="flex justify-between text-sm text-muted-foreground">

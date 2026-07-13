@@ -19,7 +19,8 @@ from django.conf import settings
 
 from giteaeventmanager.auth import GiteaAuthHandle
 from giteaeventmanager.exception import TaskFailure
-from giteaeventmanager.action.base import PRIngestCreate, PRFinalize
+from giteaeventmanager.errorcodes import SubmitErrorCode
+from giteaeventmanager.action.base import PRIngestCreate, PRIngestModify, PRIngestRemove, PRFinalize, find_owning_request
 from giteaeventmanager.action.plugin import (
     TestfunctionsetPlugin,
     ExperimentPlugin,
@@ -37,6 +38,13 @@ _PLUGINS = {
     "environment": EnvironmentPlugin,
 }
 
+# ingest handler per PR action; finalize is always PRFinalize (it dispatches internally)
+_INGEST_HANDLERS = {
+    "create": PRIngestCreate,
+    "modify": PRIngestModify,
+    "remove": PRIngestRemove,
+}
+
 
 def _fetch_pull_request(prnumber: int) -> dict:
     """Fetch the raw Gitea pull request object (head SHA, title, state, merge info)."""
@@ -44,21 +52,23 @@ def _fetch_pull_request(prnumber: int) -> dict:
     url = f'{settings.GITEA_REPO_API}pulls/{prnumber}'
     response = requests.get(url, headers={'Authorization': f'token {token}'})
     if response.status_code != 200:
-        raise TaskFailure(f'could not fetch pull request {prnumber} ({response.status_code}): {response.text}')
+        raise TaskFailure(f'could not fetch pull request {prnumber} ({response.status_code}): {response.text}',
+                          code=SubmitErrorCode.UPSTREAM_UNAVAILABLE)
     return response.json()
 
 
 def _parse_title(title: str) -> tuple[str, str, str]:
     match = re.match(TITLE_PATTERN, title)
     if not match:
-        raise TaskFailure(f'could not parse pull request title: {title}')
+        raise TaskFailure(f'could not parse pull request title: {title}',
+                          code=SubmitErrorCode.PARSE_ERROR)
     return match.group("objective"), match.group("action"), match.group("name").strip()
 
 
 def _plugin_for(objective: str, object_name: str, last_commit: str):
     plugin_class = _PLUGINS.get(objective)
     if not plugin_class:
-        raise TaskFailure(f'unknown objective "{objective}"')
+        raise TaskFailure(f'unknown objective "{objective}"', code=SubmitErrorCode.PARSE_ERROR)
     return plugin_class(objective=objective, object_name=object_name, last_commit=last_commit)
 
 
@@ -94,11 +104,13 @@ def ingest_pr(prnumber: int) -> dict:
     """
     pr = _fetch_pull_request(prnumber)
     objective, action, object_name = _parse_title(pr["title"])
-    if action != "create":
-        raise TaskFailure(f'ingest only supports the "create" action, got "{action}"')
+    handler_cls = _INGEST_HANDLERS.get(action)
+    if not handler_cls:
+        raise TaskFailure(f'ingest does not support the "{action}" action',
+                          code=SubmitErrorCode.PARSE_ERROR)
 
     plugin = _plugin_for(objective, object_name, pr["head"]["sha"])
-    handler = PRIngestCreate(plugin, _build_json_data(pr, "opened"), objective, action, object_name)
+    handler = handler_cls(plugin, _build_json_data(pr, "opened"), objective, action, object_name)
     try:
         handler.check()
         handler.action()
@@ -108,6 +120,49 @@ def ingest_pr(prnumber: int) -> dict:
         plugin.cleanup()
     log.info(f'ingested pull request {prnumber} ({objective} {object_name})')
     return result
+
+
+def classify_submission(entity_type: str, name: str) -> dict:
+    """Pre-submit, name-based classification of a *create* submission.
+
+    Purely local (no Gitea write, no file download): content/hash checks need the
+    files in Gitea and are left to ``ingest_pr``. Lets the interactive surfaces
+    (CLI, React) warn *before* opening a PR — avoiding the create-then-auto-close
+    churn Layer B performs when a terminal duplicate still reaches ingest.
+
+    Returns ``{code, message, pr_number?}`` where ``code`` is a ``SubmitErrorCode``:
+
+    * an object with this name is already published -> ``ALREADY_PUBLISHED``
+    * an unpublished draft owned by an open Request -> ``OPEN_DUPLICATE`` (+ ``pr_number``)
+    * otherwise -> ``OK``
+    """
+    plugin_class = _PLUGINS.get(entity_type)
+    if not plugin_class:
+        raise TaskFailure(f'unknown objective "{entity_type}"', code=SubmitErrorCode.PARSE_ERROR)
+
+    plugin = plugin_class(objective=entity_type, object_name=name, last_commit='')
+    existing = plugin.get_object()  # published-aware name lookup
+    if existing is None:
+        return {"code": SubmitErrorCode.OK, "message": ""}
+
+    if getattr(existing, 'published', False):
+        return {
+            "code": SubmitErrorCode.ALREADY_PUBLISHED,
+            "message": f'{name} is already published — submit a modify PR instead of a create.',
+        }
+
+    owning_request = find_owning_request(existing)
+    if owning_request is not None:
+        return {
+            "code": SubmitErrorCode.OPEN_DUPLICATE,
+            "pr_number": owning_request.gitea_pr_number,
+            "message": (f'{name} is already proposed by open pull request '
+                        f'#{owning_request.gitea_pr_number}; update that PR instead of opening a new one.'),
+        }
+
+    # unpublished draft with no owning request -> a stale orphan; a fresh create
+    # will reconcile it away on ingest, so nothing to warn about here.
+    return {"code": SubmitErrorCode.OK, "message": ""}
 
 
 def finalize_pr(prnumber: int) -> dict:

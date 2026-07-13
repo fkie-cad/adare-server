@@ -24,6 +24,9 @@ import SubmitExperimentPage from '@/pages/submit-experiment'
 import SubmitTestfunctionPage from '@/pages/submit-testfunction'
 import SubmitEnvironmentPage from '@/pages/submit-environment'
 import EnvironmentDetailPage from '@/pages/environment-detail'
+import EditExperimentPage from '@/pages/edit-experiment'
+import EditEnvironmentPage from '@/pages/edit-environment'
+import EditTestfunctionPage from '@/pages/edit-testfunction'
 import NotFoundPage from '@/pages/not-found'
 
 interface RouterContext {
@@ -106,6 +109,12 @@ const experimentDetailRoute = createRoute({
   component: ExperimentDetailPage,
 })
 
+const experimentEditRoute = createRoute({
+  getParentRoute: () => experimentRoute,
+  path: '/$name/edit',
+  component: EditExperimentPage,
+})
+
 // Run routes
 const runRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -146,6 +155,12 @@ const environmentDetailRoute = createRoute({
   component: EnvironmentDetailPage,
 })
 
+const environmentEditRoute = createRoute({
+  getParentRoute: () => environmentRoute,
+  path: '/$name/edit',
+  component: EditEnvironmentPage,
+})
+
 // Testfunction set routes
 const testfunctionSetRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -164,6 +179,12 @@ const testfunctionSetDetailRoute = createRoute({
   getParentRoute: () => testfunctionSetRoute,
   path: '/$name',
   component: TestfunctionSetDetailPage,
+})
+
+const testfunctionSetEditRoute = createRoute({
+  getParentRoute: () => testfunctionSetRoute,
+  path: '/$name/edit',
+  component: EditTestfunctionPage,
 })
 
 // Request
@@ -222,10 +243,22 @@ export const routeTree = rootRoute.addChildren([
   indexRoute,
   homeRoute,
   loginRoute.addChildren([loginIndexRoute, oauthCallbackRoute]),
-  experimentRoute.addChildren([experimentListRoute, experimentDetailRoute]),
+  experimentRoute.addChildren([
+    experimentListRoute,
+    experimentDetailRoute,
+    experimentEditRoute,
+  ]),
   runRoute.addChildren([runListRoute, runDetailRoute]),
-  environmentRoute.addChildren([environmentListRoute, environmentDetailRoute]),
-  testfunctionSetRoute.addChildren([testfunctionSetListRoute, testfunctionSetDetailRoute]),
+  environmentRoute.addChildren([
+    environmentListRoute,
+    environmentDetailRoute,
+    environmentEditRoute,
+  ]),
+  testfunctionSetRoute.addChildren([
+    testfunctionSetListRoute,
+    testfunctionSetDetailRoute,
+    testfunctionSetEditRoute,
+  ]),
   requestListRoute,
   profileSelfRoute,
   profileUserRoute,

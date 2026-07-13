@@ -11,23 +11,29 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 
 
+VALID_ACTIONS = ('create', 'modify', 'remove')
+
+
+def _fake_pr():
+    return Response({'pr_url': '#dev', 'pr_number': random.randint(1000, 9999)}, status=201)
+
+
 class DevSubmitExperimentView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        playbook = request.FILES.get('playbook')
-        metadata = request.FILES.get('metadata')
         name = request.data.get('name')
-        description = request.data.get('description', '')  # noqa: F841
+        action = request.data.get('action', 'create')
 
-        if not playbook or not metadata or not name:
-            return Response({'error': 'playbook, metadata, and name are required'}, status=400)
+        if not name:
+            return Response({'error': 'name is required'}, status=400)
+        if action not in VALID_ACTIONS:
+            return Response({'error': f'action must be one of {VALID_ACTIONS}'}, status=400)
+        if action == 'create' and (not request.FILES.get('playbook') or not request.FILES.get('metadata')):
+            return Response({'error': 'playbook and metadata are required'}, status=400)
 
-        return Response({
-            'pr_url': '#dev',
-            'pr_number': random.randint(1000, 9999),
-        }, status=201)
+        return _fake_pr()
 
 
 class DevSubmitTestfunctionView(APIView):
@@ -35,18 +41,17 @@ class DevSubmitTestfunctionView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        testfunction_file = request.FILES.get('testfunction')
-        requirements_file = request.FILES.get('requirements')
         name = request.data.get('name')
-        description = request.data.get('description', '')  # noqa: F841
+        action = request.data.get('action', 'create')
 
-        if not testfunction_file or not requirements_file or not name:
-            return Response({'error': 'testfunction, requirements, and name are required'}, status=400)
+        if not name:
+            return Response({'error': 'name is required'}, status=400)
+        if action not in VALID_ACTIONS:
+            return Response({'error': f'action must be one of {VALID_ACTIONS}'}, status=400)
+        if action == 'create' and (not request.FILES.get('testfunction') or not request.FILES.get('requirements')):
+            return Response({'error': 'testfunction and requirements are required'}, status=400)
 
-        return Response({
-            'pr_url': '#dev',
-            'pr_number': random.randint(1000, 9999),
-        }, status=201)
+        return _fake_pr()
 
 
 class DevSubmitEnvironmentView(APIView):
@@ -54,14 +59,14 @@ class DevSubmitEnvironmentView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        environment_file = request.FILES.get('environment')
         name = request.data.get('name')
-        description = request.data.get('description', '')  # noqa: F841
+        action = request.data.get('action', 'create')
 
-        if not environment_file or not name:
-            return Response({'error': 'environment and name are required'}, status=400)
+        if not name:
+            return Response({'error': 'name is required'}, status=400)
+        if action not in VALID_ACTIONS:
+            return Response({'error': f'action must be one of {VALID_ACTIONS}'}, status=400)
+        if action != 'remove' and not request.FILES.get('environment'):
+            return Response({'error': 'environment is required'}, status=400)
 
-        return Response({
-            'pr_url': '#dev',
-            'pr_number': random.randint(1000, 9999),
-        }, status=201)
+        return _fake_pr()
