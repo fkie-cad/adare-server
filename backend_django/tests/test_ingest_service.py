@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from giteaeventmanager import service
 from giteaeventmanager.action.base import PullRequest
@@ -162,8 +163,14 @@ class TestIngest:
                 service.ingest_pr(9)
 
 
+ENV_VM_SHA256 = 'c' * 64
+# A `vm` submitted to the server must be a published http(s) URL (a bare local
+# path is reference-only and not publishable, per CONTRACT.md); the server
+# HEAD-checks reachability at create time, so callers must mock
+# `plugin.requests.head` (see `_ok_head_patch` below).
 ENV_VM = (
-    'vm: "/media/adare/AdareVMs/Adare-Ubuntu2204.ova"\n'
+    'vm: "https://host.example/Adare-Ubuntu2204.ova"\n'
+    f'vm_sha256: {ENV_VM_SHA256}\n'
     'os:\n'
     '  os: Linux\n'
     '  platform: linux\n'
@@ -190,15 +197,34 @@ ENV_NO_SOURCE = (
     '  platform: linux\n'
     '  distribution: Ubuntu\n'
 )
+RECIPE_ISO_SHA256 = 'a' * 64
 ENV_RECIPE_ONLY = (
     'recipe:\n'
     '  profile: ubuntu-24.04\n'
     '  iso: /isos/ubuntu.iso\n'
-    '  iso_sha256: abc123\n'
+    f'  iso_sha256: {RECIPE_ISO_SHA256}\n'
+    '  template: ""\n'
+    '  params:\n'
+    '    setup_level: 1\n'
+    '    disk_size: 40G\n'
+    '    ram_mb: 4096\n'
+    '    cpus: 2\n'
+    '    arch: x86_64\n'
+    'os:\n'
+    '  os: Ubuntu 24.04\n'
+    '  platform: linux\n'
+    '  distribution: Ubuntu\n'
+    '  version: "24.04"\n'
+)
+BAKED_VM_SHA256 = 'b' * 64
+ENV_BAKED_URL = (
+    'vm: "https://host.example/foo.ova"\n'
+    f'vm_sha256: {BAKED_VM_SHA256}\n'
     'os:\n'
     '  os: Linux\n'
     '  platform: linux\n'
     '  distribution: Ubuntu\n'
+    '  version: "22.04"\n'
 )
 
 
@@ -219,6 +245,11 @@ def _env_download(content):
     return _dl
 
 
+class _OkResp:
+    """A reachable-URL stand-in for `requests.get`/`.head` (status 200)."""
+    status_code = 200
+
+
 @pytest.mark.django_db
 class TestEnvironmentIngest:
     """Environment PRs route through the EnvironmentPlugin (vm / legacy vagrantbox)."""
@@ -227,11 +258,13 @@ class TestEnvironmentIngest:
         from experiments.models import Environment
         pr = _env_pr(number=20, name='vmenv')
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', return_value=pr):
             service.ingest_pr(20)
 
         env = Environment.objects.get(name='vmenv')
-        assert env.vm == '/media/adare/AdareVMs/Adare-Ubuntu2204.ova'
+        assert env.vm == 'https://host.example/Adare-Ubuntu2204.ova'
+        assert env.vm_sha256 == ENV_VM_SHA256
         assert env.vagrantbox == ''
         assert env.os_info.platform == 'linux'
         # postsetupinstallations must ingest without error (regression: tuple bug)
@@ -263,14 +296,220 @@ class TestEnvironmentIngest:
                 service.ingest_pr(22)
         assert not Environment.objects.filter(name='badenv').exists()
 
-    def test_recipe_only_raises_taskfailure(self):
+    def test_recipe_creates_environment(self):
         from experiments.models import Environment
         pr = _env_pr(number=23, name='recipeenv')
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_RECIPE_ONLY)), \
              patch.object(service, '_fetch_pull_request', return_value=pr):
-            with pytest.raises(TaskFailure, match='recipe'):
-                service.ingest_pr(23)
-        assert not Environment.objects.filter(name='recipeenv').exists()
+            service.ingest_pr(23)
+
+        env = Environment.objects.get(name='recipeenv')
+        assert env.vm == ''
+        assert env.vagrantbox == ''
+        assert env.recipe is not None
+        assert env.recipe.profile == 'ubuntu-24.04'
+        assert env.recipe.iso == '/isos/ubuntu.iso'
+        assert env.recipe.iso_sha256 == RECIPE_ISO_SHA256
+        assert env.recipe.setup_level == 1
+        assert env.recipe.disk_size == '40G'
+        assert env.recipe.ram_mb == 4096
+        assert env.recipe.cpus == 2
+        assert env.recipe.arch == 'x86_64'
+
+    def test_recipe_missing_iso_sha256_raises_taskfailure(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=24, name='recipe-badenv')
+        bad_recipe = (
+            'recipe:\n'
+            '  profile: ubuntu-24.04\n'
+            '  iso: /isos/ubuntu.iso\n'
+            'os:\n'
+            '  os: Linux\n'
+            '  platform: linux\n'
+            '  distribution: Ubuntu\n'
+        )
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='iso_sha256'):
+                service.ingest_pr(24)
+        assert not Environment.objects.filter(name='recipe-badenv').exists()
+
+    def test_recipe_non_hex_iso_sha256_raises_taskfailure(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=25, name='recipe-badhash')
+        bad_recipe = ENV_RECIPE_ONLY.replace(RECIPE_ISO_SHA256, 'not-a-valid-hash')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='iso_sha256'):
+                service.ingest_pr(25)
+        assert not Environment.objects.filter(name='recipe-badhash').exists()
+
+    def test_baked_url_creates_environment(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=26, name='bakedenv')
+
+        class _Resp:
+            status_code = 200
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_BAKED_URL)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_Resp()), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(26)
+
+        env = Environment.objects.get(name='bakedenv')
+        assert env.vm == 'https://host.example/foo.ova'
+        assert env.vm_sha256 == BAKED_VM_SHA256
+
+    def test_baked_local_path_rejected(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=27, name='baked-localpath')
+        local_path_env = ENV_BAKED_URL.replace('https://host.example/foo.ova', '/media/adare/AdareVMs/foo.ova')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(local_path_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='http'):
+                service.ingest_pr(27)
+        assert not Environment.objects.filter(name='baked-localpath').exists()
+
+    def test_baked_malformed_sha256_rejected(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=28, name='baked-badhash')
+        bad_env = ENV_BAKED_URL.replace(BAKED_VM_SHA256, 'not-a-valid-hash')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='vm_sha256'):
+                service.ingest_pr(28)
+        assert not Environment.objects.filter(name='baked-badhash').exists()
+
+    def test_baked_unreachable_url_raises_via_exception(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=29, name='baked-unreachable')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_BAKED_URL)), \
+             patch('giteaeventmanager.action.plugin.requests.head',
+                   side_effect=requests.RequestException('boom')), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='could not reach'):
+                service.ingest_pr(29)
+        assert not Environment.objects.filter(name='baked-unreachable').exists()
+
+    def test_baked_unreachable_url_raises_via_status(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=30, name='baked-404')
+
+        class _Resp:
+            status_code = 404
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_BAKED_URL)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_Resp()), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='unreachable'):
+                service.ingest_pr(30)
+        assert not Environment.objects.filter(name='baked-404').exists()
+
+    # -- regression: author-controlled YAML scalars must never reach urlparse()/
+    #    re.match() unguarded (those raise AttributeError/TypeError -> 500, not
+    #    a clean TaskFailure/400). --
+
+    def test_numeric_vm_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=31, name='baked-numeric-vm')
+        numeric_vm_env = (
+            'vm: 12345\n'
+            'os:\n'
+            '  os: Linux\n'
+            '  platform: linux\n'
+            '  distribution: Ubuntu\n'
+        )
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(numeric_vm_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='vm'):
+                service.ingest_pr(31)
+        assert not Environment.objects.filter(name='baked-numeric-vm').exists()
+
+    def test_numeric_vm_sha256_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=32, name='baked-numeric-hash')
+        # an unquoted all-digit 64-char scalar parses as a YAML int, not a str
+        numeric_hash_env = ENV_BAKED_URL.replace(BAKED_VM_SHA256, '1' * 64)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(numeric_hash_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='vm_sha256'):
+                service.ingest_pr(32)
+        assert not Environment.objects.filter(name='baked-numeric-hash').exists()
+
+    def test_numeric_recipe_iso_sha256_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=33, name='recipe-numeric-hash')
+        numeric_hash_recipe = ENV_RECIPE_ONLY.replace(RECIPE_ISO_SHA256, '1' * 64)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(numeric_hash_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='iso_sha256'):
+                service.ingest_pr(33)
+        assert not Environment.objects.filter(name='recipe-numeric-hash').exists()
+
+    def test_recipe_non_int_setup_level_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=34, name='recipe-bad-setup-level')
+        bad_params_recipe = ENV_RECIPE_ONLY.replace('setup_level: 1\n', 'setup_level: "one"\n')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_params_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='setup_level'):
+                service.ingest_pr(34)
+        assert not Environment.objects.filter(name='recipe-bad-setup-level').exists()
+
+    # -- regression: author-controlled fields must be length-checked against
+    #    the Recipe/Environment CharField columns before any DB write, since
+    #    Recipe.objects.create()/Environment.save() skip full_clean() and an
+    #    over-long value would otherwise only fail as a raw Postgres DataError
+    #    (a 500), not TaskFailure. --
+
+    def test_recipe_iso_too_long_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=35, name='recipe-long-iso')
+        long_iso_recipe = ENV_RECIPE_ONLY.replace('/isos/ubuntu.iso', '/isos/' + 'a' * 2000 + '.iso')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(long_iso_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='iso'):
+                service.ingest_pr(35)
+        assert not Environment.objects.filter(name='recipe-long-iso').exists()
+
+    def test_recipe_profile_too_long_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=36, name='recipe-long-profile')
+        long_profile_recipe = ENV_RECIPE_ONLY.replace('ubuntu-24.04', 'a' * 201, 1)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(long_profile_recipe)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='profile'):
+                service.ingest_pr(36)
+        assert not Environment.objects.filter(name='recipe-long-profile').exists()
+
+    def test_vm_url_too_long_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=37, name='baked-long-vm')
+        long_vm = 'https://host.example/' + ('a' * 2000) + '.ova'
+        long_vm_env = ENV_BAKED_URL.replace('https://host.example/foo.ova', long_vm)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(long_vm_env)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='vm'):
+                service.ingest_pr(37)
+        assert not Environment.objects.filter(name='baked-long-vm').exists()
+
+    def test_empty_yaml_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=38, name='empty-yaml-env')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download('')), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='mapping'):
+                service.ingest_pr(38)
+        assert not Environment.objects.filter(name='empty-yaml-env').exists()
+
+    def test_non_dict_yaml_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=39, name='list-yaml-env')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download('[]\n')), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='mapping'):
+                service.ingest_pr(39)
+        assert not Environment.objects.filter(name='list-yaml-env').exists()
 
 
 @pytest.mark.django_db
@@ -284,6 +523,7 @@ class TestNameCollisionSafetyNet:
 
     def _ingest_env(self, number, name):
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', return_value=_env_pr(number, name)):
             service.ingest_pr(number)
 
@@ -302,6 +542,7 @@ class TestNameCollisionSafetyNet:
         with patch('helperfunctions.gitea_write.comment_on_pull_request') as comment, \
              patch('helperfunctions.gitea_write.close_pull_request') as close, \
              patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', side_effect=_fetch):
             service.ingest_pr(41)
 
@@ -637,9 +878,11 @@ class TestEnvironmentModify:
 
     def _publish_env(self, number, name):
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', return_value=_env_pr(number, name)):
             service.ingest_pr(number)
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request',
                           return_value=_env_pr(number, name, merged=True, state='closed')):
             service.finalize_pr(number)
@@ -651,6 +894,7 @@ class TestEnvironmentModify:
 
         changed_env = ENV_VM.replace('Adare-Ubuntu2204.ova', 'Adare-Ubuntu2404.ova')
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(changed_env)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', return_value=_env_modify_pr(91, 'modenv')):
             service.ingest_pr(91)
 
@@ -663,6 +907,7 @@ class TestEnvironmentModify:
 
         # merge -> new published, old gone, single row again
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(changed_env)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request',
                           return_value=_env_modify_pr(91, 'modenv', merged=True, state='closed')):
             service.finalize_pr(91)
@@ -702,8 +947,12 @@ class TestErrorCodes:
                 service.ingest_pr(101)
         assert exc.value.code == SubmitErrorCode.INVALID_CONTENT
 
-    def test_recipe_only_is_invalid_content(self):
-        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_RECIPE_ONLY)), \
+    def test_invalid_recipe_is_invalid_content(self):
+        # recipe envs are now a supported source; a malformed recipe (non-hex
+        # iso_sha256) is the recipe-branch validation failure that must carry
+        # INVALID_CONTENT.
+        bad_recipe = ENV_RECIPE_ONLY.replace(RECIPE_ISO_SHA256, 'nothex')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_recipe)), \
              patch.object(service, '_fetch_pull_request', return_value=_env_pr(102, 'recipeenv2')):
             with pytest.raises(TaskFailure) as exc:
                 service.ingest_pr(102)
@@ -769,6 +1018,7 @@ class TestClassifySubmission:
     def test_published_is_already_published(self):
         from experiments.models import Environment
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', return_value=_env_pr(110, 'classpub')):
             service.ingest_pr(110)
         env = Environment.objects.get(name='classpub')
@@ -780,6 +1030,7 @@ class TestClassifySubmission:
 
     def test_open_draft_is_open_duplicate(self):
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', return_value=_env_pr(111, 'classdraft')):
             service.ingest_pr(111)
 
@@ -804,6 +1055,7 @@ class TestSubmitViews:
         import experiments.submit_views as submit_views
         from experiments.models import Environment
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_VM)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_OkResp()), \
              patch.object(service, '_fetch_pull_request', return_value=_env_pr(120, 'viewpub')):
             service.ingest_pr(120)
         env = Environment.objects.get(name='viewpub')

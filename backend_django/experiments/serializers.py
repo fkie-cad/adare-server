@@ -8,7 +8,7 @@ from helperfunctions.minio import get_presigned_url
 from experiments.models import (
     Tag, TagScope, Status, Result, TestParameter, TestParameterEntry, Event,
     TestEvent, ErrorEvent, ActionEvent, Requirement, TestfunctionSet,
-    TestFunction, Tool, AbstractTest, OsInfo, PostSetupInstallation,
+    TestFunction, Tool, AbstractTest, OsInfo, PostSetupInstallation, Recipe,
     Environment, Experiment, ExperimentRun, Label, Request,
 )
 
@@ -87,6 +87,22 @@ class OsInfoSerializer(serializers.ModelSerializer):
         }
 
 
+class RecipeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = [
+            'profile',
+            'iso',
+            'iso_sha256',
+            'template',
+            'setup_level',
+            'disk_size',
+            'ram_mb',
+            'cpus',
+            'arch',
+        ]
+
+
 class EnvironmentMetadataSerializer(serializers.ModelSerializer):
     gitea_url = serializers.SerializerMethodField('get_gitea_url', read_only=True)
 
@@ -106,6 +122,7 @@ class EnvironmentMetadataSerializer(serializers.ModelSerializer):
 
 class EnvironmentSerializer(serializers.ModelSerializer):
     os_info = OsInfoSerializer()
+    recipe = RecipeSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     post_setup_installations = PostSetupInstallationSerializer(many=True)
     published_by = serializers.CharField(source='published_by.username', read_only=True)
@@ -123,8 +140,10 @@ class EnvironmentSerializer(serializers.ModelSerializer):
             'name',
             'ulid',
             'vm',
+            'vm_sha256',
             'vagrantbox',
             'vagrantbox_cloud_url',
+            'recipe',
             'description',
             'os_info',
             'tags',

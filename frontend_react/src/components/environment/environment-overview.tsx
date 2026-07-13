@@ -48,6 +48,7 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
   const vagrantCloudUrl = environment.vagrantbox
     ? `https://app.vagrantup.com/${environment.vagrantbox}`
     : null
+  const isHttpVm = /^https?:\/\//i.test(environment.vm ?? '')
 
   return (
     <div className="space-y-4">
@@ -128,12 +129,39 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
           <div className="flex justify-between">
             <div>
               <div className="text-sm text-muted-foreground">
-                {vagrantCloudUrl ? 'vagrant box' : 'vm'}
+                {vagrantCloudUrl ? 'vagrant box' : environment.recipe ? 'recipe' : 'vm'}
               </div>
               {vagrantCloudUrl ? (
                 <a href={vagrantCloudUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                   {environment.vagrantbox}
                 </a>
+              ) : environment.recipe ? (
+                <div className="space-y-0.5">
+                  <div className="text-sm">{environment.recipe.profile}</div>
+                  <div className="font-mono text-xs text-muted-foreground break-all">{environment.recipe.iso}</div>
+                  <div className="font-mono text-xs text-muted-foreground break-all">{environment.recipe.iso_sha256}</div>
+                  {(environment.recipe.disk_size || environment.recipe.ram_mb || environment.recipe.cpus) && (
+                    <div className="text-xs text-muted-foreground">
+                      {[
+                        environment.recipe.disk_size && `disk: ${environment.recipe.disk_size}`,
+                        environment.recipe.ram_mb && `ram: ${environment.recipe.ram_mb}MB`,
+                        environment.recipe.cpus && `cpus: ${environment.recipe.cpus}`,
+                      ].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                </div>
+              ) : environment.vm && isHttpVm ? (
+                <div className="space-y-0.5">
+                  <a href={environment.vm} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+                    {environment.vm}
+                  </a>
+                  {environment.vm_sha256 && (
+                    <div className="text-xs text-muted-foreground">
+                      sha256:{' '}
+                      <span className="font-mono break-all">{environment.vm_sha256}</span>
+                    </div>
+                  )}
+                </div>
               ) : environment.vm ? (
                 <span className="font-mono text-sm break-all">{environment.vm}</span>
               ) : (

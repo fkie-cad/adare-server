@@ -157,12 +157,26 @@ export interface Run {
   networkdrives_logfile?: string | null
 }
 
+export interface Recipe {
+  profile: string
+  iso: string
+  iso_sha256: string
+  template?: string
+  setup_level?: number | null
+  disk_size?: string
+  ram_mb?: number | null
+  cpus?: number | null
+  arch?: string
+}
+
 export interface Environment {
   ulid: string
   name: string
   description: string
   vm: string
   vagrantbox: string
+  recipe?: Recipe | null
+  vm_sha256?: string
   published_by: string
   created_by: string
   published_at: string
