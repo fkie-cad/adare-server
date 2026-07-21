@@ -238,6 +238,9 @@ class Environment(models.Model):
     vm = models.CharField(max_length=2000, blank=True, default="")
     # sha256 of the baked disk image; required when `vm` is a published URL.
     vm_sha256 = models.CharField(max_length=64, blank=True, default="")
+    # Disk image format (qcow2/ova/vmdk/vdi/img/raw); required for a `vm` URL
+    # whose path has no recognizable disk extension (e.g. an owncloud share link).
+    vm_format = models.CharField(max_length=10, blank=True, default='')
     # Legacy Vagrant source (owner/box); still valid, the frontend cloud link depends on it.
     vagrantbox = models.CharField(max_length=2000, default="")
     # Built-on-load ('tutorial') source: ISO + setup params, mutually exclusive with vm/vagrantbox.

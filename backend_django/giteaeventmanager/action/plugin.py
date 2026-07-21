@@ -31,8 +31,11 @@ log = logging.getLogger(__name__)
 # sha256 as emitted for `recipe.iso_sha256` / `vm_sha256`: 64 lowercase hex chars
 # (validated case-insensitively, matching the client's hash_file_sha256 output).
 SHA256_HEX_RE = re.compile(r'^[0-9a-fA-F]{64}$')
-# Plausible baked-VM disk extensions accepted for a published `vm` URL.
+# Plausible baked-VM disk extensions; used to decide whether `vm_format` is
+# required for a published `vm` URL (a bare share link, e.g. owncloud, has none).
 BAKED_VM_EXTENSIONS = ('.ova', '.qcow2', '.vmdk', '.vdi', '.img')
+# Allowed values for the optional `vm_format` field on a baked-URL environment.
+VM_FORMATS = ('qcow2', 'ova', 'vmdk', 'vdi', 'img', 'raw')
 
 
 class PullRequestPluginInterface(ABC):
@@ -559,6 +562,7 @@ class EnvironmentPlugin(PullRequestPlugin):
         vagrantbox = environment_data.get('vagrantbox') or ''
         vm = environment_data.get('vm') or ''
         vm_sha256 = environment_data.get('vm_sha256') or ''
+        vm_format = environment_data.get('vm_format') or ''
         recipe_block = environment_data.get('recipe') or {}
         if vagrantbox:
             if '/' not in vagrantbox:
@@ -641,6 +645,7 @@ class EnvironmentPlugin(PullRequestPlugin):
             name=self.object_name,
             vm=vm,
             vm_sha256=vm_sha256,
+            vm_format=vm_format,
             vagrantbox=vagrantbox,
             recipe=recipe,
             file=self.environment_file_remote_url,
@@ -780,9 +785,21 @@ class EnvironmentPlugin(PullRequestPlugin):
                     f"'vm' must be an http(s) URL to publish a baked environment (got {vm!r}); "
                     "host the disk image and provide its URL",
                     code=SubmitErrorCode.INVALID_CONTENT)
-            if not parsed_vm.path.lower().endswith(BAKED_VM_EXTENSIONS):
+            # The URL path need not end in a disk extension (owncloud/any-host
+            # share links like .../s/TOKEN/download are valid); instead, when the
+            # extension is not recognizable, `vm_format` must declare the format.
+            vm_format = environment_data.get('vm_format')
+            if vm_format is not None:
+                if not isinstance(vm_format, str) or vm_format not in VM_FORMATS:
+                    raise TaskFailure(
+                        f"'vm_format' must be one of {VM_FORMATS} (got {vm_format!r})",
+                        code=SubmitErrorCode.INVALID_CONTENT)
+            has_known_extension = parsed_vm.path.lower().endswith(BAKED_VM_EXTENSIONS)
+            if not has_known_extension and not vm_format:
                 raise TaskFailure(
-                    f"'vm' URL must end in a plausible disk extension {BAKED_VM_EXTENSIONS} (got {vm!r})",
+                    f"'vm_format' is required when the 'vm' URL path does not end in a "
+                    f"recognized disk extension {BAKED_VM_EXTENSIONS} (got {vm!r}); "
+                    f"declare one of {VM_FORMATS}",
                     code=SubmitErrorCode.INVALID_CONTENT)
             vm_sha256 = environment_data.get('vm_sha256')
             if not vm_sha256:
