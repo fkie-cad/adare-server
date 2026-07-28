@@ -35,7 +35,7 @@ export function useDevLogin() {
     },
     onSuccess: (data) => {
       setLoginToken(data.user, data.token, data.expiry)
-      navigate({ to: '/profile' })
+      navigate({ to: '/home' })
     },
   })
 }

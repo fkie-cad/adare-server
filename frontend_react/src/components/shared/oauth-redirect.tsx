@@ -28,7 +28,7 @@ export function OauthRedirect() {
     oauthCallback.mutate(
       { code, state },
       {
-        onSuccess: () => navigate({ to: '/profile' }),
+        onSuccess: () => navigate({ to: '/home' }),
         onError: () =>
           setError('Sign-in with Gitea failed during the token exchange. Please try again.'),
       },
