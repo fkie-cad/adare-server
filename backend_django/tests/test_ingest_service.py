@@ -165,9 +165,9 @@ class TestIngest:
 
 ENV_VM_SHA256 = 'c' * 64
 # A `vm` submitted to the server must be a published http(s) URL (a bare local
-# path is reference-only and not publishable, per CONTRACT.md); the server
-# HEAD-checks reachability at create time, so callers must mock
-# `plugin.requests.head` (see `_ok_head_patch` below).
+# path is reference-only and not publishable); the server HEAD-checks
+# reachability at create time, so callers must mock `plugin.requests.head`
+# (see `_OkResp` below).
 ENV_VM = (
     'vm: "https://host.example/Adare-Ubuntu2204.ova"\n'
     f'vm_sha256: {ENV_VM_SHA256}\n'
@@ -198,10 +198,15 @@ ENV_NO_SOURCE = (
     '  distribution: Ubuntu\n'
 )
 RECIPE_ISO_SHA256 = 'a' * 64
+# A hosted recipe ISO must be an http(s) URL, same rule as the baked `vm` source:
+# a bare local path (`/isos/ubuntu.iso`) resolves only on the publisher's own
+# machine. The Windows-only BYO form (`iso_name`, see ENV_RECIPE_BYO) is the one
+# way to publish a recipe without hosting the ISO.
+RECIPE_ISO_URL = 'https://mirror.example/ubuntu-24.04.iso'
 ENV_RECIPE_ONLY = (
     'recipe:\n'
     '  profile: ubuntu-24.04\n'
-    '  iso: /isos/ubuntu.iso\n'
+    f'  iso: "{RECIPE_ISO_URL}"\n'
     f'  iso_sha256: {RECIPE_ISO_SHA256}\n'
     '  template: ""\n'
     '  params:\n'
@@ -215,6 +220,58 @@ ENV_RECIPE_ONLY = (
     '  platform: linux\n'
     '  distribution: Ubuntu\n'
     '  version: "24.04"\n'
+)
+# BYO ('bring your own') ISO: Windows only, because a Microsoft Windows ISO may
+# not legally be rehosted. `iso_name` is a bare filename the consumer supplies
+# locally and `iso_sha256` stays the integrity boundary.
+BYO_ISO_SHA256 = 'd' * 64
+BYO_ISO_NAME = 'Win11_25H2_English_Arm64_v2.iso'
+# publisher-supplied plain text; never rendered as markdown/HTML by a frontend
+BYO_ISO_NOTES_YAML = (
+    '  iso_notes: |\n'
+    '    Download from https://www.microsoft.com/software-download/windows11\n'
+    '    "Windows 11 Arm64", English (International). Requires a valid licence.\n'
+)
+ENV_RECIPE_BYO = (
+    'recipe:\n'
+    '  profile: windows11arm64\n'
+    f'  iso_name: {BYO_ISO_NAME}\n'
+    f'  iso_sha256: {BYO_ISO_SHA256}\n'
+    f'{BYO_ISO_NOTES_YAML}'
+    '  template: autounattend_win11_arm64.xml\n'
+    '  params:\n'
+    '    setup_level: 2\n'
+    '    disk_size: 160G\n'
+    '    ram_mb: 8192\n'
+    '    cpus: 4\n'
+    'os:\n'
+    '  os: Windows 11\n'
+    '  platform: windows\n'
+    '  distribution: Windows\n'
+    '  version: "11"\n'
+)
+# A provision block covering both entry shapes: a single command and a
+# `for_each` group whose steps carry the optional fields.
+PROVISION_YAML = (
+    '  provision:\n'
+    '    - name: boot-hardening\n'
+    '      description: Survive a hard power-off without Startup Repair\n'
+    '      shell: cmd\n'
+    "      command: 'bcdedit /set {default} bootstatuspolicy ignoreallfailures'\n"
+    '    - name: autopsy\n'
+    '      description: Autopsy {{ item }}\n'
+    '      for_each: ["4.4.0", "4.4.1"]\n'
+    '      steps:\n'
+    '        - name: autopsy-{{ item }}-download\n'
+    "          command: 'curl.exe -L -f -o \"$env:TEMP\\autopsy.msi\" https://host.example/a.msi'\n"
+    '          timeout_minutes: 20\n'
+    '        - name: autopsy-{{ item }}-install\n'
+    "          command: 'msiexec /i \"$env:TEMP\\autopsy.msi\" /qn'\n"
+    '          allow_exit_codes: [0, 3010]\n'
+    "          verify: 'if (-not (Test-Path \"C:\\Program Files\\Autopsy\")) { exit 1 }'\n"
+    "          log_files: ['C:\\Temp\\autopsy-msi.log']\n"
+    '          timeout_minutes: 45\n'
+    '          reboot: false\n'
 )
 BAKED_VM_SHA256 = 'b' * 64
 ENV_BAKED_URL = (
@@ -248,6 +305,27 @@ def _env_download(content):
 class _OkResp:
     """A reachable-URL stand-in for `requests.get`/`.head` (status 200)."""
     status_code = 200
+
+
+def _recipe_with_provision(base, provision_yaml=PROVISION_YAML):
+    """Insert a `provision:` block at the end of `base`'s recipe block."""
+    return base.replace('\nos:\n', '\n' + provision_yaml + 'os:\n', 1)
+
+
+def _expect_invalid_content(number, name, content, match):
+    """Ingest `content` as an environment and assert it is rejected, cleanly.
+
+    A rejected environment must raise TaskFailure(INVALID_CONTENT) -- never an
+    AttributeError/TypeError/DataError bubbling up as a 500 -- and must leave no
+    partially written row behind.
+    """
+    from experiments.models import Environment
+    with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(content)), \
+         patch.object(service, '_fetch_pull_request', return_value=_env_pr(number, name)):
+        with pytest.raises(TaskFailure, match=match) as exc:
+            service.ingest_pr(number)
+    assert exc.value.code == SubmitErrorCode.INVALID_CONTENT
+    assert not Environment.objects.filter(name=name).exists()
 
 
 @pytest.mark.django_db
@@ -308,7 +386,10 @@ class TestEnvironmentIngest:
         assert env.vagrantbox == ''
         assert env.recipe is not None
         assert env.recipe.profile == 'ubuntu-24.04'
-        assert env.recipe.iso == '/isos/ubuntu.iso'
+        assert env.recipe.iso == RECIPE_ISO_URL
+        assert env.recipe.iso_name == ''
+        assert env.recipe.iso_notes == ''
+        assert env.recipe.provision == []
         assert env.recipe.iso_sha256 == RECIPE_ISO_SHA256
         assert env.recipe.setup_level == 1
         assert env.recipe.disk_size == '40G'
@@ -322,7 +403,7 @@ class TestEnvironmentIngest:
         bad_recipe = (
             'recipe:\n'
             '  profile: ubuntu-24.04\n'
-            '  iso: /isos/ubuntu.iso\n'
+            f'  iso: "{RECIPE_ISO_URL}"\n'
             'os:\n'
             '  os: Linux\n'
             '  platform: linux\n'
@@ -465,7 +546,8 @@ class TestEnvironmentIngest:
     def test_recipe_iso_too_long_raises_taskfailure_not_500(self):
         from experiments.models import Environment
         pr = _env_pr(number=35, name='recipe-long-iso')
-        long_iso_recipe = ENV_RECIPE_ONLY.replace('/isos/ubuntu.iso', '/isos/' + 'a' * 2000 + '.iso')
+        long_iso_recipe = ENV_RECIPE_ONLY.replace(
+            RECIPE_ISO_URL, 'https://mirror.example/' + 'a' * 2000 + '.iso')
         with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(long_iso_recipe)), \
              patch.object(service, '_fetch_pull_request', return_value=pr):
             with pytest.raises(TaskFailure, match='iso'):
@@ -510,6 +592,288 @@ class TestEnvironmentIngest:
             with pytest.raises(TaskFailure, match='mapping'):
                 service.ingest_pr(39)
         assert not Environment.objects.filter(name='list-yaml-env').exists()
+
+
+@pytest.mark.django_db
+class TestRecipeIsoContract:
+    """The two recipe ISO forms: a hosted http(s) `iso`, or a Windows-only BYO `iso_name`.
+
+    Exactly one must be present. These checks live in
+    `giteaeventmanager.action.environment_contract.check_recipe_block`, which is a
+    coarse filter only: it trusts `os.platform`, because the server has no
+    OS-profile catalog to resolve `recipe.profile` against. The authoritative
+    profile->platform gate is consumer-side in the client.
+    """
+
+    def test_recipe_local_iso_path_rejected(self):
+        # a bare local path resolves only on the publisher's machine; same rule
+        # the baked `vm` source has always applied
+        local_iso = ENV_RECIPE_ONLY.replace(RECIPE_ISO_URL, '/isos/ubuntu.iso')
+        _expect_invalid_content(130, 'recipe-local-iso', local_iso, 'http')
+
+    def test_recipe_non_http_scheme_iso_rejected(self):
+        ftp_iso = ENV_RECIPE_ONLY.replace(RECIPE_ISO_URL, 'ftp://mirror.example/ubuntu.iso')
+        _expect_invalid_content(131, 'recipe-ftp-iso', ftp_iso, 'http')
+
+    def test_byo_iso_creates_environment(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=132, name='byoenv')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_RECIPE_BYO)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(132)
+
+        env = Environment.objects.get(name='byoenv')
+        assert env.vm == ''
+        assert env.vagrantbox == ''
+        assert env.recipe is not None
+        assert env.recipe.profile == 'windows11arm64'
+        # no URL to download: the consumer supplies the file, the digest binds it
+        assert env.recipe.iso == ''
+        assert env.recipe.iso_name == BYO_ISO_NAME
+        assert env.recipe.iso_sha256 == BYO_ISO_SHA256
+        assert env.recipe.iso_notes.startswith('Download from https://')
+        assert env.recipe.template == 'autounattend_win11_arm64.xml'
+        assert env.recipe.setup_level == 2
+        assert env.recipe.ram_mb == 8192
+
+    def test_byo_iso_round_trips_through_serializer(self):
+        from experiments.models import Environment
+        from experiments.serializers import RecipeSerializer
+        pr = _env_pr(number=133, name='byoenv-api')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(ENV_RECIPE_BYO)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(133)
+
+        # the API must describe the BYO form truthfully, or a consumer sees an
+        # environment with no ISO at all
+        data = RecipeSerializer(Environment.objects.get(name='byoenv-api').recipe).data
+        assert data['iso'] == ''
+        assert data['iso_name'] == BYO_ISO_NAME
+        assert data['iso_sha256'] == BYO_ISO_SHA256
+        assert 'microsoft.com' in data['iso_notes']
+
+    def test_byo_iso_rejected_for_non_windows_platform(self):
+        linux_byo = ENV_RECIPE_BYO.replace('  platform: windows\n', '  platform: linux\n')
+        _expect_invalid_content(134, 'byo-linux', linux_byo, 'only allowed for Windows')
+
+    @pytest.mark.parametrize('bad_name', [
+        '../../etc/passwd',
+        '../win.iso',
+        'sub/dir/w.iso',
+        '/abs/path/w.iso',
+        'C:\\ISOs\\w.iso',
+        'https://host.example/w.iso',
+        '-rf.iso',
+    ])
+    def test_byo_iso_name_with_path_rejected(self, bad_name):
+        # ISO_NAME_RE admits a bare filename only: no separators, no '..', no
+        # scheme, no drive letter, and no leading '-' (never mistakable for a flag)
+        content = ENV_RECIPE_BYO.replace(BYO_ISO_NAME, bad_name)
+        name = f'byo-path-{abs(hash(bad_name)) % 10000}'
+        _expect_invalid_content(135, name, content, 'iso_name')
+
+    def test_byo_iso_name_padding_stripped(self):
+        # the client validates iso_name.strip(), so a padded quoted scalar
+        # publishes fine; the server must accept it and store the canonical form
+        from experiments.models import Environment
+        content = ENV_RECIPE_BYO.replace(
+            f'  iso_name: {BYO_ISO_NAME}\n', f'  iso_name: "  {BYO_ISO_NAME}  "\n')
+        pr = _env_pr(number=143, name='byo-padded-name')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(content)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(143)
+
+        assert Environment.objects.get(name='byo-padded-name').recipe.iso_name == BYO_ISO_NAME
+
+    def test_byo_iso_name_wrong_extension_rejected(self):
+        content = ENV_RECIPE_BYO.replace(BYO_ISO_NAME, 'Win11_25H2.img')
+        _expect_invalid_content(136, 'byo-bad-ext', content, 'iso_name')
+
+    def test_byo_iso_name_numeric_rejected(self):
+        # an unquoted numeric scalar parses as an int; it must not reach re.match()
+        content = ENV_RECIPE_BYO.replace(f'iso_name: {BYO_ISO_NAME}', 'iso_name: 12345')
+        _expect_invalid_content(137, 'byo-numeric-name', content, 'iso_name')
+
+    def test_byo_iso_name_too_long_rejected(self):
+        content = ENV_RECIPE_BYO.replace(BYO_ISO_NAME, 'a' * 250 + '.iso')
+        _expect_invalid_content(138, 'byo-long-name', content, 'iso_name')
+
+    def test_both_iso_and_iso_name_rejected(self):
+        content = ENV_RECIPE_BYO.replace(
+            f'  iso_name: {BYO_ISO_NAME}\n',
+            f'  iso_name: {BYO_ISO_NAME}\n  iso: "{RECIPE_ISO_URL}"\n')
+        _expect_invalid_content(139, 'byo-both', content, 'exactly one ISO source')
+
+    def test_neither_iso_nor_iso_name_rejected(self):
+        # a typo'd key ('iso_nmae') is silently dropped by the client's cattrs
+        # structuring, so "no ISO at all" has to be an explicit rejection
+        content = ENV_RECIPE_BYO.replace('  iso_name: ', '  iso_nmae: ')
+        _expect_invalid_content(140, 'byo-neither', content, 'missing its ISO source')
+
+    def test_uppercase_iso_sha256_rejected(self):
+        # the consumer's verify_iso_hash compares case-sensitively, so an
+        # uppercase digest would publish fine and never build
+        content = ENV_RECIPE_ONLY.replace(RECIPE_ISO_SHA256, 'A' * 64)
+        _expect_invalid_content(141, 'recipe-upper-hash', content, 'iso_sha256')
+
+    def test_iso_notes_too_long_rejected(self):
+        content = ENV_RECIPE_BYO.replace(
+            BYO_ISO_NOTES_YAML, f'  iso_notes: "{"n" * 1001}"\n')
+        _expect_invalid_content(142, 'byo-long-notes', content, 'iso_notes')
+
+
+@pytest.mark.django_db
+class TestRecipeProvision:
+    """`recipe.provision`: build-time steps, stored verbatim, run once per disk build.
+
+    Distinct from `postsetupinstallations`, which run again on every experiment run.
+    """
+
+    def test_provision_ingests_and_round_trips(self):
+        from experiments.models import Environment
+        from experiments.serializers import RecipeSerializer
+        pr = _env_pr(number=150, name='provenv')
+        content = _recipe_with_provision(ENV_RECIPE_BYO)
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(content)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(150)
+
+        recipe = Environment.objects.get(name='provenv').recipe
+        # stored as declared: the `for_each` group is NOT expanded server-side
+        assert [entry['name'] for entry in recipe.provision] == ['boot-hardening', 'autopsy']
+        command_entry, group_entry = recipe.provision
+        assert command_entry['shell'] == 'cmd'
+        assert command_entry['command'].startswith('bcdedit /set {default}')
+        assert group_entry['for_each'] == ['4.4.0', '4.4.1']
+        assert [step['name'] for step in group_entry['steps']] == [
+            'autopsy-{{ item }}-download', 'autopsy-{{ item }}-install']
+        install_step = group_entry['steps'][1]
+        assert install_step['allow_exit_codes'] == [0, 3010]
+        assert install_step['timeout_minutes'] == 45
+        assert install_step['reboot'] is False
+        assert install_step['log_files'] == ['C:\\Temp\\autopsy-msi.log']
+
+        # the API must say the environment is provisioned, not a bare OS install
+        assert RecipeSerializer(recipe).data['provision'] == recipe.provision
+
+    def test_provision_group_accepts_inherited_leaf_keys(self):
+        # the client's ProvisionStep subclasses ProvisionCommand, so a group entry
+        # may legally carry leaf keys (inert, but accepted at publish time) --
+        # rejecting them here would false-reject a publishable environment
+        from experiments.models import Environment
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: grouped\n'
+            '      shell: bash\n'
+            '      timeout_minutes: 15\n'
+            '      for_each: ["a", "b"]\n'
+            '      steps:\n'
+            '        - name: inner-{{ item }}\n'
+            '          command: echo {{ item }}\n'
+        ))
+        pr = _env_pr(number=162, name='prov-group-leafkeys')
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(content)), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(162)
+
+        recipe = Environment.objects.get(name='prov-group-leafkeys').recipe
+        assert recipe.provision[0]['shell'] == 'bash'
+        assert recipe.provision[0]['for_each'] == ['a', 'b']
+
+    def test_provision_not_a_list_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, '  provision: nope\n')
+        _expect_invalid_content(151, 'prov-not-list', content, 'must be a list')
+
+    def test_provision_both_command_and_steps_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: confused\n'
+            '      command: echo hi\n'
+            '      steps:\n'
+            '        - name: inner\n'
+            '          command: echo inner\n'
+        ))
+        _expect_invalid_content(152, 'prov-both', content, 'sets both')
+
+    def test_provision_neither_command_nor_steps_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: empty\n'
+            '      description: does nothing\n'
+        ))
+        _expect_invalid_content(153, 'prov-neither', content, 'exactly one of')
+
+    def test_provision_for_each_without_steps_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: looped-command\n'
+            '      for_each: ["a", "b"]\n'
+            '      command: echo {{ item }}\n'
+        ))
+        _expect_invalid_content(154, 'prov-loose-foreach', content, 'for_each')
+
+    def test_provision_non_int_allow_exit_codes_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: installer\n'
+            '      command: msiexec /i x.msi /qn\n'
+            '      allow_exit_codes: [0, "3010"]\n'
+        ))
+        _expect_invalid_content(155, 'prov-bad-codes', content, 'allow_exit_codes')
+
+    def test_provision_missing_name_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - command: echo hi\n'
+        ))
+        _expect_invalid_content(156, 'prov-no-name', content, 'name')
+
+    def test_provision_unknown_shell_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: weird-shell\n'
+            '      command: echo hi\n'
+            '      shell: zsh\n'
+        ))
+        _expect_invalid_content(157, 'prov-bad-shell', content, 'shell')
+
+    def test_provision_non_positive_timeout_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: instant\n'
+            '      command: echo hi\n'
+            '      timeout_minutes: 0\n'
+        ))
+        _expect_invalid_content(158, 'prov-bad-timeout', content, 'timeout_minutes')
+
+    def test_provision_unknown_key_rejected(self):
+        # cattrs drops unknown keys on the client, so a typo would otherwise
+        # publish cleanly and then silently use the default at build time
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: typo\n'
+            '      command: echo hi\n'
+            '      timeout_minuts: 20\n'
+        ))
+        _expect_invalid_content(159, 'prov-typo-key', content, 'unknown key')
+
+    def test_provision_nested_group_rejected(self):
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, (
+            '  provision:\n'
+            '    - name: outer\n'
+            '      steps:\n'
+            '        - name: inner-group\n'
+            '          steps:\n'
+            '            - name: deepest\n'
+            '              command: echo hi\n'
+        ))
+        _expect_invalid_content(160, 'prov-nested', content, 'do not nest')
+
+    def test_provision_too_many_entries_rejected(self):
+        entries = ''.join(
+            f'    - name: step-{i}\n      command: echo {i}\n' for i in range(60))
+        content = _recipe_with_provision(ENV_RECIPE_ONLY, '  provision:\n' + entries)
+        _expect_invalid_content(161, 'prov-too-many', content, 'more than')
 
 
 @pytest.mark.django_db

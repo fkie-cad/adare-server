@@ -49,6 +49,18 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
     ? `https://app.vagrantup.com/${environment.vagrantbox}`
     : null
   const isHttpVm = /^https?:\/\//i.test(environment.vm ?? '')
+  // A BYO ('bring your own') recipe has no ISO URL: the consumer supplies the
+  // file locally and iso_sha256 is what binds it. Windows only, because a
+  // Microsoft Windows ISO may not legally be rehosted.
+  const isByoIso = Boolean(environment.recipe && !environment.recipe.iso && environment.recipe.iso_name)
+  // How many commands the build-time provisioning actually runs: a group runs
+  // its steps once per for_each item. Counted here rather than listing the
+  // commands themselves -- this is publisher-supplied shell, not a shopping list.
+  const provisionCommandCount = (environment.recipe?.provision ?? []).reduce(
+    (total, entry) =>
+      total + (entry.steps?.length ? entry.steps.length * Math.max(1, entry.for_each?.length ?? 0) : 1),
+    0,
+  )
 
   return (
     <div className="space-y-4">
@@ -138,7 +150,24 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
               ) : environment.recipe ? (
                 <div className="space-y-0.5">
                   <div className="text-sm">{environment.recipe.profile}</div>
-                  <div className="font-mono text-xs text-muted-foreground break-all">{environment.recipe.iso}</div>
+                  {isByoIso ? (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs break-all">{environment.recipe.iso_name}</span>
+                        <Badge variant="outline">you supply this ISO</Badge>
+                      </div>
+                      {environment.recipe.iso_notes && (
+                        // PLAIN TEXT ONLY: iso_notes is publisher-supplied and therefore
+                        // attacker-controlled. Never render it as markdown/HTML -- JSX
+                        // escapes it here, `whitespace-pre-line` only keeps its newlines.
+                        <p className="whitespace-pre-line text-xs text-muted-foreground">
+                          {environment.recipe.iso_notes}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="font-mono text-xs text-muted-foreground break-all">{environment.recipe.iso}</div>
+                  )}
                   <div className="font-mono text-xs text-muted-foreground break-all">{environment.recipe.iso_sha256}</div>
                   {(environment.recipe.disk_size || environment.recipe.ram_mb || environment.recipe.cpus) && (
                     <div className="text-xs text-muted-foreground">
@@ -147,6 +176,15 @@ export function EnvironmentOverview({ name }: EnvironmentOverviewProps) {
                         environment.recipe.ram_mb && `ram: ${environment.recipe.ram_mb}MB`,
                         environment.recipe.cpus && `cpus: ${environment.recipe.cpus}`,
                       ].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                  {provisionCommandCount > 0 && (
+                    // The environment is provisioned at build time, not a bare OS
+                    // install -- say so. The commands themselves are deliberately
+                    // not dumped here.
+                    <div className="text-xs text-muted-foreground">
+                      + {provisionCommandCount} provisioning{' '}
+                      {provisionCommandCount === 1 ? 'step' : 'steps'} run while the disk is built
                     </div>
                   )}
                 </div>

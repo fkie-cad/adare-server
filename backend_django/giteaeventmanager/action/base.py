@@ -417,6 +417,7 @@ class PRFinalize(PullRequest):
 
     def _publish(self, object_instance, pr):
         object_instance.published = True
+        object_instance.is_current = True
         object_instance.published_at = self._transform_gitea_date(pr["merged_at"])
         object_instance.published_by = self._get_user(pr["merged_by"])
         object_instance.created_by = self._get_user(pr["user"])
@@ -461,10 +462,10 @@ class PRFinalize(PullRequest):
         if merged:
             if new_draft:
                 self._publish(new_draft, pr)
-            # drop the request before removing the old object so no request points at it
+            # drop the request before touching the old object so no request points at it
             self.request.delete()
             if old_object:
-                old_object.delete()
+                self.pullrequest_plugin.demote_superseded(old_object)
             return {"action": "modify", "merged": True, "published": True, "deleted_old": bool(old_object), "had_draft": True}
 
         # closed without merge -> discard the proposed draft, keep the old object live

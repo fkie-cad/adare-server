@@ -67,6 +67,16 @@ class ProfileSerializer(serializers.ModelSerializer):
         return AchievementSerializer(achievements, many=True).data
 
 
+class PublicUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username']
+
+
+class PublicProfileSerializer(ProfileSerializer):
+    user = PublicUserSerializer(required=True)
+
+
 class GiteaUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = GiteaUser

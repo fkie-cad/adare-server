@@ -1,4 +1,4 @@
-.PHONY: up down migrate shell logs seed react deploy deploy-react deploy-all db-backup deploy-check deploy-migrate deploy-dry-run db-reset-and-init remote-status remote-logs remote-celery-logs deploy-setup help test test-quick test-e2e test-e2e-debug test-e2e-interactive-react test-all test-cov react-test
+.PHONY: up down migrate shell logs seed seed-paper unseed-paper react deploy deploy-react deploy-all db-backup deploy-check deploy-migrate deploy-dry-run db-reset-and-init remote-status remote-logs remote-celery-logs deploy-setup help test test-api test-ingest test-quick test-e2e test-e2e-debug test-e2e-interactive-react test-all test-cov react-test
 
 COMPOSE = podman compose -f backend_django/docker-compose.yml
 
@@ -22,6 +22,12 @@ logs: ## Follow web container logs
 
 seed: ## Load sample dev data
 	$(COMPOSE) exec web python manage.py seed_dev_data
+
+seed-paper:   ## Seed paper-evaluation demo data (local dev only)
+	$(COMPOSE) exec web python manage.py seed_paper_data
+
+unseed-paper: ## Remove paper-evaluation demo data
+	$(COMPOSE) exec web python manage.py seed_paper_data --purge
 
 react: ## Start React dev server
 	cd frontend_react && npm run dev
@@ -62,11 +68,20 @@ remote-celery-logs: ## Follow Celery worker logs
 deploy-setup: ## Bootstrap local prod files from remote backup (run once)
 	backend_django/deploy/deploy-setup.sh
 
-test: ## Run API integration tests (Layer 1)
+# `tests/`, not `tests/api/`: the service-level suites live directly under
+# tests/ (test_ingest_service.py, test_serializers.py, test_models.py, ...) and
+# were outside every advertised target, so 91 ingest tests never ran in CI.
+test: ## Run all pytest suites — service + API integration (Layer 1)
+	$(COMPOSE) exec web python -m pytest tests/ -v --tb=short
+
+test-api: ## Run only the API integration tests (tests/api/)
 	$(COMPOSE) exec web python -m pytest tests/api/ -v --tb=short
 
+test-ingest: ## Run only the ingest-service suite (recipe / BYO ISO / provision)
+	$(COMPOSE) exec web python -m pytest tests/test_ingest_service.py -v --tb=short
+
 test-quick: ## Run fast tests only (skip slow-marked)
-	$(COMPOSE) exec web python -m pytest tests/api/ -v -m "not slow"
+	$(COMPOSE) exec web python -m pytest tests/ -v -m "not slow"
 
 test-e2e: ## Run E2E Gitea flow tests (Layer 2)
 	$(COMPOSE) exec web python manage.py test_e2e_gitea
@@ -97,10 +112,10 @@ test-e2e-interactive-react: ## Run E2E tests with React frontend for GUI inspect
 		exit $$EXIT_CODE
 
 test-all: ## Run both test layers
-	$(COMPOSE) exec web python -m pytest tests/api/ -v --tb=short && \
+	$(COMPOSE) exec web python -m pytest tests/ -v --tb=short && \
 	$(COMPOSE) exec web python manage.py test_e2e_gitea
 
 test-cov: ## Run tests with coverage report
-	$(COMPOSE) exec web python -m pytest tests/api/ -v --cov=experiments --cov=users --cov=giteaeventmanager --cov-report=term-missing
+	$(COMPOSE) exec web python -m pytest tests/ -v --cov=experiments --cov=users --cov=giteaeventmanager --cov-report=term-missing
 
 .DEFAULT_GOAL := help

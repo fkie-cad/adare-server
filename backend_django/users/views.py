@@ -10,7 +10,7 @@ from users.models import Profile
 from django.conf import settings
 from django.http import Http404
 import urllib.parse
-from users.serializers import ProfileSerializer
+from users.serializers import ProfileSerializer, PublicProfileSerializer
 from users import tasks
 from helperfunctions.gitea import normalize_gitea_avatar_url
 from rest_framework import views, status
@@ -101,7 +101,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 class PublicProfileView(generics.RetrieveAPIView):
     permission_classes = (permissions.AllowAny,)
-    serializer_class = ProfileSerializer
+    serializer_class = PublicProfileSerializer
 
     def get_object(self):
         try:

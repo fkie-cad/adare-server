@@ -157,9 +157,41 @@ export interface Run {
   networkdrives_logfile?: string | null
 }
 
+/**
+ * One build-time provisioning entry, exactly as the publisher declared it:
+ * either a single `command`, or a group of `steps` optionally repeated over
+ * `for_each` (which is NOT expanded server-side). Groups do not nest.
+ */
+export interface ProvisionEntry {
+  name: string
+  description?: string
+  command?: string
+  cwd?: string
+  shell?: 'powershell' | 'cmd' | 'bash' | 'auto'
+  allow_exit_codes?: number[]
+  verify?: string
+  log_files?: string[]
+  timeout_minutes?: number
+  reboot?: boolean
+  for_each?: string[]
+  steps?: ProvisionEntry[]
+}
+
 export interface Recipe {
   profile: string
+  /** http(s) URL of the hosted ISO; empty string for a BYO recipe (see iso_name). */
   iso: string
+  /**
+   * BYO ('bring your own') form, Windows only: the bare filename the consumer
+   * must supply locally, because a Windows ISO may not legally be rehosted.
+   * Exactly one of `iso` / `iso_name` is ever set.
+   */
+  iso_name?: string
+  /**
+   * Publisher-supplied pointer to where a BYO ISO can be obtained.
+   * PLAIN TEXT ONLY -- attacker-controlled; never render as markdown/HTML.
+   */
+  iso_notes?: string
   iso_sha256: string
   template?: string
   setup_level?: number | null
@@ -167,6 +199,8 @@ export interface Recipe {
   ram_mb?: number | null
   cpus?: number | null
   arch?: string
+  /** Steps run once while the disk is built (not per experiment run). */
+  provision?: ProvisionEntry[]
 }
 
 export interface Environment {
@@ -228,4 +262,6 @@ export interface TestfunctionSet {
   requirements_file: string
   num_testfunctions: number
   testfunctions: Testfunction[]
+  version: number
+  is_current: boolean
 }

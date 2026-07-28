@@ -143,6 +143,18 @@ class TestfunctionSet(models.Model):
     created_at = models.DateTimeField(blank=True, null=True)
     published = models.BooleanField(default=False, db_index=True)
 
+    version = models.PositiveIntegerField(default=1)
+    # the current version for this name; flips in lockstep with `published` at
+    # merge time (see PRFinalize._publish / demote_superseded)
+    is_current = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'version'], name='unique_tf_name_version'),
+            models.UniqueConstraint(fields=['name'], condition=models.Q(is_current=True),
+                                    name='unique_tf_current_per_name'),
+        ]
+
     @property
     def num_testfunctions(self):
         return self.testfunctions.count()
@@ -211,11 +223,28 @@ class PostSetupInstallation(models.Model):
 class Recipe(models.Model):
     """Built-on-load ('tutorial') environment source: an ISO + setup params.
 
-    Mirrors the client's `recipe:` YAML block (see CONTRACT.md). One row per
-    Environment (env-specific, never shared like OsInfo/PostSetupInstallation).
+    Mirrors the client's `recipe:` YAML block (client-side shape lives in
+    `adare/adare/adare/types/environment.py`; the ingest-side rules live in
+    `giteaeventmanager/action/environment_contract.py`). One row per Environment
+    (env-specific, never shared like OsInfo/PostSetupInstallation).
+
+    Two mutually exclusive ISO forms:
+      * hosted -- `iso` is an http(s) URL the consumer downloads;
+      * BYO ('bring your own', Windows profiles only) -- `iso` is empty and
+        `iso_name` names the bare filename the consumer must supply locally,
+        because a Microsoft Windows ISO may not legally be rehosted.
+    `iso_sha256` is the integrity boundary in both forms and is always set.
     """
     profile = models.CharField(max_length=200)
-    iso = models.CharField(max_length=2000)
+    # http(s) URL of the hosted ISO; empty for a BYO recipe (see iso_name).
+    iso = models.CharField(max_length=2000, blank=True, default='')
+    # BYO form: the bare ISO filename (no path separators) the consumer supplies
+    # locally. Empty whenever `iso` is set.
+    iso_name = models.CharField(max_length=200, blank=True, default='')
+    # Free-text pointer telling the consumer where to obtain a BYO ISO.
+    # PLAIN TEXT ONLY: this is publisher-supplied and therefore attacker-controlled
+    # content -- it must never be rendered as markdown or HTML by any frontend.
+    iso_notes = models.TextField(max_length=1000, blank=True, default='')
     iso_sha256 = models.CharField(max_length=64)
     template = models.CharField(max_length=200, blank=True, default='')
     setup_level = models.IntegerField(null=True, blank=True)
@@ -223,9 +252,15 @@ class Recipe(models.Model):
     ram_mb = models.IntegerField(null=True, blank=True)
     cpus = models.IntegerField(null=True, blank=True)
     arch = models.CharField(max_length=50, blank=True, default='')
+    # Build-time provisioning steps, stored verbatim as declared in the YAML
+    # (command entries and un-expanded `for_each` groups). These run ONCE, via
+    # the QEMU guest agent, while the disk image is being built -- which is what
+    # makes them distinct from `Environment.post_setup_installations`, whose
+    # commands run again on every experiment run.
+    provision = models.JSONField(default=list, blank=True)
 
     def __str__(self):
-        return f'{self.profile} ({self.iso})'
+        return f'{self.profile} ({self.iso or self.iso_name})'
 
 
 class Environment(models.Model):

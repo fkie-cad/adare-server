@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 import requests
 from users.models import GiteaUser
-from django.db import transaction
+from django.db import transaction, models
 
 from helperfunctions.download import download
 from django.conf import settings
@@ -16,6 +16,7 @@ from experiments.models import Requirement as RequirementModel, TestfunctionSet,
     Recipe
 from giteaeventmanager.exception import TaskFailure
 from giteaeventmanager.errorcodes import SubmitErrorCode
+from giteaeventmanager.action.environment_contract import check_recipe_block
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
 from testsetfile.fileformat import FTestsetFile, FTest
@@ -123,6 +124,15 @@ class PullRequestPlugin(PullRequestPluginInterface):
         if obj:
             obj.delete()
 
+    def demote_superseded(self, old_object):
+        """Retire ``old_object`` when a modify PR merges and a new object supersedes it.
+
+        Default behavior deletes it (matches today's Environment/Experiment
+        modify-merge). TestfunctionsetPlugin overrides this to keep history
+        instead (see 0015_testfunctionset_versioning_restore).
+        """
+        old_object.delete()
+
     @abstractmethod
     def check_file_validity(self):
         pass
@@ -212,15 +222,20 @@ class TestfunctionsetPlugin(PullRequestPlugin):
             self.sha256 = combine_hashes([self.tfset_sha256, self.tfreq_sha256])
 
     def get_object(self):
-        # published-aware: a modify PR keeps the live object published while its
-        # proposed draft coexists under the same name, so prefer the published row.
+        # current-version-aware: a modify PR keeps the live (current) object
+        # published while its proposed draft coexists under the same name, so
+        # prefer the current row; fall back to any row (e.g. an orphan draft).
         qs = TestfunctionSet.objects.filter(name=self.object_name)
-        return qs.filter(published=True).first() or qs.first()
+        return qs.filter(is_current=True).first() or qs.first()
 
     def get_object_by_hash(self):
         if not self.sha256:
             raise TaskFailure('hash not set')
         return TestfunctionSet.objects.filter(sha256hash=self.sha256).first()
+
+    def demote_superseded(self, old_object):
+        old_object.is_current = False
+        old_object.save(update_fields=['is_current'])
 
     def check_file_validity(self):
         valid = check_if_requirements_file_is_valid(self.tfreq_file)
@@ -243,6 +258,9 @@ class TestfunctionsetPlugin(PullRequestPlugin):
 
     def __db_create_testfunctionset(self, requirement_objects: list[RequirementModel],
                                     published_by: GiteaUser) -> TestfunctionSet:
+        next_version = (TestfunctionSet.objects
+                        .filter(name=self.object_name)
+                        .aggregate(models.Max('version'))['version__max'] or 0) + 1
         tfset = TestfunctionSet(
             name=self.object_name,
             description="",
@@ -252,6 +270,8 @@ class TestfunctionsetPlugin(PullRequestPlugin):
             sha256testfunctionset=self.tfset_sha256,
             sha256requirements=self.tfreq_sha256,
             published_by=published_by,
+            version=next_version,
+            is_current=False,
         )
         tfset.save()
         tfset.requirements.set(requirement_objects)
@@ -628,11 +648,21 @@ class EnvironmentPlugin(PullRequestPlugin):
         if recipe_block:
             params = recipe_block.get('params') or {}
             disk_size = params.get('disk_size')
+            # `iso` and `iso_name` are mutually exclusive (check_recipe_block
+            # enforces exactly one), so the unused one lands as ''. No
+            # reachability probe for a URL-form `iso`: unlike the baked `vm`
+            # above, a recipe ISO has never been HEAD-checked, and a BYO recipe
+            # has no URL to probe at all.
             recipe = Recipe.objects.create(
                 profile=recipe_block.get('profile'),
-                iso=recipe_block.get('iso'),
+                iso=recipe_block.get('iso') or '',
+                # stripped to match what check_recipe_block validated
+                iso_name=(recipe_block.get('iso_name') or '').strip(),
+                iso_notes=recipe_block.get('iso_notes') or '',
                 iso_sha256=recipe_block.get('iso_sha256'),
                 template=recipe_block.get('template') or '',
+                # stored verbatim as declared (groups un-expanded)
+                provision=recipe_block.get('provision') or [],
                 setup_level=params.get('setup_level'),
                 disk_size='' if disk_size is None else str(disk_size),
                 ram_mb=params.get('ram_mb'),
@@ -670,6 +700,19 @@ class EnvironmentPlugin(PullRequestPlugin):
         environment name, so any in-file ``name`` is ignored (matching the adare
         client, ``adare/adare/adare/types/environment.py``). Any failure is raised
         as ``TaskFailure`` so the ingest view returns a clean 400, not a 500.
+
+        **This is a coarse filter, not a trust boundary.** Every value checked
+        here comes from the publisher's YAML, and the server cannot verify the
+        claims that cross-reference each other. Most concretely: the recipe BYO
+        ISO form is only allowed for Windows, but the server has no OS-profile
+        catalog to resolve ``recipe.profile`` -> platform against.
+        ``Recipe.profile`` is a free-form CharField and profiles are
+        host-extensible on the client, so shipping a snapshot of the client
+        catalog here would false-reject a consumer's custom profile. A publisher
+        who writes ``os.platform: windows`` over a Linux profile therefore passes
+        this gate; the authoritative check is consumer-side, in the client's
+        ``backend/vm/recipe.py``, which resolves the profile for real before
+        honouring a BYO ISO. Do not assume this method is authoritative.
         """
         environment_data = yaml_to_dict(self.environment_file)
         if not isinstance(environment_data, dict):
@@ -692,83 +735,24 @@ class EnvironmentPlugin(PullRequestPlugin):
                 "'recipe' (built-on-load), or legacy 'vagrantbox'",
                 code=SubmitErrorCode.INVALID_CONTENT)
 
+        # The Environment model requires an os_info relation, so a storable
+        # environment must carry an 'os' block with the mandatory OsInfo keys.
+        # Checked before the recipe block because the recipe's BYO ISO form is
+        # gated on os.platform (see environment_contract.check_recipe_block).
+        os_block = environment_data.get('os')
+        if not isinstance(os_block, dict):
+            raise TaskFailure("environment file is missing the required 'os' block",
+                              code=SubmitErrorCode.INVALID_CONTENT)
+        for key in ('os', 'platform', 'distribution'):
+            if not os_block.get(key):
+                raise TaskFailure(f"environment 'os' block is missing required key '{key}'",
+                                  code=SubmitErrorCode.INVALID_CONTENT)
+
         if has_recipe:
-            recipe_block = environment_data.get('recipe') or {}
-            if not isinstance(recipe_block, dict):
-                raise TaskFailure("environment 'recipe' block must be a mapping",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-            for key in ('profile', 'iso', 'iso_sha256'):
-                if not recipe_block.get(key):
-                    raise TaskFailure(f"environment 'recipe' block is missing required key '{key}'",
-                                      code=SubmitErrorCode.INVALID_CONTENT)
-
-            # profile/iso/template: type + length must match the Recipe model
-            # columns, since Recipe.objects.create() skips full_clean() and an
-            # over-long value would otherwise only fail at the Postgres INSERT.
-            profile = recipe_block.get('profile')
-            if not isinstance(profile, str):
-                raise TaskFailure(f"recipe 'profile' must be a string (got {profile!r})",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-            profile_max = Recipe._meta.get_field('profile').max_length
-            if len(profile) > profile_max:
-                raise TaskFailure(f"recipe 'profile' exceeds the maximum length of {profile_max} characters",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-
-            iso = recipe_block.get('iso')
-            if not isinstance(iso, str):
-                raise TaskFailure(f"recipe 'iso' must be a string (got {iso!r})",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-            iso_max = Recipe._meta.get_field('iso').max_length
-            if len(iso) > iso_max:
-                raise TaskFailure(f"recipe 'iso' exceeds the maximum length of {iso_max} characters",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-
-            iso_sha256 = recipe_block.get('iso_sha256')
-            if not isinstance(iso_sha256, str):
-                raise TaskFailure(f"recipe 'iso_sha256' must be a 64-hex string (got {iso_sha256!r})",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-            if not SHA256_HEX_RE.match(iso_sha256):
-                raise TaskFailure(f"recipe 'iso_sha256' is not a valid sha256 hex digest: {iso_sha256!r}",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-
-            template = recipe_block.get('template')
-            if template:
-                if not isinstance(template, str):
-                    raise TaskFailure(f"recipe 'template' must be a string (got {template!r})",
-                                      code=SubmitErrorCode.INVALID_CONTENT)
-                template_max = Recipe._meta.get_field('template').max_length
-                if len(template) > template_max:
-                    raise TaskFailure(f"recipe 'template' exceeds the maximum length of {template_max} characters",
-                                      code=SubmitErrorCode.INVALID_CONTENT)
-
-            params = recipe_block.get('params') or {}
-            if not isinstance(params, dict):
-                raise TaskFailure("recipe 'params' must be a mapping",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-            for int_key in ('setup_level', 'ram_mb', 'cpus'):
-                value = params.get(int_key)
-                if value is not None and not (isinstance(value, int) and not isinstance(value, bool)):
-                    raise TaskFailure(f"recipe params.{int_key} must be an integer (got {value!r})",
-                                      code=SubmitErrorCode.INVALID_CONTENT)
-
-            # disk_size is coerced to str(...) before storage (see __db_create_environment);
-            # check the length of that same coercion here.
-            disk_size = params.get('disk_size')
-            if disk_size is not None:
-                disk_size_max = Recipe._meta.get_field('disk_size').max_length
-                if len(str(disk_size)) > disk_size_max:
-                    raise TaskFailure(f"recipe params.disk_size exceeds the maximum length of {disk_size_max} characters",
-                                      code=SubmitErrorCode.INVALID_CONTENT)
-
-            arch = params.get('arch')
-            if arch:
-                if not isinstance(arch, str):
-                    raise TaskFailure(f"recipe params.arch must be a string (got {arch!r})",
-                                      code=SubmitErrorCode.INVALID_CONTENT)
-                arch_max = Recipe._meta.get_field('arch').max_length
-                if len(arch) > arch_max:
-                    raise TaskFailure(f"recipe params.arch exceeds the maximum length of {arch_max} characters",
-                                      code=SubmitErrorCode.INVALID_CONTENT)
+            # Extracted into its own module: the recipe rules (two ISO forms plus
+            # the build-time `provision` list) are self-contained and this module
+            # is near the project's 1000-line ceiling.
+            check_recipe_block(environment_data.get('recipe'), os_block)
 
         if has_vm:
             vm = environment_data.get('vm')
@@ -810,15 +794,4 @@ class EnvironmentPlugin(PullRequestPlugin):
                                   code=SubmitErrorCode.INVALID_CONTENT)
             if not SHA256_HEX_RE.match(vm_sha256):
                 raise TaskFailure(f"'vm_sha256' is required for a baked 'vm' URL and must be a valid sha256 hex digest: {vm_sha256!r}",
-                                  code=SubmitErrorCode.INVALID_CONTENT)
-
-        # The Environment model requires an os_info relation, so a storable
-        # environment must carry an 'os' block with the mandatory OsInfo keys.
-        os_block = environment_data.get('os')
-        if not isinstance(os_block, dict):
-            raise TaskFailure("environment file is missing the required 'os' block",
-                              code=SubmitErrorCode.INVALID_CONTENT)
-        for key in ('os', 'platform', 'distribution'):
-            if not os_block.get(key):
-                raise TaskFailure(f"environment 'os' block is missing required key '{key}'",
                                   code=SubmitErrorCode.INVALID_CONTENT)

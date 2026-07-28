@@ -22,21 +22,19 @@ export function Header() {
   return (
     <header className="border-b border-border bg-card">
       <div className="flex h-14 items-center px-4">
-        <Link to={isLoggedIn ? '/home' : '/login'} className="mr-8 flex items-center">
+        <Link to="/home" className="mr-8 flex items-center">
           <img src="/logo.svg" alt="ADARE" className="h-8 w-8" />
         </Link>
 
-        {isLoggedIn && (
-          <nav className="flex gap-0.5">
-            <NavTab to="/home" label="Home" icon={<Home className="h-4 w-4" />} />
-            <NavTab to="/run" label="Runs" icon={<Play className="h-4 w-4" />} />
-            <NavTab to="/experiment" label="Experiments" icon={<FlaskConical className="h-4 w-4" />} />
-            <NavTab to="/environment" label="Environments" icon={<Mountain className="h-4 w-4" />} />
-            <NavTab to="/request" label="Requests" icon={<GitPullRequest className="h-4 w-4" />} />
-            <NavTab to="/testfunctionset" label="Testfunctionsets" icon={<Boxes className="h-4 w-4" />} />
-            <SubmitDropdown />
-          </nav>
-        )}
+        <nav className="flex gap-0.5">
+          <NavTab to="/home" label="Home" icon={<Home className="h-4 w-4" />} />
+          <NavTab to="/run" label="Runs" icon={<Play className="h-4 w-4" />} />
+          <NavTab to="/experiment" label="Experiments" icon={<FlaskConical className="h-4 w-4" />} />
+          <NavTab to="/environment" label="Environments" icon={<Mountain className="h-4 w-4" />} />
+          <NavTab to="/request" label="Requests" icon={<GitPullRequest className="h-4 w-4" />} />
+          <NavTab to="/testfunctionset" label="Testfunctionsets" icon={<Boxes className="h-4 w-4" />} />
+          {isLoggedIn && <SubmitDropdown />}
+        </nav>
 
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />

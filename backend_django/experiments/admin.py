@@ -54,8 +54,8 @@ class RequirementAdmin(admin.ModelAdmin):
 
 @admin.register(TestfunctionSet)
 class TestfunctionSetAdmin(admin.ModelAdmin):
-    list_display = ['ulid', 'name', 'published', 'published_by', 'published_at']
-    list_filter = ['published']
+    list_display = ['ulid', 'name', 'version', 'is_current', 'published', 'published_by', 'published_at']
+    list_filter = ['published', 'is_current']
     search_fields = ['name', 'ulid']
     raw_id_fields = ['published_by', 'created_by']
 

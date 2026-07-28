@@ -88,11 +88,21 @@ class OsInfoSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
+    """Describes a recipe environment as published.
+
+    `iso_name`/`iso_notes`/`provision` are part of the API surface on purpose:
+    without them a BYO recipe would look like it has no ISO at all, and a
+    heavily provisioned tutorial environment would be described as a bare OS
+    install. `iso_notes` is publisher-supplied plain text -- consumers must
+    render it as text, never as markdown/HTML (see the Recipe model comment).
+    """
     class Meta:
         model = Recipe
         fields = [
             'profile',
             'iso',
+            'iso_name',
+            'iso_notes',
             'iso_sha256',
             'template',
             'setup_level',
@@ -100,6 +110,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             'ram_mb',
             'cpus',
             'arch',
+            'provision',
         ]
 
 
@@ -256,6 +267,8 @@ class TestFunctionSetMetadataSerializer(serializers.ModelSerializer):
             'ulid',
             'gitea_url',
             'published',
+            'version',
+            'is_current',
         ]
 
     def get_gitea_url(self, obj):
@@ -291,6 +304,8 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
             'created_by',
             'published_at',
             'published',
+            'version',
+            'is_current',
         ]
 
     def to_representation(self, instance):

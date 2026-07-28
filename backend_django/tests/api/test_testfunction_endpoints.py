@@ -93,3 +93,40 @@ class TestTestfunctionDownload:
 
         assert resp.status_code == 200
         assert resp.data["name"] == tfset.name
+
+
+# ---------------------------------------------------------------------------
+# Versioning: multiple historical rows per name
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTestfunctionVersioning:
+    def test_list_resolves_current_version_only(self, api_client):
+        TestfunctionSetFactory(published=True, is_current=False, version=1, name="my-set")
+        current = TestfunctionSetFactory(published=True, is_current=True, version=2, name="my-set")
+
+        resp = api_client.get(TESTFUNCTION_LIST_URL, {"name": "my-set", "limit": 100})
+
+        assert resp.status_code == 200
+        assert resp.data["count"] == 1
+        assert resp.data["results"][0]["version"] == current.version
+
+    def test_download_by_name_resolves_current_version_and_does_not_500(self, api_client):
+        TestfunctionSetFactory(published=True, is_current=False, version=1, name="multi-set")
+        current = TestfunctionSetFactory(published=True, is_current=True, version=2, name="multi-set")
+
+        resp = api_client.get(_download_url("multi-set"))
+
+        assert resp.status_code == 200
+        assert resp.data["version"] == current.version
+        assert resp.data["is_current"] is True
+
+    def test_old_version_still_fetchable_by_hash(self, api_client):
+        old = TestfunctionSetFactory(published=True, is_current=False, version=1, name="my-set")
+        TestfunctionSetFactory(published=True, is_current=True, version=2, name="my-set")
+
+        resp = api_client.get(f"/api/hash/testfunction_{old.sha256hash}/")
+
+        assert resp.status_code == 200
+        assert resp.data["ulid"] == old.ulid

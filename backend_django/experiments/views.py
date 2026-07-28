@@ -81,7 +81,7 @@ class ExperimentView(generics.RetrieveAPIView):
 
 class TestFunctionListView(generics.ListAPIView):
     serializer_class = TestFunctionSetSerializer
-    queryset = TestfunctionSet.objects.filter(published=True).select_related(
+    queryset = TestfunctionSet.objects.filter(published=True, is_current=True).select_related(
         'published_by', 'created_by'
     ).prefetch_related(
         'testfunctions', 'testfunctions__possible_parameters', 'requirements', 'tags', 'tags__scope'
@@ -103,7 +103,7 @@ class ExperimentDownloadView(generics.RetrieveAPIView):
 class TestfunctionDownloadView(generics.RetrieveAPIView):
     serializer_class = TestFunctionSetSerializer
     permission_classes = [AllowAny]
-    queryset = TestfunctionSet.objects.filter(published=True).select_related(
+    queryset = TestfunctionSet.objects.filter(published=True, is_current=True).select_related(
         'published_by', 'created_by'
     ).prefetch_related(
         'testfunctions', 'testfunctions__possible_parameters', 'requirements'
@@ -297,7 +297,7 @@ class StatisticView(generics.RetrieveAPIView):
             'experiment_count': Experiment.objects.count(),
             'run_count': ExperimentRun.objects.count(),
             'environment_count': Environment.objects.count(),
-            'testfunctionset_count': TestfunctionSet.objects.count(),
+            'testfunctionset_count': TestfunctionSet.objects.filter(is_current=True).count(),
             'testfunction_count': TestFunction.objects.count(),
             'request_count': Request.objects.count(),
             'user_count': User.objects.count()
@@ -456,7 +456,7 @@ class EnvironmentView(generics.RetrieveAPIView):
 
 class TestfunctionFilterOptionsView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
-    queryset = TestfunctionSet.objects.filter(published=True).all()
+    queryset = TestfunctionSet.objects.filter(published=True, is_current=True).all()
     search_fields = ['name', 'ulid', 'description', 'published_by__username', 'published_at']
 
     def get(self, request, *args, **kwargs):

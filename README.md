@@ -17,7 +17,8 @@ cd backend_django
 make up
 
 # 3. (Optional) Seed sample data
-make seed
+make seed          # generic dev sample data
+make seed-paper    # the paper's §5.1-§5.5 case studies, for demos/screenshots
 
 # 4. Start React dev server (in a separate terminal)
 make react
@@ -41,4 +42,6 @@ Run from `backend_django/`:
 | `make shell` | Open Django shell |
 | `make logs` | Follow web container logs |
 | `make seed` | Load sample dev data |
+| `make seed-paper` | Seed paper-evaluation demo data (local dev only) — 42 experiments / 13 environments from the paper's §5.1–§5.5 case studies, plus a printed demo login |
+| `make unseed-paper` | Remove paper-evaluation demo data (leaves `make seed` data untouched) |
 | `make react` | Start React dev server |

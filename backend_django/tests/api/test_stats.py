@@ -47,5 +47,5 @@ class TestStatistics:
         assert resp.data["experiment_count"] == Experiment.objects.count()
         assert resp.data["run_count"] == ExperimentRun.objects.count()
         assert resp.data["environment_count"] == Environment.objects.count()
-        assert resp.data["testfunctionset_count"] == TestfunctionSet.objects.count()
+        assert resp.data["testfunctionset_count"] == TestfunctionSet.objects.filter(is_current=True).count()
         assert resp.data["testfunction_count"] == TestFunction.objects.count()

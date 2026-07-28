@@ -58,15 +58,13 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   beforeLoad: () => {
-    const token = localStorage.getItem('LoginToken')
-    throw redirect({ to: token ? '/home' : '/login' })
+    throw redirect({ to: '/home' })
   },
 })
 
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/home',
-  beforeLoad: requireAuth,
   component: HomePage,
 })
 
@@ -93,7 +91,6 @@ const oauthCallbackRoute = createRoute({
 const experimentRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/experiment',
-  beforeLoad: requireAuth,
   component: Outlet,
 })
 
@@ -112,6 +109,7 @@ const experimentDetailRoute = createRoute({
 const experimentEditRoute = createRoute({
   getParentRoute: () => experimentRoute,
   path: '/$name/edit',
+  beforeLoad: requireAuth,
   component: EditExperimentPage,
 })
 
@@ -119,7 +117,6 @@ const experimentEditRoute = createRoute({
 const runRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/run',
-  beforeLoad: requireAuth,
   component: Outlet,
 })
 
@@ -139,7 +136,6 @@ const runDetailRoute = createRoute({
 const environmentRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/environment',
-  beforeLoad: requireAuth,
   component: Outlet,
 })
 
@@ -158,6 +154,7 @@ const environmentDetailRoute = createRoute({
 const environmentEditRoute = createRoute({
   getParentRoute: () => environmentRoute,
   path: '/$name/edit',
+  beforeLoad: requireAuth,
   component: EditEnvironmentPage,
 })
 
@@ -165,7 +162,6 @@ const environmentEditRoute = createRoute({
 const testfunctionSetRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/testfunctionset',
-  beforeLoad: requireAuth,
   component: Outlet,
 })
 
@@ -184,6 +180,7 @@ const testfunctionSetDetailRoute = createRoute({
 const testfunctionSetEditRoute = createRoute({
   getParentRoute: () => testfunctionSetRoute,
   path: '/$name/edit',
+  beforeLoad: requireAuth,
   component: EditTestfunctionPage,
 })
 
@@ -191,7 +188,6 @@ const testfunctionSetEditRoute = createRoute({
 const requestListRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/request',
-  beforeLoad: requireAuth,
   component: RequestListPage,
 })
 
@@ -206,7 +202,6 @@ const profileSelfRoute = createRoute({
 const profileUserRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/user/$username',
-  beforeLoad: requireAuth,
   component: ProfileUserPage,
 })
 

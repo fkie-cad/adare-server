@@ -16,6 +16,12 @@ const columns: ColumnDef<TestfunctionSet, unknown>[] = [
     enableSorting: false,
   },
   { accessorKey: 'name', header: 'Name', enableSorting: true },
+  {
+    accessorKey: 'version',
+    header: 'Version',
+    cell: ({ getValue }) => `v${getValue() as number}`,
+    meta: { mono: true },
+  },
   { accessorKey: 'description', header: 'Description' },
   { accessorKey: 'num_testfunctions', header: '# Functions', meta: { mono: true } },
   {

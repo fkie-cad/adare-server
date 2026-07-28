@@ -1,7 +1,7 @@
 import pytest
 
 from experiments.models import generate_ulid
-from tests.factories import ExperimentRunFactory, ExperimentFactory, EnvironmentFactory
+from tests.factories import ExperimentRunFactory, ExperimentFactory, EnvironmentFactory, UserFactory
 
 
 @pytest.mark.django_db
@@ -40,6 +40,13 @@ class TestPublicProfileView:
     def test_nonexistent_user_returns_404(self, api_client):
         response = api_client.get('/api/user/nonexistent_user_xyz/profile/')
         assert response.status_code == 404
+
+    def test_response_does_not_leak_email(self, api_client):
+        user = UserFactory(email='secret@test.local')
+        response = api_client.get(f'/api/user/{user.username}/profile/')
+        assert response.status_code == 200
+        assert 'email' not in response.data['user']
+        assert response.data['user']['username'] == user.username
 
 
 @pytest.mark.django_db

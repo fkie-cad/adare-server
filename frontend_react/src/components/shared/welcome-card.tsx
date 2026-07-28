@@ -52,7 +52,13 @@ export function WelcomeCard() {
       </CardContent>
       <Separator />
       <CardContent className="text-center py-4">
-        <p className="text-lg">For access please write us a mail (mail@test.com)</p>
+        <p className="text-lg">
+          For access please write us a mail (
+          <a href="mailto:michael.kuelper@fkie.fraunhofer.de" className="underline">
+            michael.kuelper@fkie.fraunhofer.de
+          </a>
+          )
+        </p>
       </CardContent>
     </Card>
   )

@@ -173,6 +173,8 @@ class TestfunctionSetFactory(factory.django.DjangoModelFactory):
     created_by = factory.SelfAttribute('published_by')
     published = True
     published_at = factory.LazyFunction(timezone.now)
+    version = 1
+    is_current = True
 
 
 class TestFunctionFactory(factory.django.DjangoModelFactory):

@@ -50,7 +50,10 @@ export default function TestfunctionSetDetailPage() {
         <div className="flex justify-between">
           <div>
             <div className="text-sm text-muted-foreground">name</div>
-            <div className="font-display text-2xl font-semibold tracking-tight">{tfSet.name}</div>
+            <div className="flex items-center gap-2">
+              <div className="font-display text-2xl font-semibold tracking-tight">{tfSet.name}</div>
+              <Badge variant="secondary">v{tfSet.version}</Badge>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">functions</div>

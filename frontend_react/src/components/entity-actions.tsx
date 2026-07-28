@@ -10,6 +10,7 @@ import {
   useSubmitTestfunction,
 } from '@/api/hooks/use-submit'
 import { extractSubmitError } from '@/pages/submit-shared'
+import { useAuthStore } from '@/stores/auth-store'
 
 type EntityType = 'experiment' | 'environment' | 'testfunction'
 
@@ -32,12 +33,15 @@ export function EntityActions({ entity, name, editTo }: EntityActionsProps) {
   const experimentMut = useSubmitExperiment()
   const environmentMut = useSubmitEnvironment()
   const testfunctionMut = useSubmitTestfunction()
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
   const mutation =
     entity === 'experiment'
       ? experimentMut
       : entity === 'environment'
         ? environmentMut
         : testfunctionMut
+
+  if (!isLoggedIn) return null
 
   const handleDelete = () => {
     if (entity === 'experiment') experimentMut.mutate({ name, action: 'remove' })

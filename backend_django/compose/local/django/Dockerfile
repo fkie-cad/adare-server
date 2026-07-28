@@ -20,10 +20,13 @@ RUN apt-get update \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies via uv
+# Install dependencies via uv.
+# --extra test pulls pytest/pytest-django/factory-boy/pytest-cov: this is the
+# LOCAL dev image and every `make test*` target runs pytest inside it, so
+# without the extra those targets fail with "No module named pytest".
 COPY uv.lock pyproject.toml /tmp/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    cd /tmp && uv sync --locked --no-install-project
+    cd /tmp && uv sync --locked --no-install-project --extra test
 
 # now exchange django all auth social account models file with /extra/models.py todo: remove this when django all auth fixes the issue
 COPY ./extra/models.py /usr/local/lib/python3.10/site-packages/allauth/socialaccount/models.py

@@ -80,7 +80,7 @@ export default function HomePage() {
   const statCards = [
     { label: 'Experiments', value: stats?.experiment_count ?? 0, icon: FlaskConical, accent: entityAccents.experiment },
     { label: 'Environments', value: stats?.environment_count ?? 0, icon: Monitor, accent: entityAccents.environment },
-    { label: 'Test Function Sets', value: stats?.testfunction_count ?? 0, icon: Boxes, accent: entityAccents.testfunctionset },
+    { label: 'Testfunctions', value: stats?.testfunction_count ?? 0, icon: Boxes, accent: entityAccents.testfunctionset },
     { label: 'Runs', value: stats?.run_count ?? 0, icon: PlayCircle, accent: entityAccents.run },
   ]
 
@@ -93,9 +93,8 @@ export default function HomePage() {
   return (
     <PageContainer className="space-y-6">
       <PageHeader
-        eyebrow="Instrument"
         title="Overview"
-        description="Desktop-forensic analysis for reproducible security experiments."
+        description="Automated desktop forensic analysis for reproducible experiments."
       />
 
       {/* Stats Cards */}
