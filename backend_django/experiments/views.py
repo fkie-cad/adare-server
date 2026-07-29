@@ -517,6 +517,20 @@ def get_event_by_ulid(ulid: str):
             continue
     return None
 
+
+class EventIngestError(Exception):
+    """Raised to abort event ingestion and roll back the enclosing transaction.
+
+    Carries the same (data, status_code) pair the view would otherwise have
+    returned directly as a Response, so create()'s except clause can rebuild
+    the identical error response for the client.
+    """
+
+    def __init__(self, data, status_code):
+        self.data = data
+        self.status_code = status_code
+        super().__init__(data.get('message', 'Event ingestion failed.'))
+
 class ExperimentRunDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ExperimentRunSerializer
@@ -582,14 +596,14 @@ class ExperimentRunPublishView(generics.CreateAPIView):
 
     @staticmethod
     def _process_events(data, experiment_run):
-        """Process event list and attach to run. Returns error Response or None."""
+        """Process event list and attach to run. Raises EventIngestError on failure."""
         default_group_counter = 0
         for event in data.get('events', []):
             if get_event_by_ulid(event.get('ulid', '')):
-                return Response(
+                raise EventIngestError(
                     {'error': 'event_validation_error',
                      'message': f'Event {event["ulid"]} already exists.'},
-                    status=http_status_codes.HTTP_400_BAD_REQUEST,
+                    http_status_codes.HTTP_400_BAD_REQUEST,
                 )
 
             if not event.get('status'):
@@ -601,11 +615,11 @@ class ExperimentRunPublishView(generics.CreateAPIView):
             category = event.get('category', '')
             event_serializer = get_event_serializer(category)(data=event)
             if not event_serializer.is_valid():
-                return Response(
+                raise EventIngestError(
                     {'error': 'event_validation_error',
                      'message': f'Validation failed for event {event.get("ulid", "?")}.',
                      'details': event_serializer.errors},
-                    status=http_status_codes.HTTP_400_BAD_REQUEST,
+                    http_status_codes.HTTP_400_BAD_REQUEST,
                 )
             event_serializer.validated_data['run'] = experiment_run.ulid
             event_serializer.validated_data['status'] = event['status']
@@ -614,9 +628,22 @@ class ExperimentRunPublishView(generics.CreateAPIView):
             if 'abstract_test_ulid' in event:
                 event_serializer.validated_data['abstracttest'] = event['abstract_test_ulid']
             event_serializer.save()
-        return None
 
-    @transaction.atomic
+    @staticmethod
+    def _save_run_and_events(serializer, data):
+        """Save the run and its events as a single all-or-nothing transaction.
+
+        Deliberately scoped to just this `with` block (not the whole view) so
+        that an EventIngestError raised by _process_events propagates out of
+        the block *before* any except clause can swallow it — that's what
+        makes transaction.atomic actually roll back the run row along with
+        every event saved before the failure.
+        """
+        with transaction.atomic():
+            experiment_run = serializer.save()
+            ExperimentRunPublishView._process_events(data, experiment_run)
+        return experiment_run
+
     def create(self, request, *args, **kwargs):
         files = request.FILES
         data = request.data
@@ -699,11 +726,13 @@ class ExperimentRunPublishView(generics.CreateAPIView):
                  'details': serializer.errors},
                 status=http_status_codes.HTTP_400_BAD_REQUEST,
             )
-        experiment_run = serializer.save()
-
-        # Process events
-        event_err = self._process_events(data, experiment_run)
-        if event_err:
-            return event_err
+        # Save the run and its events atomically. Raising (rather than
+        # returning) an error from within _process_events lets the atomic
+        # block in _save_run_and_events roll back the run + every event
+        # saved so far, instead of leaving a partially-ingested run committed.
+        try:
+            self._save_run_and_events(serializer, data)
+        except EventIngestError as exc:
+            return Response(exc.data, status=exc.status_code)
 
         return Response(serializer.data, status=http_status_codes.HTTP_201_CREATED)

@@ -20,6 +20,7 @@ def _authorize_secret(request):
     if not secret:
         return Response(status=http_status_codes.HTTP_400_BAD_REQUEST)
     if secret != settings.GITEA_WEBHOOK_SECRET:
+        log.warning(f'rejected {request.path} call with an invalid secret')
         return Response(status=http_status_codes.HTTP_401_UNAUTHORIZED)
     return None
 

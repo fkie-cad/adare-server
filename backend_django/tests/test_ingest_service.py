@@ -445,6 +445,59 @@ class TestEnvironmentIngest:
         env = Environment.objects.get(name='bakedenv')
         assert env.vm == 'https://host.example/foo.ova'
         assert env.vm_sha256 == BAKED_VM_SHA256
+        # absent is always valid -- these are purely optional provenance fields
+        assert env.source_profile == ''
+        assert env.source_iso_sha256 == ''
+
+    def test_baked_url_with_source_provenance_creates_environment(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=40, name='baked-provenance')
+        source_iso_sha256 = 'c' * 64
+        env_with_provenance = (
+            ENV_BAKED_URL + 'source_profile: ubuntu2404\n' + f'source_iso_sha256: {source_iso_sha256}\n'
+        )
+
+        class _Resp:
+            status_code = 200
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(env_with_provenance)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_Resp()), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            service.ingest_pr(40)
+
+        env = Environment.objects.get(name='baked-provenance')
+        assert env.source_profile == 'ubuntu2404'
+        assert env.source_iso_sha256 == source_iso_sha256
+
+    def test_baked_url_malformed_source_iso_sha256_rejected(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=41, name='baked-bad-provenance-hash')
+        bad_env = ENV_BAKED_URL + 'source_iso_sha256: not-a-valid-hash\n'
+
+        class _Resp:
+            status_code = 200
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_env)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_Resp()), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='source_iso_sha256'):
+                service.ingest_pr(41)
+        assert not Environment.objects.filter(name='baked-bad-provenance-hash').exists()
+
+    def test_baked_url_numeric_source_profile_raises_taskfailure_not_500(self):
+        from experiments.models import Environment
+        pr = _env_pr(number=42, name='baked-numeric-source-profile')
+        bad_env = ENV_BAKED_URL + 'source_profile: 12345\n'
+
+        class _Resp:
+            status_code = 200
+
+        with patch('giteaeventmanager.action.plugin.download', side_effect=_env_download(bad_env)), \
+             patch('giteaeventmanager.action.plugin.requests.head', return_value=_Resp()), \
+             patch.object(service, '_fetch_pull_request', return_value=pr):
+            with pytest.raises(TaskFailure, match='source_profile'):
+                service.ingest_pr(42)
+        assert not Environment.objects.filter(name='baked-numeric-source-profile').exists()
 
     def test_baked_local_path_rejected(self):
         from experiments.models import Environment

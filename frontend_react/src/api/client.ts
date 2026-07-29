@@ -23,15 +23,17 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Refresh CSRF on 403
+// Refresh CSRF on 403 (retry once only)
 api.interceptors.response.use(
   (response) => response,
   async (err) => {
     const status = err.response?.status
+    const config = err.config
 
-    if (status === 403) {
+    if (status === 403 && config && !config._csrfRetry) {
+      config._csrfRetry = true
       await api.get('csrf/')
-      return api(err.response.config)
+      return api(config)
     }
 
     return Promise.reject(err)

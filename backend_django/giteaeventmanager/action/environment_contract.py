@@ -19,7 +19,7 @@ authoritative -- it is only the fast, friendly rejection of obvious mistakes.
 """
 import re
 
-from experiments.models import Recipe
+from experiments.models import Environment, Recipe
 from giteaeventmanager.errorcodes import SubmitErrorCode
 from giteaeventmanager.exception import TaskFailure
 
@@ -119,6 +119,35 @@ def _check_int(value, label: str, maximum: int) -> int:
     if value > maximum:
         raise _invalid(f'{label} must not exceed {maximum} (got {value!r})')
     return value
+
+
+def check_source_provenance(environment_data):
+    """Validate the optional ``source_profile``/``source_iso_sha256`` fields.
+
+    These describe which OS profile (and, if known, source ISO) a *baked*
+    ``vm`` environment was built from. Purely informational -- like
+    ``recipe.profile``, there is no server-side OS-profile catalog to check
+    ``source_profile`` against, so only its type/length is validated here, and
+    absence of either field is always valid. See the module docstring: coarse
+    filter, not a trust boundary.
+    """
+    source_profile = environment_data.get('source_profile')
+    if source_profile is not None:
+        _check_str(
+            source_profile, "'source_profile'",
+            Environment._meta.get_field('source_profile').max_length,
+        )
+
+    source_iso_sha256 = environment_data.get('source_iso_sha256')
+    if source_iso_sha256 is not None:
+        _check_str(
+            source_iso_sha256, "'source_iso_sha256'",
+            Environment._meta.get_field('source_iso_sha256').max_length,
+        )
+        if not RECIPE_SHA256_HEX_RE.match(source_iso_sha256):
+            raise _invalid(
+                f"'source_iso_sha256' is not a valid sha256 hex digest: "
+                f"{source_iso_sha256!r}; it must be 64 lowercase hex characters")
 
 
 def check_recipe_block(recipe_block, os_block):

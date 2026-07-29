@@ -586,6 +586,76 @@ class TestPublishValidation:
 
         assert response.status_code == 400
 
+    def test_mid_loop_failure_rolls_back_entire_run(self, authenticated_client, publish_prerequisites):
+        """A failure on event #2 of 3 must not leave the run or event #1 committed.
+
+        Regression test: _process_events used to return an error Response
+        instead of raising, so events already saved before the failing one
+        (plus the ExperimentRun row and its content_hash) stayed committed
+        even though the client received a 400 for the whole request. A retry
+        would then hit the idempotent short-circuit and report success
+        without ever ingesting the remaining events.
+        """
+        p = publish_prerequisites
+
+        existing_run = ExperimentRunFactory(
+            experiment=p['experiment'],
+            environment=p['environment'],
+            published_by=p['gitea_user'],
+        )
+        existing_event = ActionEventFactory(run=existing_run, event_group_id='99')
+
+        good_event = _make_action_event('finished')
+        good_event['event_group_id'] = '1'
+        duplicate_event = _make_action_event('finished')
+        duplicate_event['ulid'] = existing_event.ulid  # triggers failure
+        duplicate_event['event_group_id'] = '2'
+        another_event = _make_action_event('finished')
+        another_event['event_group_id'] = '3'
+
+        run_ulid = generate_ulid()
+        metadata = _build_metadata(
+            run_ulid=run_ulid,
+            experiment=p['experiment'],
+            environment=p['environment'],
+            status_name='finished',
+            result_status_name='success',
+            events=[good_event, duplicate_event, another_event],
+        )
+
+        response = authenticated_client.post(
+            '/api/run/publish/',
+            {'metadata': json.dumps(metadata), **_log_files()},
+            format='multipart',
+        )
+
+        assert response.status_code == 400
+        assert not ExperimentRun.objects.filter(ulid=run_ulid).exists()
+        assert not ActionEvent.objects.filter(ulid=good_event['ulid']).exists()
+        assert not ActionEvent.objects.filter(ulid=another_event['ulid']).exists()
+
+        # A subsequent retry with the fixed payload should fully succeed
+        # (proves the failed attempt didn't leave the ulid in a half-claimed
+        # state that would trip the idempotent/dup-event checks).
+        fixed_duplicate_event = _make_action_event('finished')
+        fixed_duplicate_event['event_group_id'] = '2'
+        retry_metadata = _build_metadata(
+            run_ulid=run_ulid,
+            experiment=p['experiment'],
+            environment=p['environment'],
+            status_name='finished',
+            result_status_name='success',
+            events=[good_event, fixed_duplicate_event, another_event],
+        )
+        retry_response = authenticated_client.post(
+            '/api/run/publish/',
+            {'metadata': json.dumps(retry_metadata), **_log_files()},
+            format='multipart',
+        )
+        assert retry_response.status_code == 201
+        run = ExperimentRun.objects.get(ulid=run_ulid)
+        assert run.action_events.count() == 3
+
     def test_unpublished_experiment_rejected(self, authenticated_client, publish_prerequisites):
         """Experiment with published=False returns 400 with experiment_not_published."""
         p = publish_prerequisites

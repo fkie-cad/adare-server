@@ -276,6 +276,14 @@ class Environment(models.Model):
     # Disk image format (qcow2/ova/vmdk/vdi/img/raw); required for a `vm` URL
     # whose path has no recognizable disk extension (e.g. an owncloud share link).
     vm_format = models.CharField(max_length=10, blank=True, default='')
+    # Optional install-profile provenance for a baked `vm` environment: which OS
+    # profile it was built from, and (if the publisher still has it) the source
+    # installer ISO's sha256. Informational only -- like `Recipe.profile`, this is
+    # an unvalidated free-form value (no server-side OS-profile catalog exists to
+    # check it against) and is never used to rebuild the disk. Meaningless when
+    # `recipe` is set: a recipe environment already carries real build inputs.
+    source_profile = models.CharField(max_length=100, blank=True, default="")
+    source_iso_sha256 = models.CharField(max_length=64, blank=True, default="")
     # Legacy Vagrant source (owner/box); still valid, the frontend cloud link depends on it.
     vagrantbox = models.CharField(max_length=2000, default="")
     # Built-on-load ('tutorial') source: ISO + setup params, mutually exclusive with vm/vagrantbox.

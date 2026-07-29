@@ -152,6 +152,8 @@ class EnvironmentSerializer(serializers.ModelSerializer):
             'ulid',
             'vm',
             'vm_sha256',
+            'source_profile',
+            'source_iso_sha256',
             'vagrantbox',
             'vagrantbox_cloud_url',
             'recipe',

@@ -16,7 +16,7 @@ from experiments.models import Requirement as RequirementModel, TestfunctionSet,
     Recipe
 from giteaeventmanager.exception import TaskFailure
 from giteaeventmanager.errorcodes import SubmitErrorCode
-from giteaeventmanager.action.environment_contract import check_recipe_block
+from giteaeventmanager.action.environment_contract import check_recipe_block, check_source_provenance
 from helperfunctions.requirements import check_if_requirements_file_is_valid, parse_requirements_from_file, Requirement
 from helperfunctions.pyfileanalyze.pymoduleanalyzer import PyModuleAnalyzer
 from testsetfile.fileformat import FTestsetFile, FTest
@@ -650,6 +650,8 @@ class EnvironmentPlugin(PullRequestPlugin):
         vm = environment_data.get('vm') or ''
         vm_sha256 = environment_data.get('vm_sha256') or ''
         vm_format = environment_data.get('vm_format') or ''
+        source_profile = environment_data.get('source_profile') or ''
+        source_iso_sha256 = environment_data.get('source_iso_sha256') or ''
         recipe_block = environment_data.get('recipe') or {}
         if vagrantbox:
             if '/' not in vagrantbox:
@@ -743,6 +745,8 @@ class EnvironmentPlugin(PullRequestPlugin):
             vm=vm,
             vm_sha256=vm_sha256,
             vm_format=vm_format,
+            source_profile=source_profile,
+            source_iso_sha256=source_iso_sha256,
             vagrantbox=vagrantbox,
             recipe=recipe,
             file=self.environment_file_remote_url,
@@ -862,3 +866,7 @@ class EnvironmentPlugin(PullRequestPlugin):
             if not SHA256_HEX_RE.match(vm_sha256):
                 raise TaskFailure(f"'vm_sha256' is required for a baked 'vm' URL and must be a valid sha256 hex digest: {vm_sha256!r}",
                                   code=SubmitErrorCode.INVALID_CONTENT)
+
+            # Optional install-profile provenance (informational only, never
+            # required -- see environment_contract.check_source_provenance).
+            check_source_provenance(environment_data)
