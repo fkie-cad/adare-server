@@ -26,13 +26,24 @@ class TestHashEndpoints:
     def test_experiment_hash_to_metadata(self, api_client):
         exp = ExperimentFactory(published=True)
 
-        resp = api_client.get(_experiment_hash_url(exp.sha256hash))
+        # The client (adare/webappaccess/download.py) sends only the
+        # playbook hash (ExperimentDirectory.sha256), not the combined
+        # playbook+metadata sha256hash, so the endpoint must look up by
+        # sha256playbook.
+        resp = api_client.get(_experiment_hash_url(exp.sha256playbook))
 
         assert resp.status_code == 200
         assert resp.data["ulid"] == exp.ulid
         assert resp.data["published"] is True
         assert "gitea_url" in resp.data
         assert "abstract_tests_ulids" in resp.data
+
+    def test_experiment_hash_to_metadata_combined_hash_not_found(self, api_client):
+        exp = ExperimentFactory(published=True)
+
+        resp = api_client.get(_experiment_hash_url(exp.sha256hash))
+
+        assert resp.status_code == 404
 
     def test_environment_hash_to_metadata(self, api_client):
         env = EnvironmentFactory(published=True)

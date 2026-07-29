@@ -122,7 +122,8 @@ class ExperimentHashToMetadataView(generics.RetrieveAPIView):
     serializer_class = ExperimentMetadataSerializer
     permission_classes = [AllowAny]
     queryset = Experiment.objects.all()
-    lookup_field = 'sha256hash'
+    lookup_field = 'sha256playbook'
+    lookup_url_kwarg = 'sha256hash'
 
 
 class EnvironmentHashToMetadataView(generics.RetrieveAPIView):
