@@ -60,7 +60,6 @@ class GiteaAuth:
         if resp.status_code != 204:
             raise GiteaAuthException(f'could not delete token: {resp.text} ({resp.status_code})')
         self.token = None
-        self.token_scopes = DEFAULT_SCOPES
 
 
 GiteaAuthHandle = GiteaAuth()
