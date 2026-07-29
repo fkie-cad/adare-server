@@ -12,6 +12,23 @@ from experiments.models import (
     Environment, Experiment, ExperimentRun, Label, Request,
 )
 
+class ExternalDownloadURLMixin:
+    """Rewrites the listed fields from Gitea's internal raw-API URL to the externally
+    reachable one. Centralized here so every download-serving serializer goes through
+    convert_gitea_internal_api_url_to_external and can't drift onto the HTML blob-view
+    URL (convert_gitea_internal_api_url_to_viewable_url) by mistake, as Environment and
+    TestFunctionSet previously did.
+    """
+    external_url_fields = []
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        for field in self.external_url_fields:
+            if ret.get(field):
+                ret[field] = convert_gitea_internal_api_url_to_external(ret[field])
+        return ret
+
+
 class TagScopeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TagScope
@@ -131,19 +148,14 @@ class EnvironmentMetadataSerializer(serializers.ModelSerializer):
         return environment_url_gitea
 
 
-class EnvironmentSerializer(serializers.ModelSerializer):
+class EnvironmentSerializer(ExternalDownloadURLMixin, serializers.ModelSerializer):
     os_info = OsInfoSerializer()
     recipe = RecipeSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     post_setup_installations = PostSetupInstallationSerializer(many=True)
     published_by = serializers.CharField(source='published_by.username', read_only=True)
     created_by = serializers.CharField(source='created_by.username', read_only=True, allow_null=True, default=None)
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret['file']:
-            ret['file'] = convert_gitea_internal_api_url_to_viewable_url(ret['file'])
-        return ret
+    external_url_fields = ['file']
 
     class Meta:
         model = Environment
@@ -281,12 +293,13 @@ class TestFunctionSetMetadataSerializer(serializers.ModelSerializer):
         return testfunctionset_url_gitea
 
 
-class TestFunctionSetSerializer(serializers.ModelSerializer):
+class TestFunctionSetSerializer(ExternalDownloadURLMixin, serializers.ModelSerializer):
     requirements = RequirementSerializer(many=True)
     tags = TagSerializer(many=True, read_only=True)
     published_by = serializers.CharField(source='published_by.username', read_only=True)
     created_by = serializers.CharField(source='created_by.username', read_only=True)
     testfunctions = TestFunctionSerializer(many=True)
+    external_url_fields = ['file', 'requirements_file']
 
     class Meta:
         model = TestfunctionSet
@@ -309,14 +322,6 @@ class TestFunctionSetSerializer(serializers.ModelSerializer):
             'version',
             'is_current',
         ]
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret['file']:
-            ret['file'] = convert_gitea_internal_api_url_to_viewable_url(ret['file'])
-        if 'requirements_file' in ret.keys() and ret['requirements_file'] != '':
-            ret['requirements_file'] = convert_gitea_internal_api_url_to_viewable_url(ret['requirements_file'])
-        return ret
 
 
 class AbstractTestSerializer(serializers.ModelSerializer):
@@ -372,7 +377,7 @@ class ExperimentMetadataSerializer(serializers.ModelSerializer):
         }
 
 
-class ExperimentSerializer(serializers.ModelSerializer):
+class ExperimentSerializer(ExternalDownloadURLMixin, serializers.ModelSerializer):
     run_counts = serializers.SerializerMethodField('get_run_counts', read_only=True)
     abstract_tests = AbstractTestSerializer(read_only=True, many=True)
     tags = TagSerializer(many=True, read_only=True)
@@ -380,6 +385,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
     published_by = serializers.CharField(source='published_by.username', read_only=True)
     published_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     created_by = serializers.CharField(source='created_by.username', read_only=True)
+    external_url_fields = ['playbook_file', 'metadata_file']
 
     class Meta:
         model = Experiment
@@ -409,14 +415,6 @@ class ExperimentSerializer(serializers.ModelSerializer):
             'tags': {'read_only': True},
             'abstract_tests': {'read_only': True},
         }
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret['playbook_file']:
-            ret['playbook_file'] = convert_gitea_internal_api_url_to_external(ret['playbook_file'])
-        if ret['metadata_file']:
-            ret['metadata_file'] = convert_gitea_internal_api_url_to_external(ret['metadata_file'])
-        return ret
 
     def get_run_counts(self, obj):
         # Use annotated fields from the view queryset if available
