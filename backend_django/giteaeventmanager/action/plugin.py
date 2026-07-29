@@ -37,6 +37,55 @@ SHA256_HEX_RE = re.compile(r'^[0-9a-fA-F]{64}$')
 BAKED_VM_EXTENSIONS = ('.ova', '.qcow2', '.vmdk', '.vdi', '.img')
 # Allowed values for the optional `vm_format` field on a baked-URL environment.
 VM_FORMATS = ('qcow2', 'ova', 'vmdk', 'vdi', 'img', 'raw')
+# The testfunction set an unprefixed playbook `function:` resolves against, matching
+# the client's adarelib.testset.testfunction.get_testclass_from_testfunction.
+DEFAULT_TESTFUNCTION_SET = 'standard'
+
+
+def qualify_test_name(set_name: str, test_name: str) -> str:
+    """Build the stored identity of a test function: ``<set>.<name>``.
+
+    ``TestFunction.name`` must hold the same string a playbook writes in
+    ``function:``, because that is what the experiment ingest looks up
+    (``ExperimentPlugin.__db_get_abstract_test``). The client's
+    ``adarelib.testset.testfunction.get_testclass_from_testfunction`` splits
+    ``<set>.<name>``, so the qualified form is authoritative and the bare
+    decorator ``name=`` kwarg is only half of it. Bare names are also not unique
+    across sets (``compare_rows`` exists in both ``csv`` and ``excel``), which the
+    set prefix disambiguates.
+
+    A ``name=`` that already carries a prefix is returned unchanged: the shipped
+    ``visual`` set declares ``name='visual.exists'``, which must not become
+    ``visual.visual.exists``.
+
+    Raises:
+        TaskFailure: If ``test_name`` is empty -- an unparseable
+            ``@testfunction(name=...)`` decorator must not silently register
+            ``<set>.`` (the same shape of bug this function exists to fix, just
+            moved one level up).
+    """
+    if not test_name:
+        raise TaskFailure(f'test function in set {set_name} has an empty name '
+                          f'-- check the @testfunction(name=...) decorator value',
+                          code=SubmitErrorCode.INVALID_CONTENT)
+    if '.' in test_name:
+        if not test_name.startswith(f'{set_name}.'):
+            log.warning(f'test function name {test_name} is already qualified but not with its own '
+                        f'set {set_name}; storing it verbatim')
+        return test_name
+    return f'{set_name}.{test_name}'
+
+
+def qualify_playbook_function(function: str) -> str:
+    """Normalize a playbook ``function:`` string to the stored ``<set>.<name>`` form.
+
+    Mirrors the client's ``get_testclass_from_testfunction``: an unprefixed name
+    means the ``standard`` set (many published playbooks write plain
+    ``file_exists``), anything else already carries its set.
+    """
+    if '.' in function:
+        return function
+    return f'{DEFAULT_TESTFUNCTION_SET}.{function}'
 
 
 class PullRequestPluginInterface(ABC):
@@ -298,22 +347,29 @@ class TestfunctionsetPlugin(PullRequestPlugin):
                             db_testparameter_obj = db_testparameter_objects[0]
                         db_parameter_objects[attr['name']] = db_testparameter_obj
 
-                    # add testfunction to db
+                    # add testfunction to db, keyed by the identity a playbook
+                    # references it under (`<set>.<name>`, see qualify_test_name)
                     test_name = t_func_class.get_attribute('testname').get_value()
                     test_description = t_func_class.get_attribute('testdescription').get_value()
-                    testfunction_obj = TestFunction.objects.filter(name=t_func_class.name).first()
+                    # tfset.name is the set name: __db_create_testfunctionset set it
+                    # from self.object_name and saved the row before we got here
+                    qualified_name = qualify_test_name(tfset.name, test_name)
+                    # Scoped to this set: every ingest creates a *new* TestfunctionSet
+                    # version (__db_create_testfunctionset), and each version owns its
+                    # own TestFunction rows, so a hit here means the same test name
+                    # appeared twice in one module -- update it rather than trip the
+                    # (name, testfunction_set) unique constraint with a second INSERT.
+                    testfunction_obj = TestFunction.objects.filter(name=qualified_name,
+                                                                   testfunction_set=tfset).first()
                     if testfunction_obj:
-                        if testfunction_obj.name != test_name:
-                            testfunction_obj.name = test_name
-                            log.info(
-                                f'test function name of test function class {t_func_class.name} changed to {test_name}')
-                        if testfunction_obj.description != test_description:
-                            testfunction_obj.description = test_description
-                            log.info(
-                                f'test description of test function class {t_func_class.name} changed to {test_description}')
+                        log.info(f'test function {qualified_name} is declared more than once in '
+                                 f'{tfset.name}; updating it from class {t_func_class.name}')
+                        testfunction_obj.type = t_func_class.name
+                        testfunction_obj.description = test_description
+                        testfunction_obj.save(update_fields=['type', 'description'])
                     else:
                         testfunction_obj = TestFunction(type=t_func_class.name,
-                                                        name=test_name,
+                                                        name=qualified_name,
                                                         description=test_description,
                                                         testfunction_set=tfset)
                         testfunction_obj.save()
@@ -405,9 +461,20 @@ class ExperimentPlugin(PullRequestPlugin):
         return Experiment.objects.filter(sha256hash=self.sha256).first()
 
     def __db_get_abstract_test(self, test: FTest, tool: Tool = None) -> AbstractTest or None:
-        testfunction = TestFunction.objects.filter(name=test.type).first()
+        # `test.type` is the playbook's `function:` verbatim; normalize it to the
+        # stored `<set>.<name>` identity. No extra set scoping is needed -- a
+        # qualified name already names exactly one set -- but it is NOT unique
+        # across set *versions*: each set ingest creates a new version with its own
+        # TestFunction rows under the same name. Prefer the current version so a new
+        # experiment binds to the live test function instead of whichever row the
+        # database happens to return first (unordered `.first()` = oldest in
+        # practice), falling back to the newest version if none is current.
+        qualified_name = qualify_playbook_function(test.type)
+        candidates = TestFunction.objects.filter(name=qualified_name)
+        testfunction = (candidates.filter(testfunction_set__is_current=True).first()
+                        or candidates.order_by('-testfunction_set__version').first())
         if not testfunction:
-            raise TaskFailure(f'test function {test.type} does not exist',
+            raise TaskFailure(f'test function {qualified_name} does not exist',
                               code=SubmitErrorCode.UNKNOWN_DEPENDENCY)
 
         parameter_entries = []

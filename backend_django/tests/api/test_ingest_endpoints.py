@@ -88,7 +88,7 @@ class TestIngestEndpoint:
     def _fixtures(self, db):
         self.user = GiteaUserFactory()
         EnvironmentFactory(name='test-env')
-        TestFunctionFactory(name='is_file')
+        TestFunctionFactory(name='standard.is_file')
         TestParameterFactory(name='path')
 
     def test_ingest_creates_draft_and_returns_result(self, api_client):
@@ -135,7 +135,7 @@ class TestFinalizeEndpoint:
     def test_finalize_merge_publishes(self, api_client):
         user = GiteaUserFactory()
         EnvironmentFactory(name='test-env')
-        TestFunctionFactory(name='is_file')
+        TestFunctionFactory(name='standard.is_file')
         TestParameterFactory(name='path')
         from giteaeventmanager.action.base import PullRequest
         with patch('giteaeventmanager.action.plugin.download', side_effect=_fake_download), \

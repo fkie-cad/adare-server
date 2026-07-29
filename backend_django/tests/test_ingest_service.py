@@ -67,10 +67,15 @@ def _pr(number=1, name='test-experiment', merged=False, state='open'):
 
 @pytest.fixture
 def gitea_env(db):
-    """A user, environment and testfunction/parameter matching the sample playbook."""
+    """A user, environment and testfunction/parameter matching the sample playbook.
+
+    The playbook's `function: is_file` is unprefixed, which resolves against the
+    `standard` set, so the stored name is the qualified `standard.is_file`
+    (see plugin.qualify_test_name / qualify_playbook_function).
+    """
     user = GiteaUserFactory()
     env = EnvironmentFactory(name='test-env')
-    TestFunctionFactory(name='is_file')
+    TestFunctionFactory(name='standard.is_file')
     TestParameterFactory(name='path')
     return user, env
 
@@ -157,7 +162,7 @@ class TestIngest:
 
     def test_unknown_testfunction_raises(self):
         from experiments.models import TestFunction
-        TestFunction.objects.filter(name='is_file').delete()
+        TestFunction.objects.filter(name='standard.is_file').delete()
         with patch.object(service, '_fetch_pull_request', return_value=_pr(number=9)):
             with pytest.raises(TaskFailure, match='is_file'):
                 service.ingest_pr(9)

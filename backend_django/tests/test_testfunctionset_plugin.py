@@ -71,7 +71,8 @@ class TestTestfunctionsetPluginVersioning:
 
         # regression check for the CASCADE-delete risk: an Experiment references
         # a TestFunction/AbstractTest that lives on v1
-        abstract_test = AbstractTestFactory(testfunction=v1.testfunctions.get(name='is_file'))
+        # registered under its qualified `<set>.<name>` identity (plugin.qualify_test_name)
+        abstract_test = AbstractTestFactory(testfunction=v1.testfunctions.get(name='my-set.is_file'))
         experiment = ExperimentFactory(abstract_tests=[abstract_test])
 
         with patch('giteaeventmanager.action.plugin.download', side_effect=_fake_download(TFSET_V2)), \

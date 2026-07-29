@@ -50,7 +50,7 @@ class TestExperimentPluginUpdateObject:
 
     def test_full_create_path(self, settings):
         environment = EnvironmentFactory(name='test-env')
-        TestFunctionFactory(name='is_file')
+        TestFunctionFactory(name='standard.is_file')
         TestParameterFactory(name='path')
         user = GiteaUserFactory()
 
