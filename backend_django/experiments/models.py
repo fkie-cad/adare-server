@@ -267,7 +267,8 @@ class Environment(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     # not unique: a modify PR draft (published=False) may coexist with the
     # published object under the same name; sha256hash enforces content uniqueness.
-    name = models.CharField(max_length=100)
+    # Indexed: detail/download lookup_field and the ?name= / environment_mc filters.
+    name = models.CharField(max_length=100, db_index=True)
     # Modern VM source: path to an OVA disk image (client `EnvironmentMetadata.vm`),
     # or an http(s) URL for a published baked env.
     vm = models.CharField(max_length=2000, blank=True, default="")
@@ -312,7 +313,8 @@ class Environment(models.Model):
 
 class Experiment(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
-    name = models.CharField(max_length=100)
+    # indexed: ?name= lookups (React detail page) and ingest's by-name lookup
+    name = models.CharField(max_length=100, db_index=True)
     description = models.CharField(max_length=500, blank=True)
 
     playbook_file = models.URLField(max_length=2000, default="")
@@ -325,12 +327,14 @@ class Experiment(models.Model):
     tags = models.ManyToManyField(Tag)
 
     sha256hash = models.CharField(max_length=64, unique=True)
-    sha256playbook = models.CharField(max_length=64, default="")
+    # indexed: lookup_field of the hash-to-metadata endpoint (client hash lookups)
+    sha256playbook = models.CharField(max_length=64, default="", db_index=True)
 
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_published')
     created_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT, related_name='experiments_created',
                                     blank=True, null=True)
-    published_at = models.DateTimeField(blank=True, null=True)
+    # indexed: default ordering of the experiment list
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
     created_at = models.DateTimeField(blank=True, null=True)
     published = models.BooleanField(default=False, db_index=True)
 
@@ -342,7 +346,8 @@ class ExperimentRun(models.Model):
     ulid = models.CharField(primary_key=True, max_length=26, default=generate_ulid)
     run_number = models.PositiveIntegerField(db_index=True, editable=False, null=True)
     published_by = models.ForeignKey(GiteaUser, on_delete=models.PROTECT)
-    published_at = models.DateTimeField()
+    # indexed: default ordering of the run list
+    published_at = models.DateTimeField(db_index=True)
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='experiment_runs')
     environment = models.ForeignKey(Environment, on_delete=models.PROTECT)
     timestamp_start = models.DateTimeField(db_index=True)
@@ -417,6 +422,13 @@ class Request(models.Model):
     assignees = models.ManyToManyField(GiteaUser, related_name='requests_assigned', blank=True)
 
     labels = models.ManyToManyField(Label, blank=True)
+
+    class Meta:
+        indexes = [
+            # owning-request lookups: Request.objects.filter(objective=ct, object_id=pk)
+            # (experiment check endpoints, ingest's find_owning_request)
+            models.Index(fields=['objective', 'object_id'], name='request_objective_object_idx'),
+        ]
 
     @property
     def assigned(self):
