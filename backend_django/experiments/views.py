@@ -24,7 +24,7 @@ from django.contrib.auth.models import User
 from experiments.models import (
     Experiment, ExperimentRun, Environment, TestfunctionSet, TestFunction,
     Event, Status, Request, Label, Tag, TagScope,
-    TestEvent, ErrorEvent, ActionEvent, TestParameterEntry,
+    TestEvent, ErrorEvent, ActionEvent, TestParameterEntry, AbstractTest,
 )
 
 _experiment_run_queryset = ExperimentRun.objects.select_related(
@@ -68,16 +68,48 @@ class ExperimentRunRetrieveView(generics.RetrieveAPIView):
     lookup_field = 'ulid'
 
 
+def _scoped_tags_prefetch(lookup='tags'):
+    return Prefetch(lookup, queryset=Tag.objects.select_related('scope'))
+
+
+# Everything ExperimentSerializer renders below the experiment row itself:
+# AbstractTestSerializer (testfunction -> set name / possible_parameters,
+# parameters -> parameter, tools), TagSerializer (scope) and the nested
+# EnvironmentSerializer (os_info, recipe, users, scoped tags, post-setup
+# installations). Shared by the experiment list/detail and the request views.
+EXPERIMENT_PREFETCHES = (
+    Prefetch('abstract_tests', queryset=AbstractTest.objects.select_related(
+        'testfunction__testfunction_set',
+    ).prefetch_related(
+        Prefetch('parameters', queryset=TestParameterEntry.objects.select_related('parameter')),
+        'tools',
+        'testfunction__possible_parameters',
+    )),
+    _scoped_tags_prefetch(),
+    Prefetch('environments', queryset=Environment.objects.select_related(
+        'os_info', 'recipe', 'published_by', 'created_by',
+    ).prefetch_related(
+        _scoped_tags_prefetch(), 'post_setup_installations',
+    )),
+)
+
+# run counts read by ExperimentSerializer.get_run_counts; without them it falls
+# back to two COUNT queries per experiment
+RUN_COUNT_ANNOTATIONS = {
+    'successful_run_count': Count('experiment_runs', filter=Q(experiment_runs__result_status__name='success')),
+    'failed_run_count': Count('experiment_runs', filter=Q(experiment_runs__result_status__name='failed')),
+}
+
+_published_experiment_queryset = Experiment.objects.filter(published=True).select_related(
+    'published_by', 'created_by'
+).prefetch_related(
+    *EXPERIMENT_PREFETCHES
+).annotate(**RUN_COUNT_ANNOTATIONS)
+
+
 class ExperimentListView(generics.ListAPIView):
     serializer_class = ExperimentViewableFilesSerializer
-    queryset = Experiment.objects.filter(published=True).select_related(
-        'published_by', 'created_by'
-    ).prefetch_related(
-        'tags', 'tags__scope', 'environments', 'abstract_tests'
-    ).annotate(
-        successful_run_count=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='success')),
-        failed_run_count=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='failed')),
-    ).all()
+    queryset = _published_experiment_queryset
     permission_classes = [AllowAny]
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ExperimentFilter
@@ -87,11 +119,7 @@ class ExperimentListView(generics.ListAPIView):
 
 class ExperimentView(generics.RetrieveAPIView):
     serializer_class = ExperimentViewableFilesSerializer
-    queryset = Experiment.objects.filter(published=True).select_related(
-        'published_by', 'created_by'
-    ).prefetch_related(
-        'tags', 'environments', 'abstract_tests'
-    ).all()
+    queryset = _published_experiment_queryset
     permission_classes = [AllowAny]
     lookup_field = 'ulid'
 
@@ -113,7 +141,7 @@ class TestFunctionListView(generics.ListAPIView):
 class ExperimentDownloadView(generics.RetrieveAPIView):
     serializer_class = ExperimentSerializer
     permission_classes = [AllowAny]
-    queryset = Experiment.objects.filter(published=True).all()
+    queryset = _published_experiment_queryset
     lookup_field = 'ulid'
 
 
@@ -464,7 +492,7 @@ class ExperimentRunCheckView(generics.RetrieveAPIView):
 class EnvironmentView(generics.RetrieveAPIView):
     serializer_class = EnvironmentSerializer
     queryset = Environment.objects.filter(published=True).select_related(
-        'os_info', 'published_by', 'created_by'
+        'os_info', 'recipe', 'published_by', 'created_by'
     ).prefetch_related(
         'tags', 'tags__scope', 'post_setup_installations'
     ).all()
@@ -490,7 +518,7 @@ class EnvironmentListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = EnvironmentSerializer
     queryset = Environment.objects.filter(published=True).select_related(
-        'os_info', 'published_by', 'created_by'
+        'os_info', 'recipe', 'published_by', 'created_by'
     ).prefetch_related(
         'tags', 'tags__scope', 'post_setup_installations'
     ).all()

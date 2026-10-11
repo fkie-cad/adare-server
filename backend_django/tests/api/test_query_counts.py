@@ -119,3 +119,46 @@ class TestRunQueryCounts:
         assert len(resp.data['events']) == 30
         assert large == small, f'run detail: {small} queries for 3 events, {large} for 30'
         assert large <= 15
+
+
+@pytest.mark.django_db
+class TestExperimentQueryCounts:
+
+    def test_experiment_list_does_not_scale_with_experiments(self, api_client):
+        _rich_experiment()
+        small, _ = _count_queries(api_client, '/api/experiment/', {'limit': 100})
+
+        for _ in range(4):
+            _rich_experiment()
+        large, resp = _count_queries(api_client, '/api/experiment/', {'limit': 100})
+
+        assert resp.data['count'] == 5
+        assert large == small, f'experiment list: {small} queries for 1, {large} for 5'
+        assert large <= 20
+
+    def test_experiment_detail_uses_annotated_run_counts(self, api_client):
+        experiment = _rich_experiment()
+        ExperimentRunFactory(experiment=experiment)
+
+        count, resp = _count_queries(api_client, f'/api/experiment/experiment_{experiment.ulid}/')
+
+        assert resp.data['run_counts'] == {'successful': 1, 'failed': 0}
+        # the detail view must reuse the list view's annotation instead of
+        # falling back to two per-object COUNT(*) queries in get_run_counts
+        assert not any(sql.startswith('SELECT COUNT(*)') for sql in _count_queries.last_sql)
+        assert count <= 20
+
+
+@pytest.mark.django_db
+class TestEnvironmentQueryCounts:
+
+    def test_environment_list_does_not_scale_with_environments(self, api_client):
+        _rich_environment()
+        small, _ = _count_queries(api_client, '/api/environment/', {'limit': 100})
+
+        for _ in range(4):
+            _rich_environment()
+        large, resp = _count_queries(api_client, '/api/environment/', {'limit': 100})
+
+        assert resp.data['count'] == 5
+        assert large == small, f'environment list: {small} queries for 1, {large} for 5'
