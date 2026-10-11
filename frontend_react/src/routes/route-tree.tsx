@@ -1,33 +1,39 @@
 import {
   createRootRouteWithContext,
   createRoute,
+  lazyRouteComponent,
   redirect,
   Outlet,
 } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { MainLayout } from '@/components/layout/main-layout'
 
+// Landing, list and auth pages stay in the entry bundle.
 import HomePage from '@/pages/home'
 import LoginPage from '@/pages/login'
 import OauthCallbackPage from '@/pages/oauth-callback'
 import ExperimentListPage from '@/pages/experiment-list'
-import ExperimentDetailPage from '@/pages/experiment-detail'
 import RunListPage from '@/pages/run-list'
-import RunDetailPage from '@/pages/run-detail'
 import EnvironmentListPage from '@/pages/environment-list'
 import TestfunctionSetListPage from '@/pages/testfunction-set-list'
-import TestfunctionSetDetailPage from '@/pages/testfunction-set-detail'
 import RequestListPage from '@/pages/request-list'
-import ProfileSelfPage from '@/pages/profile-self'
-import ProfileUserPage from '@/pages/profile-user'
-import SubmitExperimentPage from '@/pages/submit-experiment'
-import SubmitTestfunctionPage from '@/pages/submit-testfunction'
-import SubmitEnvironmentPage from '@/pages/submit-environment'
-import EnvironmentDetailPage from '@/pages/environment-detail'
-import EditExperimentPage from '@/pages/edit-experiment'
-import EditEnvironmentPage from '@/pages/edit-environment'
-import EditTestfunctionPage from '@/pages/edit-testfunction'
 import NotFoundPage from '@/pages/not-found'
+
+// Detail, edit, submit and profile pages are code-split: each loads its own
+// chunk the first time its route renders. Route definitions (and their
+// beforeLoad auth guards) stay eager; only the components are deferred.
+const ExperimentDetailPage = lazyRouteComponent(() => import('@/pages/experiment-detail'))
+const RunDetailPage = lazyRouteComponent(() => import('@/pages/run-detail'))
+const EnvironmentDetailPage = lazyRouteComponent(() => import('@/pages/environment-detail'))
+const TestfunctionSetDetailPage = lazyRouteComponent(() => import('@/pages/testfunction-set-detail'))
+const EditExperimentPage = lazyRouteComponent(() => import('@/pages/edit-experiment'))
+const EditEnvironmentPage = lazyRouteComponent(() => import('@/pages/edit-environment'))
+const EditTestfunctionPage = lazyRouteComponent(() => import('@/pages/edit-testfunction'))
+const SubmitExperimentPage = lazyRouteComponent(() => import('@/pages/submit-experiment'))
+const SubmitTestfunctionPage = lazyRouteComponent(() => import('@/pages/submit-testfunction'))
+const SubmitEnvironmentPage = lazyRouteComponent(() => import('@/pages/submit-environment'))
+const ProfileSelfPage = lazyRouteComponent(() => import('@/pages/profile-self'))
+const ProfileUserPage = lazyRouteComponent(() => import('@/pages/profile-user'))
 
 interface RouterContext {
   queryClient: QueryClient
