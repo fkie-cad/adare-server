@@ -33,6 +33,12 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST"),
         "PORT": config("DB_PORT", cast=int),
+        # reuse a connection for up to 60s instead of reconnecting on every
+        # request; safe with sync gunicorn workers and prefork Celery (one
+        # connection per process). Health checks drop a connection the DB
+        # closed behind our back before it is reused.
+        "CONN_MAX_AGE": 60,
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
