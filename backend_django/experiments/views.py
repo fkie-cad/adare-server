@@ -231,26 +231,25 @@ class ExperimentFilterOptionsView(generics.RetrieveAPIView):
             qs.values_list('environments__name', flat=True).distinct().exclude(environments__name=None)
         )
 
-        # run count stats (use result_status to match ExperimentListView annotations)
-        max_success = qs.annotate(
-            success_count=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='success'))
-        ).aggregate(Max('success_count'))['success_count__max']
-
-        max_failed = qs.annotate(
-            failed_count=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='failed'))
-        ).aggregate(Max('failed_count'))['failed_count__max']
-
-        total_count = qs.annotate(
-            total_count=Count('experiment_runs')
-        ).aggregate(Max('total_count'))['total_count__max']
+        # run count stats (use result_status to match ExperimentListView annotations):
+        # per-experiment counts, then the max of each, in a single query
+        run_stats = qs.annotate(
+            success_count=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='success')),
+            failed_count=Count('experiment_runs', filter=Q(experiment_runs__result_status__name='failed')),
+            run_count=Count('experiment_runs'),
+        ).aggregate(
+            max_success=Max('success_count'),
+            max_failed=Max('failed_count'),
+            max_total=Max('run_count'),
+        )
 
         return Response({
             'tags': tags,
             'tags_by_scope': tags_by_scope,
             'environments': environments,
-            'max_success': max_success,
-            'max_failed': max_failed,
-            'total_count': total_count,
+            'max_success': run_stats['max_success'],
+            'max_failed': run_stats['max_failed'],
+            'total_count': run_stats['max_total'],
         }, status=http_status_codes.HTTP_200_OK)
 
 
@@ -300,12 +299,13 @@ class RequestFilterOptionsView(generics.RetrieveAPIView):
     search_fields = ['title', 'ulid', 'description', 'gitea_pr_status', 'requester__username', 'labels__name']
 
     def get(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
         # get all status names of all requests in queryset
-        status = self.filter_queryset(self.get_queryset()).values_list('gitea_pr_status', flat=True).distinct()
+        status = qs.values_list('gitea_pr_status', flat=True).distinct()
         # get all object types (objectives) of all requests in queryset
-        category_type = self.filter_queryset(self.get_queryset()).values_list('objective__model', flat=True).distinct()
+        category_type = qs.values_list('objective__model', flat=True).distinct()
         # get all labels of all requests in queryset
-        labels = self.filter_queryset(self.get_queryset()).values_list('labels__name', flat=True).distinct()
+        labels = qs.values_list('labels__name', flat=True).distinct()
 
         return Response({
             'status': status,
@@ -485,17 +485,22 @@ class ExperimentCheckMultipleView(generics.RetrieveAPIView):
         # check if experiment is published
         from django.contrib.contenttypes.models import ContentType
         exp_ct = ContentType.objects.get_for_model(Experiment)
+        experiments = list(experiments)
+        # owning requests of all unpublished experiments in one query (instead of
+        # one per experiment); if several exist, the newest wins
+        request_ulids = dict(
+            Request.objects.filter(
+                objective=exp_ct,
+                object_id__in=[experiment.ulid for experiment in experiments if not experiment.published],
+            ).order_by('creation_date').values_list('object_id', 'ulid')
+        )
         resp_data = []
         for experiment in experiments:
             if experiment.published:
                 resp_data.append({'published': True, 'published_at': experiment.published_at, 'ulid': experiment.ulid, 'request_ulid': None})
             else:
-                # check if request for experiment exists
-                try:
-                    req = Request.objects.get(objective=exp_ct, object_id=experiment.ulid)
-                    resp_data.append({'published': False, 'published_at': None, 'ulid': experiment.ulid, 'request_ulid': req.ulid})
-                except Request.DoesNotExist:
-                    resp_data.append({'published': False, 'published_at': None, 'ulid': experiment.ulid, 'request_ulid': None})
+                resp_data.append({'published': False, 'published_at': None, 'ulid': experiment.ulid,
+                                  'request_ulid': request_ulids.get(experiment.ulid)})
 
         return Response(resp_data, status=http_status_codes.HTTP_200_OK)
 

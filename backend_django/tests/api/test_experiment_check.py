@@ -83,3 +83,28 @@ class TestExperimentCheckMultiple:
 
         assert by_ulid[exp_published.ulid]["published"] is True
         assert by_ulid[exp_unpublished.ulid]["published"] is False
+
+    def test_check_multiple_resolves_requests_in_one_query(self, api_client):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        ct = ContentType.objects.get_for_model(Experiment)
+        unpublished = ExperimentFactory.create_batch(4, published=False, published_at=None)
+        requests = {exp.ulid: RequestObjectFactory(objective=ct, object_id=exp.ulid) for exp in unpublished[:3]}
+        hashes = ",".join(exp.sha256hash for exp in unpublished)
+
+        with CaptureQueriesContext(connection) as ctx:
+            resp = api_client.generic(
+                "GET",
+                EXPERIMENT_CHECK_MULTIPLE_URL,
+                data=json.dumps({"sha256hashes": hashes}),
+                content_type="application/json",
+            )
+
+        assert resp.status_code == 200
+        by_ulid = {item["ulid"]: item for item in resp.data}
+        for exp in unpublished[:3]:
+            assert by_ulid[exp.ulid]["request_ulid"] == requests[exp.ulid].ulid
+        assert by_ulid[unpublished[3].ulid]["request_ulid"] is None
+        request_queries = [q for q in ctx.captured_queries if 'experiments_request' in q['sql']]
+        assert len(request_queries) == 1

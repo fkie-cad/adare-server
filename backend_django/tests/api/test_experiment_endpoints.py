@@ -161,3 +161,18 @@ class TestExperimentFilterOptions:
         assert "max_success" in resp.data
         assert "max_failed" in resp.data
         assert "total_count" in resp.data
+
+    def test_filter_options_run_stats_are_per_experiment_maxima(self, api_client):
+        success, failed = StatusFactory(name="success"), StatusFactory(name="failed")
+        busy, quiet = ExperimentFactory(), ExperimentFactory()
+        ExperimentFactory()  # no runs
+        for status in (success, success, failed):
+            ExperimentRunFactory(experiment=busy, result_status=status)
+        for status in (failed, failed):
+            ExperimentRunFactory(experiment=quiet, result_status=status)
+
+        resp = api_client.get(EXPERIMENT_FILTER_OPTIONS_URL)
+
+        assert resp.data["max_success"] == 2
+        assert resp.data["max_failed"] == 2
+        assert resp.data["total_count"] == 3
