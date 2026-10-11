@@ -157,6 +157,8 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
+    # list endpoints are always paginated (see adare/pagination.py)
+    'DEFAULT_PAGINATION_CLASS': 'adare.pagination.DefaultLimitOffsetPagination',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',

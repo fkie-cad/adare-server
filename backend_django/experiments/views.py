@@ -5,7 +5,7 @@ import rest_framework.status as http_status_codes
 from django.db import transaction
 from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone
-from rest_framework.pagination import LimitOffsetPagination
+from adare.pagination import DefaultLimitOffsetPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -31,7 +31,7 @@ from experiments.models import (
 
 _experiment_run_queryset = ExperimentRun.objects.select_related(
     'published_by', 'experiment', 'environment', 'status', 'result_status'
-)
+).order_by('-published_at', 'pk')
 
 # The run detail renders every event: TestEventSerializer walks
 # status, result.status and the full AbstractTestSerializer tree
@@ -60,7 +60,7 @@ class ExperimentRunListView(generics.ListAPIView):
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ExperimentRunFilter
     search_fields = ['ulid', 'experiment__name', 'published_by__username', 'published_at']
-    pagination_class = LimitOffsetPagination
+    pagination_class = DefaultLimitOffsetPagination
 
 
 class ExperimentRunRetrieveView(generics.RetrieveAPIView):
@@ -106,7 +106,7 @@ _published_experiment_queryset = Experiment.objects.filter(published=True).selec
     'published_by', 'created_by'
 ).prefetch_related(
     *EXPERIMENT_PREFETCHES
-).annotate(**RUN_COUNT_ANNOTATIONS)
+).annotate(**RUN_COUNT_ANNOTATIONS).order_by('-published_at', 'pk')
 
 
 class ExperimentListView(generics.ListAPIView):
@@ -116,7 +116,7 @@ class ExperimentListView(generics.ListAPIView):
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ExperimentFilter
     search_fields = ['name', 'ulid', 'tags__name', 'description', 'published_by__username', 'published_at']
-    pagination_class = LimitOffsetPagination
+    pagination_class = DefaultLimitOffsetPagination
 
 
 class ExperimentView(generics.RetrieveAPIView):
@@ -132,12 +132,12 @@ class TestFunctionListView(generics.ListAPIView):
         'published_by', 'created_by'
     ).prefetch_related(
         'testfunctions', 'testfunctions__possible_parameters', 'requirements', 'tags', 'tags__scope'
-    ).all()
+    ).order_by('-published_at', 'pk')
     permission_classes = [AllowAny]
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = TestfunctionSetFilter
     search_fields = ['name', 'ulid', 'description', 'published_by__username', 'published_at']
-    pagination_class = LimitOffsetPagination
+    pagination_class = DefaultLimitOffsetPagination
 
 
 class ExperimentDownloadView(generics.RetrieveAPIView):
@@ -369,7 +369,7 @@ _request_queryset = Request.objects.select_related(
     'requester', 'objective'
 ).prefetch_related(
     'labels', 'reviewers', 'assignees'
-)
+).order_by('-creation_date', 'pk')
 
 
 class RequestListView(generics.ListAPIView):
@@ -377,7 +377,7 @@ class RequestListView(generics.ListAPIView):
     serializer_class = RequestSerializer
     queryset = _request_queryset
     search_fields = ['title', 'ulid', 'description', 'gitea_pr_status', 'requester__username', 'labels__name']
-    pagination_class = LimitOffsetPagination
+    pagination_class = DefaultLimitOffsetPagination
 
     def paginate_queryset(self, queryset):
         page = super().paginate_queryset(queryset)
@@ -584,13 +584,13 @@ class EnvironmentListView(generics.ListAPIView):
         'os_info', 'recipe', 'published_by', 'created_by'
     ).prefetch_related(
         'tags', 'tags__scope', 'post_setup_installations'
-    ).all()
+    ).order_by('-published_at', 'pk')
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = EnvironmentFilter
     search_fields = ['name', 'ulid', 'tags__name', 'description', 'vagrantbox',
                      'os_info__distribution', 'os_info__version', 'os_info__architecture',
                      'published_by__username', 'published_at']
-    pagination_class = LimitOffsetPagination
+    pagination_class = DefaultLimitOffsetPagination
 
 
 class EnvironmentFilterOptionsView(generics.RetrieveAPIView):
