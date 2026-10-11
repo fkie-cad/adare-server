@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import rest_framework.generics as generics
 import rest_framework.status as http_status_codes
 from django.db import transaction
@@ -312,27 +314,88 @@ class RequestFilterOptionsView(generics.RetrieveAPIView):
         }, status=http_status_codes.HTTP_200_OK)
 
 
+def _request_object_querysets():
+    """Per objective model: the queryset GenericRequestObjectSerializer needs.
+
+    Each mirrors what the nested Experiment/Environment/TestFunctionSet
+    serializer touches, so rendering a request's `object` costs no extra
+    queries.
+    """
+    return {
+        Experiment: Experiment.objects.select_related(
+            'published_by', 'created_by'
+        ).prefetch_related(*EXPERIMENT_PREFETCHES).annotate(**RUN_COUNT_ANNOTATIONS),
+        Environment: Environment.objects.select_related(
+            'os_info', 'recipe', 'published_by', 'created_by'
+        ).prefetch_related(_scoped_tags_prefetch(), 'post_setup_installations'),
+        TestfunctionSet: TestfunctionSet.objects.select_related(
+            'published_by', 'created_by'
+        ).prefetch_related(
+            'testfunctions', 'testfunctions__possible_parameters', 'requirements', _scoped_tags_prefetch()
+        ),
+    }
+
+
+def _attach_request_objects(requests):
+    """Resolve `Request.object` for many requests with one query per objective model.
+
+    `object` is a GenericForeignKey, so plain prefetch_related('object') can
+    fetch the targets but cannot prefetch *their* relations (they differ per
+    model; per-model GenericPrefetch only arrives in Django 5). Fetch each
+    model's targets with its full queryset instead and seed the GFK cache. A
+    target that no longer exists is cached as None, exactly what the lazy GFK
+    lookup would return.
+    """
+    object_field = Request._meta.get_field('object')
+    querysets = _request_object_querysets()
+    ids_by_model = defaultdict(set)
+    for req in requests:
+        model = req.objective.model_class()
+        if model in querysets:
+            ids_by_model[model].add(req.object_id)
+
+    resolved = {}
+    for model, ids in ids_by_model.items():
+        for obj in querysets[model].filter(pk__in=ids):
+            resolved[(model, obj.pk)] = obj
+
+    for req in requests:
+        model = req.objective.model_class()
+        if model in querysets:
+            object_field.set_cached_value(req, resolved.get((model, req.object_id)))
+
+
+_request_queryset = Request.objects.select_related(
+    'requester', 'objective'
+).prefetch_related(
+    'labels', 'reviewers', 'assignees'
+)
+
+
 class RequestListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = RequestSerializer
-    queryset = Request.objects.select_related(
-        'requester', 'objective'
-    ).prefetch_related(
-        'labels', 'reviewers', 'assignees'
-    ).all()
+    queryset = _request_queryset
     search_fields = ['title', 'ulid', 'description', 'gitea_pr_status', 'requester__username', 'labels__name']
     pagination_class = LimitOffsetPagination
+
+    def paginate_queryset(self, queryset):
+        page = super().paginate_queryset(queryset)
+        if page is not None:
+            _attach_request_objects(page)
+        return page
 
 
 class RequestRetrieveView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     serializer_class = RequestSerializer
-    queryset = Request.objects.select_related(
-        'requester', 'objective'
-    ).prefetch_related(
-        'labels', 'reviewers', 'assignees'
-    ).all()
+    queryset = _request_queryset
     lookup_field = 'ulid'
+
+    def get_object(self):
+        request_obj = super().get_object()
+        _attach_request_objects([request_obj])
+        return request_obj
 
 
 class StatisticView(generics.RetrieveAPIView):

@@ -162,3 +162,53 @@ class TestEnvironmentQueryCounts:
 
         assert resp.data['count'] == 5
         assert large == small, f'environment list: {small} queries for 1, {large} for 5'
+
+
+@pytest.mark.django_db
+class TestRequestQueryCounts:
+
+    def _request_for(self, obj):
+        return RequestObjectFactory(
+            objective=ContentType.objects.get_for_model(type(obj)),
+            objective_name=type(obj).__name__.lower(),
+            object_id=obj.ulid,
+        )
+
+    def _seed(self, n):
+        for _ in range(n):
+            self._request_for(_rich_experiment())
+            self._request_for(_rich_environment())
+            self._request_for(TestfunctionSetFactory())
+
+    def test_request_list_does_not_scale_with_requests(self, api_client):
+        self._seed(1)
+        small, _ = _count_queries(api_client, '/api/request/', {'limit': 100})
+
+        self._seed(3)
+        large, resp = _count_queries(api_client, '/api/request/', {'limit': 100})
+
+        assert resp.data['count'] == 12
+        names = {r['object']['name'] for r in resp.data['results']}
+        assert len(names) == 12
+        assert large == small, f'request list: {small} queries for 3, {large} for 12'
+
+    def test_request_list_matches_unoptimized_serialization(self, api_client):
+        from experiments.models import Request
+        from experiments.serializers import RequestSerializer
+
+        self._seed(1)
+        resp = api_client.get('/api/request/', {'limit': 100})
+
+        for row in resp.data['results']:
+            expected = RequestSerializer(Request.objects.get(ulid=row['ulid'])).data
+            assert row == expected
+
+    def test_request_with_deleted_object_renders_null(self, api_client):
+        experiment = _rich_experiment()
+        req = self._request_for(experiment)
+        req.object_id = 'DELETED0000000000000000000'
+        req.save()
+
+        resp = api_client.get('/api/request/', {'limit': 100})
+
+        assert resp.data['results'][0]['object'] is None
