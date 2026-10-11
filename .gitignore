@@ -12,6 +12,7 @@ develop-eggs/
 dist/
 eggs/
 lib/
+!frontend_react/src/lib/
 lib64/
 parts/
 sdist/
