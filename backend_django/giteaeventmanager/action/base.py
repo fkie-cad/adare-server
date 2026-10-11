@@ -11,6 +11,7 @@ from giteaeventmanager.action.plugin import PullRequestPlugin
 from giteaeventmanager.auth import GiteaAuthHandle
 from django.conf import settings
 import requests
+from helperfunctions.http import HTTP_TIMEOUT
 
 import logging
 log = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ class PullRequest(AbstractPullRequest):
         token = GiteaAuthHandle.get_token()
         api_url = f'{settings.GITEA_API}users/{username}'
         headers = {'Authorization': f'token {token}'}
-        response = requests.get(api_url, headers=headers)
+        response = requests.get(api_url, headers=headers, timeout=HTTP_TIMEOUT)
         if response.status_code != 200:
             raise TaskFailure(f'could not retrieve user data for {username} ({response.status_code}): {response.text}',
                               code=SubmitErrorCode.UPSTREAM_UNAVAILABLE)

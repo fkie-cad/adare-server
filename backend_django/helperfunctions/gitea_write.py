@@ -5,6 +5,7 @@ Uses the server's GITEA_API_USER/GITEA_API_PASSWORD credentials.
 """
 import base64
 import requests
+from helperfunctions.http import HTTP_TIMEOUT
 from django.conf import settings
 from giteaeventmanager.auth import GiteaAuthHandle
 
@@ -31,7 +32,7 @@ def create_branch(repo_owner: str, repo_name: str, branch_name: str,
         'new_branch_name': branch_name,
         'old_branch_name': from_branch,
     }
-    response = requests.post(url, json=data, headers={'Authorization': f'token {token}'})
+    response = requests.post(url, json=data, headers={'Authorization': f'token {token}'}, timeout=HTTP_TIMEOUT)
     if response.status_code == 201:
         log.info(f'Created branch {branch_name}')
         return True
@@ -47,7 +48,7 @@ def upload_file(repo_owner: str, repo_name: str, filepath: str,
     content_b64 = base64.b64encode(content).decode('ascii')
 
     # Check if file exists (need SHA for update)
-    response = requests.get(url, params={'ref': branch}, headers=headers)
+    response = requests.get(url, params={'ref': branch}, headers=headers, timeout=HTTP_TIMEOUT)
     data = {
         'message': message,
         'content': content_b64,
@@ -57,7 +58,7 @@ def upload_file(repo_owner: str, repo_name: str, filepath: str,
         existing = response.json()
         data['sha'] = existing['sha']
 
-    response = requests.put(url, json=data, headers=headers)
+    response = requests.put(url, json=data, headers=headers, timeout=HTTP_TIMEOUT)
     if response.status_code in (200, 201):
         log.info(f'Uploaded {filepath} to {branch}')
         return True
@@ -74,7 +75,7 @@ def delete_file(repo_owner: str, repo_name: str, filepath: str,
     headers = {'Authorization': f'token {token}'}
 
     # Gitea requires the current blob SHA to delete a file.
-    response = requests.get(url, params={'ref': branch}, headers=headers)
+    response = requests.get(url, params={'ref': branch}, headers=headers, timeout=HTTP_TIMEOUT)
     if response.status_code == 404:
         log.info(f'{filepath} already absent on {branch}, nothing to delete')
         return True
@@ -87,7 +88,7 @@ def delete_file(repo_owner: str, repo_name: str, filepath: str,
         'sha': response.json()['sha'],
         'branch': branch,
     }
-    response = requests.delete(url, json=data, headers=headers)
+    response = requests.delete(url, json=data, headers=headers, timeout=HTTP_TIMEOUT)
     if response.status_code == 200:
         log.info(f'Deleted {filepath} from {branch}')
         return True
@@ -105,7 +106,7 @@ def create_pull_request(repo_owner: str, repo_name: str, title: str,
         'base': base,
         'body': body,
     }
-    response = requests.post(url, json=data, headers={'Authorization': f'token {token}'})
+    response = requests.post(url, json=data, headers={'Authorization': f'token {token}'}, timeout=HTTP_TIMEOUT)
     response.raise_for_status()
     pr = response.json()
     log.info(f'Created PR #{pr["number"]}: {title}')
@@ -125,7 +126,7 @@ def find_open_pull_request(repo_owner: str, repo_name: str,
     token = _get_token()
     url = f'{settings.GITEA_API}repos/{repo_owner}/{repo_name}/pulls'
     response = requests.get(url, params={'state': 'open', 'limit': 50},
-                            headers={'Authorization': f'token {token}'})
+                            headers={'Authorization': f'token {token}'}, timeout=HTTP_TIMEOUT)
     response.raise_for_status()
     for pr in response.json():
         if title is not None and pr.get('title') == title:
@@ -144,7 +145,7 @@ def comment_on_pull_request(repo_owner: str, repo_name: str, number: int, body: 
     """
     token = _get_token()
     url = f'{settings.GITEA_API}repos/{repo_owner}/{repo_name}/issues/{number}/comments'
-    response = requests.post(url, json={'body': body}, headers={'Authorization': f'token {token}'})
+    response = requests.post(url, json={'body': body}, headers={'Authorization': f'token {token}'}, timeout=HTTP_TIMEOUT)
     if response.status_code in (200, 201):
         log.info(f'Commented on PR #{number}')
         return True
@@ -160,7 +161,7 @@ def close_pull_request(repo_owner: str, repo_name: str, number: int) -> bool:
     """
     token = _get_token()
     url = f'{settings.GITEA_API}repos/{repo_owner}/{repo_name}/pulls/{number}'
-    response = requests.patch(url, json={'state': 'closed'}, headers={'Authorization': f'token {token}'})
+    response = requests.patch(url, json={'state': 'closed'}, headers={'Authorization': f'token {token}'}, timeout=HTTP_TIMEOUT)
     if response.status_code == 200:
         log.info(f'Closed PR #{number}')
         return True

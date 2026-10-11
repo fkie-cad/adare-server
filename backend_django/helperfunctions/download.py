@@ -1,5 +1,6 @@
 # external imports
 import requests
+from helperfunctions.http import HTTP_TIMEOUT
 from pathlib import Path
 from tqdm import tqdm
 
@@ -24,7 +25,7 @@ def download(url: str, path: Path, headers: dict = None, quiet: bool = False, re
     if token:
         headers['Authorization'] = f'token {token}'
 
-    resp = requests.get(url, stream=True, headers=headers)
+    resp = requests.get(url, stream=True, headers=headers, timeout=HTTP_TIMEOUT)
     if response_codes_error and resp.status_code in response_codes_error:
         log.error(f'error while downloading {url}: {resp.text} ({resp.status_code})')
         return False

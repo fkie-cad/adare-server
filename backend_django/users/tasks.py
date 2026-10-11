@@ -3,6 +3,7 @@ from django.conf import settings
 from users.models import Team, Organization
 from celery import shared_task
 import requests
+from helperfunctions.http import HTTP_TIMEOUT
 from users.models import GiteaUser
 from helperfunctions.gitea import normalize_gitea_avatar_url
 
@@ -37,7 +38,7 @@ def update_teams(username: str):
         raise TaskFailure(f'could not get token for user {username}')
     teams_api_url = f'{settings.GITEA_API}user/teams'
     resp = requests.get(teams_api_url,
-                        headers={'Authorization': f'Bearer {token}'})
+                        headers={'Authorization': f'Bearer {token}'}, timeout=HTTP_TIMEOUT)
     if resp.status_code == 200:
         data = resp.json()
         log.warning(f'got teams from gitea: {data}')

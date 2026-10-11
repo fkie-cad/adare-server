@@ -15,6 +15,7 @@ import re
 import logging
 
 import requests
+from helperfunctions.http import HTTP_TIMEOUT
 from django.conf import settings
 
 from giteaeventmanager.auth import GiteaAuthHandle
@@ -50,7 +51,7 @@ def _fetch_pull_request(prnumber: int) -> dict:
     """Fetch the raw Gitea pull request object (head SHA, title, state, merge info)."""
     token = GiteaAuthHandle.get_token()
     url = f'{settings.GITEA_REPO_API}pulls/{prnumber}'
-    response = requests.get(url, headers={'Authorization': f'token {token}'})
+    response = requests.get(url, headers={'Authorization': f'token {token}'}, timeout=HTTP_TIMEOUT)
     if response.status_code != 200:
         raise TaskFailure(f'could not fetch pull request {prnumber} ({response.status_code}): {response.text}',
                           code=SubmitErrorCode.UPSTREAM_UNAVAILABLE)
