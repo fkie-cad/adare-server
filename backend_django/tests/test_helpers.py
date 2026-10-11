@@ -140,3 +140,24 @@ class TestYamlToDict:
         f.write_text('')
         result = yaml_to_dict(f)
         assert result is None
+
+
+class TestMinioPresignedUrl:
+
+    def test_s3_client_is_built_once(self, settings):
+        from helperfunctions import minio
+
+        settings.MINIO_ACCESS_URL = 'minio.test'
+        settings.AWS_ACCESS_KEY_ID = 'key'
+        settings.AWS_SECRET_ACCESS_KEY = 'secret'
+        settings.AWS_STORAGE_BUCKET_NAME = 'runs'
+        minio._s3_client.cache_clear()
+        try:
+            with patch('helperfunctions.minio.boto3.client') as client_factory:
+                client_factory.return_value.generate_presigned_url.return_value = 'https://signed'
+                urls = [minio.get_presigned_url(f'logfiles/{i}.log') for i in range(3)]
+        finally:
+            minio._s3_client.cache_clear()
+
+        assert urls == ['https://signed'] * 3
+        client_factory.assert_called_once()
