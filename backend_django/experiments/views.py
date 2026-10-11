@@ -1,7 +1,7 @@
 import rest_framework.generics as generics
 import rest_framework.status as http_status_codes
 from django.db import transaction
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -12,7 +12,7 @@ from experiments.filters import ExperimentFilter, EnvironmentFilter, Testfunctio
 
 from experiments.parsers import MultiPartJSONParser
 from experiments.serializers import (
-    ExperimentRunSerializer, ExperimentRunCreateSerializer,
+    ExperimentRunSerializer, ExperimentRunListSerializer, ExperimentRunCreateSerializer,
     ExperimentSerializer, ExperimentViewableFilesSerializer,
     ExperimentMetadataSerializer,
     EnvironmentSerializer, EnvironmentMetadataSerializer,
@@ -24,18 +24,35 @@ from django.contrib.auth.models import User
 from experiments.models import (
     Experiment, ExperimentRun, Environment, TestfunctionSet, TestFunction,
     Event, Status, Request, Label, Tag, TagScope,
-    TestEvent, ErrorEvent, ActionEvent,
+    TestEvent, ErrorEvent, ActionEvent, TestParameterEntry,
 )
 
 _experiment_run_queryset = ExperimentRun.objects.select_related(
     'published_by', 'experiment', 'environment', 'status', 'result_status'
-).prefetch_related(
-    'test_events', 'error_events', 'action_events',
-).all()
+)
+
+# The run detail renders every event: TestEventSerializer walks
+# status, result.status and the full AbstractTestSerializer tree
+# (testfunction -> set name / possible_parameters, parameters -> parameter,
+# tools); error/action events only add status. Without these the detail
+# view issued several queries per event.
+_experiment_run_detail_queryset = _experiment_run_queryset.prefetch_related(
+    Prefetch('test_events', queryset=TestEvent.objects.select_related(
+        'status', 'result__status', 'abstracttest__testfunction__testfunction_set',
+    ).prefetch_related(
+        Prefetch('abstracttest__parameters', queryset=TestParameterEntry.objects.select_related('parameter')),
+        'abstracttest__tools',
+        'abstracttest__testfunction__possible_parameters',
+    )),
+    Prefetch('error_events', queryset=ErrorEvent.objects.select_related('status')),
+    Prefetch('action_events', queryset=ActionEvent.objects.select_related('status')),
+)
 
 
 class ExperimentRunListView(generics.ListAPIView):
-    serializer_class = ExperimentRunSerializer
+    # slim serializer: no `events` (the list page never shows them, and
+    # rendering them cost a query fan-out per event per run)
+    serializer_class = ExperimentRunListSerializer
     queryset = _experiment_run_queryset
     permission_classes = [AllowAny]
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -46,7 +63,7 @@ class ExperimentRunListView(generics.ListAPIView):
 
 class ExperimentRunRetrieveView(generics.RetrieveAPIView):
     serializer_class = ExperimentRunSerializer
-    queryset = _experiment_run_queryset
+    queryset = _experiment_run_detail_queryset
     permission_classes = [AllowAny]
     lookup_field = 'ulid'
 

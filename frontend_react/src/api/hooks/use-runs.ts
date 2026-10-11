@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { api } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Run } from '@/types/experiment'
@@ -37,15 +38,19 @@ export function useRuns(params: UseRunsParams = {}) {
   })
 }
 
+// The detail endpoint is the only one that serializes `events`; the list
+// endpoint deliberately omits them. A 404 maps to null ("Run not found").
 export function useRun(ulid: string) {
   return useQuery({
     queryKey: ['run', ulid],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Run> | Run[]>(
-        `${endpoints.runs}?ulid=${ulid}`,
-      )
-      const results = 'results' in data ? data.results : data
-      return results[0] ?? null
+      try {
+        const { data } = await api.get<Run>(endpoints.run(ulid))
+        return data
+      } catch (err) {
+        if (isAxiosError(err) && err.response?.status === 404) return null
+        throw err
+      }
     },
     enabled: !!ulid,
   })

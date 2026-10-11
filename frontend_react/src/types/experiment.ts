@@ -149,7 +149,8 @@ export interface Run {
   timestamp_end: string
   status: Status
   result_status: Status
-  events: Event[]
+  /** Only present on the run detail endpoint; the run list omits it. */
+  events?: Event[]
   duration: number
   adarevm_logfile?: string | null
   installations_logfile?: string | null

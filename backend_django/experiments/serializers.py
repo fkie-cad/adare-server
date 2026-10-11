@@ -541,6 +541,16 @@ class ExperimentRunSerializer(serializers.ModelSerializer):
         ]
 
 
+class ExperimentRunListSerializer(ExperimentRunSerializer):
+    """Run list rows: everything but `events`.
+
+    The full event timeline is only rendered on the run detail page
+    (`/api/run/run_<ulid>/`); serializing it for every row of the list made
+    the list cost grow with runs x events.
+    """
+    class Meta(ExperimentRunSerializer.Meta):
+        fields = [f for f in ExperimentRunSerializer.Meta.fields if f != 'events']
+
 
 class GenericRequestObjectSerializer(serializers.Field):
     def to_representation(self, value):

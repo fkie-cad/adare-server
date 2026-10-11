@@ -5,6 +5,7 @@ export const FRONTEND_URL = `${window.location.origin}/`
 export const endpoints = {
   experiments: 'experiment/',
   runs: 'run/',
+  run: (ulid: string) => `run/run_${ulid}/`,
   environments: 'environment/',
   testfunctionSets: 'testfunction/',
   requests: 'request/',
