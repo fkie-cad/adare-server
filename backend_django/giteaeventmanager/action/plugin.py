@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
+import yaml
 from users.models import GiteaUser
 from django.db import transaction, models
 
@@ -531,7 +532,11 @@ class ExperimentPlugin(PullRequestPlugin):
         return tool
 
     def __db_create_abstracttests_from_playbook(self, playbook_file_path: Path):
-        testset: FTestsetFile = parse_playbook_tests(playbook_file_path, self.object_name)
+        try:
+            testset: FTestsetFile = parse_playbook_tests(playbook_file_path, self.object_name)
+        except (yaml.YAMLError, ValueError) as e:
+            # A malformed tag or test entry is the submitter's to fix, not a server error.
+            raise TaskFailure(f'playbook.yml tests cannot be read: {e}', code=SubmitErrorCode.INVALID_CONTENT) from e
 
         abstract_tests = []
         for test in testset.tests:
