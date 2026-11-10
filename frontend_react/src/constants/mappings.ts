@@ -6,6 +6,7 @@ import {
   CheckCircle,
   XCircle,
   HelpCircle,
+  ShieldQuestion,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -16,6 +17,9 @@ export const statusList = [
   'assigned',
   'success',
   'failed',
+  // Negative test passed, but the GUI actions before it could not be proven
+  // to have taken effect. Neither pass nor fail (status id 15).
+  'inconclusive',
 ] as const
 export type StatusType = (typeof statusList)[number]
 
@@ -30,6 +34,7 @@ export const statusColorMapping: Record<StatusType, string> = {
   assigned: 'text-warning',
   success: 'text-success',
   failed: 'text-destructive',
+  inconclusive: 'text-warning',
 }
 
 export const statusBgColorMapping: Record<StatusType, string> = {
@@ -39,6 +44,7 @@ export const statusBgColorMapping: Record<StatusType, string> = {
   assigned: 'bg-warning/15 text-warning',
   success: 'bg-success/15 text-success',
   failed: 'bg-destructive/15 text-destructive',
+  inconclusive: 'bg-warning/15 text-warning',
 }
 
 export const statusIconMapping: Record<StatusType, LucideIcon> = {
@@ -48,6 +54,12 @@ export const statusIconMapping: Record<StatusType, LucideIcon> = {
   assigned: Clock,
   success: CheckCircle,
   failed: XCircle,
+  inconclusive: ShieldQuestion,
+}
+
+/** Tooltip text where the raw status name is not self-explanatory. */
+export const statusTooltipMapping: Partial<Record<StatusType, string>> = {
+  inconclusive: 'Inconclusive: test passed, but the GUI actions before it could not be verified',
 }
 
 export const defaultStatusIcon = HelpCircle

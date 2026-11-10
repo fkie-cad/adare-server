@@ -155,6 +155,7 @@ function getDotColor(event: Event): string {
   if (isTestEvent(event)) {
     if (event.result?.status?.name === 'success') return 'bg-success'
     if (event.result?.status?.name === 'failed') return 'bg-destructive'
+    if (event.result?.status?.name === 'inconclusive') return 'bg-warning'
   }
   if (isErrorEvent(event)) return 'bg-destructive'
   if (event.success === true) return 'bg-success'

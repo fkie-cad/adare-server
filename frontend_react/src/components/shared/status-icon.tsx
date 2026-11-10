@@ -1,6 +1,7 @@
 import {
   statusColorMapping,
   statusIconMapping,
+  statusTooltipMapping,
   defaultStatusIcon,
   isValidStatusType,
   type StatusType,
@@ -22,7 +23,8 @@ export function StatusIcon({ status, size = 'w-6 h-6', showTooltip = true }: Sta
   const icon = <Icon className={cn(size, colorClass)} />
 
   if (showTooltip) {
-    return <Tooltip content={status}>{icon}</Tooltip>
+    const tooltip = (valid && statusTooltipMapping[status as StatusType]) || status
+    return <Tooltip content={tooltip}>{icon}</Tooltip>
   }
 
   return icon

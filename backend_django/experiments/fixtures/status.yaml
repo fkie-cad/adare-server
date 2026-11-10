@@ -54,3 +54,7 @@
   pk: 14
   fields:
     name: pause
+- model: experiments.status
+  pk: 15
+  fields:
+    name: inconclusive
